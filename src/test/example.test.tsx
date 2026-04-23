@@ -9,6 +9,11 @@ import { PortalShell } from "@/components/PortalShell";
 const navigateMock = vi.fn();
 const logoutMock = vi.fn();
 
+const authState = {
+  session: null as null | { user: { id: string } },
+  profile: { display_name: "Arjun Rao", department: "Operations", role: "admin" },
+};
+
 const workspaceState = {
   loading: false,
   assignments: [
@@ -72,11 +77,11 @@ const workspaceState = {
 
 vi.mock("@/hooks/use-auth", () => ({
   useAuth: () => ({
-    session: { user: { id: "u1" } },
+    session: authState.session,
     signIn: vi.fn(),
     logout: logoutMock,
     loading: false,
-    profile: { display_name: "Arjun Rao", department: "Operations", role: "admin" },
+    profile: authState.profile,
     refreshProfile: vi.fn(),
   }),
 }));
@@ -110,6 +115,9 @@ describe("Login page", () => {
   beforeEach(() => {
     navigateMock.mockReset();
     logoutMock.mockReset();
+    authState.session = null;
+    authState.profile = { display_name: "Arjun Rao", department: "Operations", role: "admin" };
+    workspaceState.isAdmin = true;
   });
 
   it("shows sign-in only and keeps password reset access", () => {
@@ -126,6 +134,8 @@ describe("Login page", () => {
   });
 
   it("shows assigned workspaces for selection", () => {
+    authState.session = { user: { id: "u1" } };
+
     render(
       <MemoryRouter initialEntries={["/profit-centers"]}>
         <ProfitCenterSelector />
@@ -138,8 +148,9 @@ describe("Login page", () => {
   });
 
   it("redirects non-admin users away from admin routes", () => {
-    const nonAdminState = { ...workspaceState, isAdmin: false };
-    vi.doMock("@/hooks/use-workspace", () => ({ useWorkspace: () => nonAdminState }));
+    authState.session = { user: { id: "u1" } };
+    authState.profile = { display_name: "Arjun Rao", department: "Operations", role: "user" };
+    workspaceState.isAdmin = false;
 
     render(
       <MemoryRouter initialEntries={["/admin"]}>
@@ -153,9 +164,12 @@ describe("Login page", () => {
     );
 
     expect(screen.queryByText("Admin")).not.toBeInTheDocument();
+    expect(screen.getByText("Portal")).toBeInTheDocument();
   });
 
   it("renders portal navigation from configured modules", () => {
+    authState.session = { user: { id: "u1" } };
+
     render(
       <MemoryRouter initialEntries={["/portal/reports"]}>
         <Routes>
@@ -167,7 +181,7 @@ describe("Login page", () => {
     );
 
     expect(screen.getByText("Stores")).toBeInTheDocument();
-    expect(screen.getByText("Management Reports")).toBeInTheDocument();
+    expect(screen.getAllByText("Management Reports").length).toBeGreaterThan(0);
     expect(screen.queryByText(/^Production$/)).not.toBeInTheDocument();
   });
 });
