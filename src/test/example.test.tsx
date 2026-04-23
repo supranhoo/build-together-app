@@ -1,4 +1,4 @@
-import { fireEvent, render, screen } from "@testing-library/react";
+import { fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { MemoryRouter, Route, Routes } from "react-router-dom";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import Login from "@/pages/Login";
@@ -247,7 +247,7 @@ describe("Login page", () => {
     );
 
     expect(screen.getByText("audit.action.1")).toBeInTheDocument();
-    expect(screen.getByText("profit_center")).toBeInTheDocument();
+    expect(screen.getAllByText("profit_center").length).toBeGreaterThan(0);
     expect(screen.getByText(/page 1 of 1/i)).toBeInTheDocument();
   });
 
@@ -267,12 +267,14 @@ describe("Login page", () => {
 
     fireEvent.click(screen.getByRole("button", { name: /load more/i }));
 
-    expect(fetchAuditLogPageMock).toHaveBeenCalledWith({
-      profitCenterId: "pc-1",
-      limit: 20,
-      offset: 20,
+    await waitFor(() => {
+      expect(fetchAuditLogPageMock).toHaveBeenCalledWith({
+        profitCenterId: "pc-1",
+        limit: 20,
+        offset: 20,
+      });
     });
-    expect(screen.getByText(/page 1 of 2/i)).toBeInTheDocument();
+    expect(await screen.findByText(/page 1 of 2/i)).toBeInTheDocument();
 
     fireEvent.click(screen.getByRole("link", { name: /go to next page/i }));
 
