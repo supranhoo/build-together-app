@@ -7,11 +7,19 @@ import {
   setActiveProfitCenterPreference,
 } from "@/lib/workspace-storage";
 import {
+  fetchAllProfitCenters,
+  fetchAppModules,
   fetchAssignedProfitCenters,
+  fetchAuditLogs,
   fetchConfiguredModules,
+  fetchManageableProfiles,
+  fetchProfitCenterAssignmentsForWorkspace,
   fetchProfitCenterSettings,
   getDefaultModule,
+  type AppModuleRecord,
+  type AuditLogRecord,
   type ConfiguredModule,
+  type ManageableProfile,
   type ProfitCenter,
   type ProfitCenterAssignment,
   type ProfitCenterSetting,
@@ -24,6 +32,11 @@ interface WorkspaceContextValue {
   activeProfitCenterId: string | null;
   modules: ConfiguredModule[];
   settings: ProfitCenterSetting[];
+  allProfitCenters: ProfitCenter[];
+  appModules: AppModuleRecord[];
+  manageableProfiles: ManageableProfile[];
+  workspaceAssignments: Array<{ userId: string; isDefault: boolean; isActive: boolean }>;
+  auditLogs: AuditLogRecord[];
   defaultModule: ConfiguredModule | null;
   isAdmin: boolean;
   isSuperAdmin: boolean;
@@ -55,6 +68,11 @@ export function WorkspaceProvider({ children }: { children: ReactNode }) {
   const [activeProfitCenterId, setActiveProfitCenterId] = useState<string | null>(null);
   const [modules, setModules] = useState<ConfiguredModule[]>([]);
   const [settings, setSettings] = useState<ProfitCenterSetting[]>([]);
+  const [allProfitCenters, setAllProfitCenters] = useState<ProfitCenter[]>([]);
+  const [appModules, setAppModules] = useState<AppModuleRecord[]>([]);
+  const [manageableProfiles, setManageableProfiles] = useState<ManageableProfile[]>([]);
+  const [workspaceAssignments, setWorkspaceAssignments] = useState<Array<{ userId: string; isDefault: boolean; isActive: boolean }>>([]);
+  const [auditLogs, setAuditLogs] = useState<AuditLogRecord[]>([]);
 
   useEffect(() => {
     if (authLoading) return;
@@ -64,6 +82,11 @@ export function WorkspaceProvider({ children }: { children: ReactNode }) {
       setActiveProfitCenterId(null);
       setModules([]);
       setSettings([]);
+      setAllProfitCenters([]);
+      setAppModules([]);
+      setManageableProfiles([]);
+      setWorkspaceAssignments([]);
+      setAuditLogs([]);
       clearActiveProfitCenterPreference();
       setLoading(false);
       return;
@@ -93,6 +116,11 @@ export function WorkspaceProvider({ children }: { children: ReactNode }) {
         setActiveProfitCenterId(null);
         setModules([]);
         setSettings([]);
+        setAllProfitCenters([]);
+        setAppModules([]);
+        setManageableProfiles([]);
+        setWorkspaceAssignments([]);
+        setAuditLogs([]);
       } finally {
         if (isMounted) setLoading(false);
       }
@@ -143,6 +171,51 @@ export function WorkspaceProvider({ children }: { children: ReactNode }) {
     };
   }, [activeProfitCenterId, authLoading, session?.user]);
 
+  useEffect(() => {
+    if (authLoading || !session?.user || (!profile?.role || (profile.role !== "admin" && profile.role !== "super_admin"))) {
+      setAllProfitCenters([]);
+      setAppModules([]);
+      setManageableProfiles([]);
+      setWorkspaceAssignments([]);
+      setAuditLogs([]);
+      return;
+    }
+
+    let isMounted = true;
+
+    const loadAdminState = async () => {
+      try {
+        const [nextProfitCenters, nextAppModules, nextProfiles, nextAuditLogs, nextWorkspaceAssignments] = await Promise.all([
+          fetchAllProfitCenters(),
+          fetchAppModules(),
+          fetchManageableProfiles(),
+          fetchAuditLogs(activeProfitCenterId),
+          activeProfitCenterId ? fetchProfitCenterAssignmentsForWorkspace(activeProfitCenterId) : Promise.resolve([]),
+        ]);
+
+        if (!isMounted) return;
+        setAllProfitCenters(nextProfitCenters);
+        setAppModules(nextAppModules);
+        setManageableProfiles(nextProfiles);
+        setAuditLogs(nextAuditLogs);
+        setWorkspaceAssignments(nextWorkspaceAssignments);
+      } catch {
+        if (!isMounted) return;
+        setAllProfitCenters([]);
+        setAppModules([]);
+        setManageableProfiles([]);
+        setWorkspaceAssignments([]);
+        setAuditLogs([]);
+      }
+    };
+
+    void loadAdminState();
+
+    return () => {
+      isMounted = false;
+    };
+  }, [activeProfitCenterId, authLoading, profile?.role, session?.user]);
+
   const value = useMemo<WorkspaceContextValue>(() => {
     const activeAssignment = assignments.find((assignment) => assignment.profitCenterId === activeProfitCenterId) ?? null;
     const activeProfitCenter = activeAssignment?.profitCenter ?? null;
@@ -154,6 +227,11 @@ export function WorkspaceProvider({ children }: { children: ReactNode }) {
       activeProfitCenterId,
       modules,
       settings,
+      allProfitCenters,
+      appModules,
+      manageableProfiles,
+      workspaceAssignments,
+      auditLogs,
       defaultModule: getDefaultModule(modules),
       isAdmin: profile?.role === "admin" || profile?.role === "super_admin",
       isSuperAdmin: profile?.role === "super_admin",
@@ -197,7 +275,7 @@ export function WorkspaceProvider({ children }: { children: ReactNode }) {
         }
       },
     };
-  }, [activeProfitCenterId, assignments, authLoading, loading, modules, profile?.role, session?.user, settings]);
+  }, [activeProfitCenterId, allProfitCenters, appModules, assignments, auditLogs, authLoading, loading, manageableProfiles, modules, profile?.role, session?.user, settings, workspaceAssignments]);
 
   return <WorkspaceContext.Provider value={value}>{children}</WorkspaceContext.Provider>;
 }
