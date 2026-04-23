@@ -70,6 +70,14 @@ export interface AuditLogRecord {
   createdAt: string;
 }
 
+export interface AuditLogPage {
+  logs: AuditLogRecord[];
+  hasMore: boolean;
+  nextOffset: number | null;
+}
+
+export const AUDIT_LOG_PAGE_SIZE = 20;
+
 const client = supabase as unknown as {
   from: (table: string) => any;
 };
@@ -114,6 +122,20 @@ function toAppModule(row: any): AppModuleRecord {
     sortOrder: row.sort_order ?? 0,
     isActive: Boolean(row.is_active),
     isConfigurable: Boolean(row.is_configurable),
+  };
+}
+
+function toAuditLog(row: any): AuditLogRecord {
+  return {
+    id: row.id,
+    actorUserId: row.actor_user_id,
+    profitCenterId: row.profit_center_id ?? null,
+    entityType: row.entity_type,
+    entityId: row.entity_id ?? null,
+    action: row.action,
+    changeSummary: row.change_summary ?? {},
+    context: row.context ?? {},
+    createdAt: row.created_at,
   };
 }
 
@@ -398,31 +420,39 @@ export async function assignUserToProfitCenter(input: {
   if (error) throw error;
 }
 
-export async function fetchAuditLogs(profitCenterId?: string | null): Promise<AuditLogRecord[]> {
+export async function fetchAuditLogPage(input: {
+  profitCenterId?: string | null;
+  limit?: number;
+  offset?: number;
+} = {}): Promise<AuditLogPage> {
+  const limit = input.limit ?? AUDIT_LOG_PAGE_SIZE;
+  const offset = input.offset ?? 0;
   let query = client
     .from("audit_logs")
     .select("id, actor_user_id, profit_center_id, entity_type, entity_id, action, change_summary, context, created_at")
     .order("created_at", { ascending: false })
-    .limit(50);
+    .order("id", { ascending: false })
+    .range(offset, offset + limit);
 
-  if (profitCenterId) {
-    query = query.eq("profit_center_id", profitCenterId);
+  if (input.profitCenterId) {
+    query = query.eq("profit_center_id", input.profitCenterId);
   }
 
   const { data, error } = await query;
   if (error) throw error;
 
-  return (data ?? []).map((row: any) => ({
-    id: row.id,
-    actorUserId: row.actor_user_id,
-    profitCenterId: row.profit_center_id ?? null,
-    entityType: row.entity_type,
-    entityId: row.entity_id ?? null,
-    action: row.action,
-    changeSummary: row.change_summary ?? {},
-    context: row.context ?? {},
-    createdAt: row.created_at,
-  }));
+  const rows = (data ?? []).map(toAuditLog);
+
+  return {
+    logs: rows.slice(0, limit),
+    hasMore: rows.length > limit,
+    nextOffset: rows.length > limit ? offset + limit : null,
+  };
+}
+
+export async function fetchAuditLogs(profitCenterId?: string | null): Promise<AuditLogRecord[]> {
+  const { logs } = await fetchAuditLogPage({ profitCenterId, limit: AUDIT_LOG_PAGE_SIZE, offset: 0 });
+  return logs;
 }
 
 export async function createAuditLog(input: {

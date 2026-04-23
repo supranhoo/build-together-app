@@ -7,10 +7,10 @@ import {
   setActiveProfitCenterPreference,
 } from "@/lib/workspace-storage";
 import {
+  fetchAuditLogPage,
   fetchAllProfitCenters,
   fetchAppModules,
   fetchAssignedProfitCenters,
-  fetchAuditLogs,
   fetchConfiguredModules,
   fetchManageableProfiles,
   fetchProfitCenterAssignmentsForWorkspace,
@@ -37,6 +37,8 @@ interface WorkspaceContextValue {
   manageableProfiles: ManageableProfile[];
   workspaceAssignments: Array<{ userId: string; isDefault: boolean; isActive: boolean }>;
   auditLogs: AuditLogRecord[];
+  auditLogsHasMore: boolean;
+  auditLogsNextOffset: number | null;
   defaultModule: ConfiguredModule | null;
   isAdmin: boolean;
   isSuperAdmin: boolean;
@@ -73,6 +75,8 @@ export function WorkspaceProvider({ children }: { children: ReactNode }) {
   const [manageableProfiles, setManageableProfiles] = useState<ManageableProfile[]>([]);
   const [workspaceAssignments, setWorkspaceAssignments] = useState<Array<{ userId: string; isDefault: boolean; isActive: boolean }>>([]);
   const [auditLogs, setAuditLogs] = useState<AuditLogRecord[]>([]);
+  const [auditLogsHasMore, setAuditLogsHasMore] = useState(false);
+  const [auditLogsNextOffset, setAuditLogsNextOffset] = useState<number | null>(null);
 
   const refreshAdminState = async (profitCenterId: string | null, role: string | null | undefined) => {
     if (!session?.user || !role || (role !== "admin" && role !== "super_admin")) {
@@ -81,21 +85,25 @@ export function WorkspaceProvider({ children }: { children: ReactNode }) {
       setManageableProfiles([]);
       setWorkspaceAssignments([]);
       setAuditLogs([]);
+      setAuditLogsHasMore(false);
+      setAuditLogsNextOffset(null);
       return;
     }
 
-    const [nextProfitCenters, nextAppModules, nextProfiles, nextAuditLogs, nextWorkspaceAssignments] = await Promise.all([
+    const [nextProfitCenters, nextAppModules, nextProfiles, nextAuditLogPage, nextWorkspaceAssignments] = await Promise.all([
       fetchAllProfitCenters(),
       fetchAppModules(),
       fetchManageableProfiles(),
-      fetchAuditLogs(profitCenterId),
+      fetchAuditLogPage({ profitCenterId }),
       profitCenterId ? fetchProfitCenterAssignmentsForWorkspace(profitCenterId) : Promise.resolve([]),
     ]);
 
     setAllProfitCenters(nextProfitCenters);
     setAppModules(nextAppModules);
     setManageableProfiles(nextProfiles);
-    setAuditLogs(nextAuditLogs);
+    setAuditLogs(nextAuditLogPage.logs);
+    setAuditLogsHasMore(nextAuditLogPage.hasMore);
+    setAuditLogsNextOffset(nextAuditLogPage.nextOffset);
     setWorkspaceAssignments(nextWorkspaceAssignments);
   };
 
@@ -112,6 +120,8 @@ export function WorkspaceProvider({ children }: { children: ReactNode }) {
       setManageableProfiles([]);
       setWorkspaceAssignments([]);
       setAuditLogs([]);
+      setAuditLogsHasMore(false);
+      setAuditLogsNextOffset(null);
       clearActiveProfitCenterPreference();
       setLoading(false);
       return;
@@ -146,6 +156,8 @@ export function WorkspaceProvider({ children }: { children: ReactNode }) {
         setManageableProfiles([]);
         setWorkspaceAssignments([]);
         setAuditLogs([]);
+        setAuditLogsHasMore(false);
+        setAuditLogsNextOffset(null);
       } finally {
         if (isMounted) setLoading(false);
       }
@@ -203,6 +215,8 @@ export function WorkspaceProvider({ children }: { children: ReactNode }) {
       setManageableProfiles([]);
       setWorkspaceAssignments([]);
       setAuditLogs([]);
+      setAuditLogsHasMore(false);
+      setAuditLogsNextOffset(null);
       return;
     }
 
@@ -219,6 +233,8 @@ export function WorkspaceProvider({ children }: { children: ReactNode }) {
         setManageableProfiles([]);
         setWorkspaceAssignments([]);
         setAuditLogs([]);
+        setAuditLogsHasMore(false);
+        setAuditLogsNextOffset(null);
       }
     };
 
@@ -245,6 +261,8 @@ export function WorkspaceProvider({ children }: { children: ReactNode }) {
       manageableProfiles,
       workspaceAssignments,
       auditLogs,
+      auditLogsHasMore,
+      auditLogsNextOffset,
       defaultModule: getDefaultModule(modules),
       isAdmin: profile?.role === "admin" || profile?.role === "super_admin",
       isSuperAdmin: profile?.role === "super_admin",
@@ -290,7 +308,7 @@ export function WorkspaceProvider({ children }: { children: ReactNode }) {
         await refreshAdminState(nextActiveId, profile?.role);
       },
     };
-  }, [activeProfitCenterId, allProfitCenters, appModules, assignments, auditLogs, authLoading, loading, manageableProfiles, modules, profile?.role, session?.user, settings, workspaceAssignments]);
+  }, [activeProfitCenterId, allProfitCenters, appModules, assignments, auditLogs, auditLogsHasMore, auditLogsNextOffset, authLoading, loading, manageableProfiles, modules, profile?.role, session?.user, settings, workspaceAssignments]);
 
   return <WorkspaceContext.Provider value={value}>{children}</WorkspaceContext.Provider>;
 }

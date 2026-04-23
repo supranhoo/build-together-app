@@ -1,4 +1,4 @@
-import { render, screen } from "@testing-library/react";
+import { fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { MemoryRouter, Route, Routes } from "react-router-dom";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import Login from "@/pages/Login";
@@ -9,6 +9,24 @@ import AdminAudit from "@/pages/AdminAudit";
 
 const navigateMock = vi.fn();
 const logoutMock = vi.fn();
+const { fetchAuditLogPageMock } = vi.hoisted(() => ({
+  fetchAuditLogPageMock: vi.fn(),
+}));
+
+const buildAuditLog = (index: number) => ({
+  id: `log-${index}`,
+  actorUserId: `u${index}`,
+  profitCenterId: "pc-1",
+  entityType: index % 2 === 0 ? "profit_center" : "module",
+  entityId: `entity-${index}`,
+  action: `audit.action.${index}`,
+  changeSummary: { index },
+  context: {},
+  createdAt: new Date(Date.UTC(2026, 3, 23, 6, index, 0)).toISOString(),
+});
+
+const initialAuditLogs = Array.from({ length: 20 }, (_, index) => buildAuditLog(index + 1));
+const nextAuditLogs = Array.from({ length: 5 }, (_, index) => buildAuditLog(index + 21));
 
 const authState = {
   session: null as null | { user: { id: string } },
@@ -90,9 +108,9 @@ const workspaceState = {
   workspaceAssignments: [
     { userId: "u1", isDefault: true, isActive: true },
   ],
-  auditLogs: [
-    { id: "log-1", actorUserId: "u1", profitCenterId: "pc-1", entityType: "profit_center", entityId: "pc-1", action: "workspace.updated", changeSummary: { name: "SMS Plant" }, context: {}, createdAt: "2026-04-23T06:00:00.000Z" },
-  ],
+  auditLogs: initialAuditLogs,
+  auditLogsHasMore: true,
+  auditLogsNextOffset: 20,
   defaultModule: { id: "m2", moduleId: "mod-2", moduleKey: "reports", routeSegment: "reports", navLabel: "Management Reports", description: "Reports module", iconName: "file-bar-chart-2", sortOrder: 20, isDefaultEntry: true },
   isAdmin: true,
   isSuperAdmin: false,
@@ -128,6 +146,11 @@ vi.mock("@/lib/auth", () => ({
   requestPasswordReset: vi.fn(),
 }));
 
+vi.mock("@/lib/workspace", () => ({
+  AUDIT_LOG_PAGE_SIZE: 20,
+  fetchAuditLogPage: fetchAuditLogPageMock,
+}));
+
 vi.mock("react-router-dom", async () => {
   const actual = await vi.importActual<typeof import("react-router-dom")>("react-router-dom");
   return {
@@ -140,9 +163,13 @@ describe("Login page", () => {
   beforeEach(() => {
     navigateMock.mockReset();
     logoutMock.mockReset();
+    fetchAuditLogPageMock.mockReset();
     authState.session = null;
     authState.profile = { display_name: "Arjun Rao", department: "Operations", role: "admin" };
     workspaceState.isAdmin = true;
+    workspaceState.auditLogs = initialAuditLogs;
+    workspaceState.auditLogsHasMore = true;
+    workspaceState.auditLogsNextOffset = 20;
   });
 
   it("shows sign-in only and keeps password reset access", () => {
@@ -219,7 +246,56 @@ describe("Login page", () => {
       </MemoryRouter>,
     );
 
-    expect(screen.getByText("workspace.updated")).toBeInTheDocument();
-    expect(screen.getByText("profit_center")).toBeInTheDocument();
+    expect(screen.getByText("audit.action.1")).toBeInTheDocument();
+    expect(screen.getAllByText("profit_center").length).toBeGreaterThan(0);
+    expect(screen.getByText(/page 1 of 1/i)).toBeInTheDocument();
+  });
+
+  it("loads older audit records on demand", async () => {
+    authState.session = { user: { id: "u1" } };
+    fetchAuditLogPageMock.mockResolvedValue({
+      logs: nextAuditLogs,
+      hasMore: false,
+      nextOffset: null,
+    });
+
+    render(
+      <MemoryRouter>
+        <AdminAudit />
+      </MemoryRouter>,
+    );
+
+    fireEvent.click(screen.getByRole("button", { name: /load more/i }));
+
+    await waitFor(() => {
+      expect(fetchAuditLogPageMock).toHaveBeenCalledWith({
+        profitCenterId: "pc-1",
+        limit: 20,
+        offset: 20,
+      });
+    });
+    expect(await screen.findByText(/page 1 of 2/i)).toBeInTheDocument();
+
+    fireEvent.click(screen.getByRole("link", { name: /go to next page/i }));
+
+    expect(screen.getByText("audit.action.21")).toBeInTheDocument();
+    expect(screen.queryByText("audit.action.1")).not.toBeInTheDocument();
+    expect(screen.getByRole("button", { name: /no more records/i })).toBeDisabled();
+  });
+
+  it("renders the empty audit state when no records are available", () => {
+    authState.session = { user: { id: "u1" } };
+    workspaceState.auditLogs = [];
+    workspaceState.auditLogsHasMore = false;
+    workspaceState.auditLogsNextOffset = null;
+
+    render(
+      <MemoryRouter>
+        <AdminAudit />
+      </MemoryRouter>,
+    );
+
+    expect(screen.getByText(/no audit records are visible for the current scope yet/i)).toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: /load more/i })).not.toBeInTheDocument();
   });
 });

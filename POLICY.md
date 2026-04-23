@@ -27,8 +27,10 @@
 - Sensitive configuration and access-management changes must append immutable audit records.
 - Audit history must not be editable or deletable through standard application flows.
 - Workspace creation, workspace updates, module configuration changes, setting changes, and assignment changes must be captured in audit records.
+- Audit history may be browsed through paged read access, but pagination must not weaken audit immutability or authorization boundaries.
 
 ## Policy Change Log
 - 2026-04-23: Enforced admin-only account creation on the public login experience.
 - 2026-04-23: Added configuration-first workspace isolation, admin governance, and immutable audit requirements for multi-plant scale.
 - 2026-04-23: Restricted workspace creation to super admins and enabled audited admin configuration flows.
+- 2026-04-23: Added paged admin audit browsing while preserving immutable audit history.
