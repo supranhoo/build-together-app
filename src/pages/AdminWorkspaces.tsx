@@ -24,7 +24,7 @@ const emptyForm = {
 export default function AdminWorkspaces() {
   const { session } = useAuth();
   const { toast } = useToast();
-  const { activeProfitCenter, allProfitCenters, refreshWorkspace } = useWorkspace();
+  const { activeProfitCenter, allProfitCenters, isSuperAdmin, refreshWorkspace } = useWorkspace();
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [form, setForm] = useState(emptyForm);
   const [saving, setSaving] = useState(false);
@@ -74,6 +74,9 @@ export default function AdminWorkspaces() {
           changeSummary: { code: updated.code, slug: updated.slug, name: updated.name, isActive: updated.isActive },
         });
       } else {
+        if (!isSuperAdmin) {
+          throw new Error("Only super admins can create new workspaces.");
+        }
         const created = await createProfitCenter(form);
         await createAuditLog({
           actorUserId: session.user.id,
@@ -126,7 +129,7 @@ export default function AdminWorkspaces() {
               ))}
             </TableBody>
           </Table>
-          <Button variant="outline" className="mt-4" onClick={() => { setSelectedId(null); setForm(emptyForm); }}>
+          <Button variant="outline" className="mt-4" onClick={() => { setSelectedId(null); setForm(emptyForm); }} disabled={!isSuperAdmin}>
             New workspace
           </Button>
         </CardContent>
