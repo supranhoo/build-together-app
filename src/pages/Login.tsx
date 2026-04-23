@@ -3,21 +3,22 @@ import { Link, Navigate, useLocation, useNavigate } from "react-router-dom";
 import { z } from "zod";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
-import { ArrowRight, Eye, EyeOff, Factory, Mail, Lock, UserRound, ShieldCheck } from "lucide-react";
+import { AlertCircle, ArrowRight, Eye, EyeOff, Factory, Loader2, Mail, Lock, UserRound } from "lucide-react";
 import heroImage from "@/assets/steel-plant-hero.jpg";
 import { BFCLLogo } from "@/components/BFCLLogo";
 import { Button } from "@/components/ui/button";
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
 import { Checkbox } from "@/components/ui/checkbox";
-import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from "@/components/ui/form";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { getRememberPreference, setRememberPreference } from "@/lib/auth-storage";
-import { requestPasswordReset } from "@/lib/auth";
 import { useToast } from "@/hooks/use-toast";
 import { useAuth } from "@/hooks/use-auth";
+import { getRememberPreference, setRememberPreference } from "@/lib/auth-storage";
+import { requestPasswordReset } from "@/lib/auth";
+import { cn } from "@/lib/utils";
 
 const signInSchema = z.object({
   email: z.string().trim().email("Enter a valid work email"),
@@ -62,6 +63,7 @@ export default function Login() {
   const [forgotLoading, setForgotLoading] = useState(false);
   const [cooldownRemaining, setCooldownRemaining] = useState(0);
   const [lastResetRequest, setLastResetRequest] = useState(0);
+  const [focusedField, setFocusedField] = useState<string | null>(null);
 
   const nextPath = useMemo(() => {
     const state = location.state as { from?: { pathname?: string } } | null;
@@ -166,10 +168,12 @@ export default function Login() {
     });
   });
 
+  const forgotError = forgotPasswordForm.formState.errors.email?.message;
+
   return (
     <>
-      <div className="grid min-h-screen bg-background lg:grid-cols-[1.2fr_0.88fr]">
-        <section className="relative hidden overflow-hidden lg:block">
+      <div className="min-h-screen bg-background lg:flex">
+        <section className="relative hidden overflow-hidden lg:flex lg:w-1/2 xl:w-3/5">
           <img
             src={heroImage}
             alt="Steel plant furnace line with control tower"
@@ -179,7 +183,7 @@ export default function Login() {
           />
           <div className="absolute inset-0 bg-hero-overlay" />
           <div className="surface-grid absolute inset-0 opacity-30" />
-          <div className="relative flex h-full flex-col justify-between px-12 py-10 xl:px-16">
+          <div className="relative flex h-full w-full flex-col justify-between px-12 py-10 xl:px-16">
             <div className="flex items-center justify-between">
               <BFCLLogo className="w-48" theme="dark" />
               <div className="rounded-md border border-white/10 bg-white/5 px-4 py-2 text-xs font-semibold uppercase tracking-[0.24em] text-white/75 backdrop-blur-sm">
@@ -206,33 +210,53 @@ export default function Login() {
           </div>
         </section>
 
-        <section className="surface-noise flex items-center justify-center px-4 py-10 sm:px-6 lg:px-10">
-          <Card className="w-full max-w-xl border-border bg-card/96 shadow-panel backdrop-blur">
-            <CardHeader className="space-y-4 pb-4">
-              <div className="flex items-center justify-between">
-                <div>
-                  <p className="text-[11px] font-semibold uppercase tracking-[0.24em] text-primary">BFCL access</p>
-                  <CardTitle className="mt-3 text-3xl">SteelFlow ERP sign-in</CardTitle>
-                  <CardDescription className="mt-2 max-w-md text-sm leading-6">
-                    Authenticate plant employees with email and password, then route them into the prepared operational shell.
-                  </CardDescription>
-                </div>
-                <div className="hidden rounded-md border border-border bg-panel p-3 text-primary sm:block">
-                  <ShieldCheck className="h-6 w-6" />
-                </div>
-              </div>
-            </CardHeader>
+        <section className="relative flex flex-1 items-center justify-center overflow-hidden p-4 sm:p-8">
+          <div className="absolute inset-0 lg:hidden">
+            <div
+              className="absolute inset-0 bg-cover bg-center opacity-20"
+              style={{ backgroundImage: `url(${heroImage})` }}
+            />
+            <div className="absolute inset-0 bg-background/85 backdrop-blur-sm" />
+          </div>
 
-            <CardContent className="space-y-6">
+          <div className="relative z-10 w-full max-w-md">
+            <div className="mb-8 flex items-center justify-center gap-3 lg:hidden">
+              <BFCLLogo className="w-40" />
+            </div>
+
+            <div className="mb-6 hidden text-center lg:block">
+              <h1 className="text-3xl font-semibold leading-tight text-foreground">Plant access with the same operational shell.</h1>
+              <p className="mx-auto mt-2 max-w-sm text-sm text-muted-foreground">
+                Sign in or request access for inventory, production, and reporting workflows.
+              </p>
+            </div>
+
+            <Card className="relative overflow-hidden border-border/50 bg-card/80 shadow-panel backdrop-blur-xl">
+              <div className="absolute -right-24 -top-24 h-48 w-48 rounded-full bg-primary/15 blur-3xl" />
+              <div className="absolute -bottom-24 -left-24 h-48 w-48 rounded-full bg-secondary/15 blur-3xl" />
+
+              <CardHeader className="relative pb-2">
+                <div className="flex items-center gap-3">
+                  <div className="rounded-md border border-border bg-panel p-3 text-primary">
+                    <Factory className="h-5 w-5" />
+                  </div>
+                  <div>
+                    <CardTitle className="text-2xl font-semibold">Welcome back</CardTitle>
+                    <CardDescription className="text-left">SteelFlow ERP</CardDescription>
+                  </div>
+                </div>
+              </CardHeader>
+
+              <CardContent className="space-y-6 pt-4">
               <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
-                <TabsList className="grid h-12 w-full grid-cols-2 bg-panel">
-                  <TabsTrigger value="signin">Sign in</TabsTrigger>
-                  <TabsTrigger value="signup">Request access</TabsTrigger>
-                </TabsList>
+                  <TabsList className="grid h-12 w-full grid-cols-2 bg-panel">
+                    <TabsTrigger value="signin">Sign in</TabsTrigger>
+                    <TabsTrigger value="signup">Request access</TabsTrigger>
+                  </TabsList>
 
-                <TabsContent value="signin" className="mt-6 space-y-6">
-                  <Form {...signInForm}>
-                    <form onSubmit={handleSignIn} className="space-y-5">
+                  <TabsContent value="signin" className="mt-6 space-y-6">
+                    <Form {...signInForm}>
+                      <form onSubmit={handleSignIn} className="space-y-5">
                       <FormField
                         control={signInForm.control}
                         name="email"
@@ -241,8 +265,21 @@ export default function Login() {
                             <FormLabel>Work email</FormLabel>
                             <FormControl>
                               <div className="relative">
-                                <Mail className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
-                                <Input {...field} type="email" autoComplete="email" className="h-12 bg-panel pl-10" placeholder="name@bfcl.in" />
+                                <Mail
+                                  className={cn(
+                                    "pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 transition-colors",
+                                    focusedField === "signin-email" ? "text-primary" : "text-muted-foreground",
+                                  )}
+                                />
+                                <Input
+                                  {...field}
+                                  type="email"
+                                  autoComplete="email"
+                                  className="h-12 border-border/50 bg-background/50 pl-10 focus-visible:ring-primary/20"
+                                  placeholder="name@bfcl.in"
+                                  onFocus={() => setFocusedField("signin-email")}
+                                  onBlur={() => setFocusedField(null)}
+                                />
                               </div>
                             </FormControl>
                             <FormMessage />
@@ -267,13 +304,20 @@ export default function Login() {
                             </div>
                             <FormControl>
                               <div className="relative">
-                                <Lock className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+                                <Lock
+                                  className={cn(
+                                    "pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 transition-colors",
+                                    focusedField === "signin-password" ? "text-primary" : "text-muted-foreground",
+                                  )}
+                                />
                                 <Input
                                   {...field}
                                   type={showPassword ? "text" : "password"}
                                   autoComplete="current-password"
-                                  className="h-12 bg-panel pl-10 pr-11"
+                                  className="h-12 border-border/50 bg-background/50 pl-10 pr-11 focus-visible:ring-primary/20"
                                   placeholder="Enter your password"
+                                  onFocus={() => setFocusedField("signin-password")}
+                                  onBlur={() => setFocusedField(null)}
                                 />
                                 <button
                                   type="button"
@@ -290,24 +334,30 @@ export default function Login() {
                         )}
                       />
 
-                      <div className="flex items-center space-x-3 rounded-md border border-border bg-panel px-4 py-3">
+                      <div className="flex items-center gap-2">
                         <Checkbox id="remember-me" checked={rememberMe} onCheckedChange={(checked) => setRememberMe(Boolean(checked))} />
-                        <Label htmlFor="remember-me" className="text-sm text-muted-foreground">
-                          Keep this device signed in
+                        <Label htmlFor="remember-me" className="cursor-pointer text-sm font-normal text-muted-foreground">
+                          Remember me
                         </Label>
                       </div>
 
-                      <Button type="submit" className="h-12 w-full gap-2 text-base" disabled={loading}>
-                        {loading ? "Authorizing…" : "Sign in"}
-                        {!loading && <ArrowRight className="h-4 w-4" />}
+                      <Button type="submit" className="group h-11 w-full font-semibold" disabled={loading}>
+                        {loading ? (
+                          <Loader2 className="h-4 w-4 animate-spin" />
+                        ) : (
+                          <>
+                            Sign in
+                            <ArrowRight className="ml-2 h-4 w-4 transition-transform group-hover:translate-x-1" />
+                          </>
+                        )}
                       </Button>
                     </form>
                   </Form>
                 </TabsContent>
 
-                <TabsContent value="signup" className="mt-6 space-y-6">
-                  <Form {...signUpForm}>
-                    <form onSubmit={handleSignUp} className="space-y-5">
+                  <TabsContent value="signup" className="mt-6 space-y-6">
+                    <Form {...signUpForm}>
+                      <form onSubmit={handleSignUp} className="space-y-5">
                       <div className="grid gap-5 sm:grid-cols-2">
                         <FormField
                           control={signUpForm.control}
@@ -318,7 +368,7 @@ export default function Login() {
                               <FormControl>
                                 <div className="relative">
                                   <UserRound className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
-                                  <Input {...field} className="h-12 bg-panel pl-10" placeholder="Amit Kumar" />
+                                  <Input {...field} className="h-12 border-border/50 bg-background/50 pl-10" placeholder="Amit Kumar" />
                                 </div>
                               </FormControl>
                               <FormMessage />
@@ -333,7 +383,7 @@ export default function Login() {
                             <FormItem>
                               <FormLabel>Department</FormLabel>
                               <FormControl>
-                                <Input {...field} className="h-12 bg-panel" placeholder="Production" />
+                                <Input {...field} className="h-12 border-border/50 bg-background/50" placeholder="Production" />
                               </FormControl>
                               <FormMessage />
                             </FormItem>
@@ -349,7 +399,7 @@ export default function Login() {
                             <FormItem>
                               <FormLabel>Job title</FormLabel>
                               <FormControl>
-                                <Input {...field} className="h-12 bg-panel" placeholder="Shift engineer" />
+                                <Input {...field} className="h-12 border-border/50 bg-background/50" placeholder="Shift engineer" />
                               </FormControl>
                               <FormMessage />
                             </FormItem>
@@ -363,7 +413,7 @@ export default function Login() {
                             <FormItem>
                               <FormLabel>Work email</FormLabel>
                               <FormControl>
-                                <Input {...field} type="email" className="h-12 bg-panel" placeholder="name@bfcl.in" />
+                                <Input {...field} type="email" className="h-12 border-border/50 bg-background/50" placeholder="name@bfcl.in" />
                               </FormControl>
                               <FormMessage />
                             </FormItem>
@@ -383,7 +433,7 @@ export default function Login() {
                                 <Input
                                   {...field}
                                   type={showSignupPassword ? "text" : "password"}
-                                  className="h-12 bg-panel pl-10 pr-11"
+                                  className="h-12 border-border/50 bg-background/50 pl-10 pr-11"
                                   placeholder="Minimum 8 characters"
                                 />
                                 <button
@@ -401,25 +451,33 @@ export default function Login() {
                         )}
                       />
 
-                      <Button type="submit" className="h-12 w-full gap-2 text-base" disabled={loading}>
-                        {loading ? "Creating access…" : "Create employee account"}
+                      <Button type="submit" className="h-11 w-full gap-2 font-semibold" disabled={loading}>
+                        {loading ? <Loader2 className="h-4 w-4 animate-spin" /> : "Create employee account"}
                         {!loading && <Factory className="h-4 w-4" />}
                       </Button>
                     </form>
                   </Form>
                 </TabsContent>
               </Tabs>
-
-              <div className="rounded-md border border-border bg-panel px-4 py-4 text-sm text-muted-foreground">
-                Need portal context first? <Link to="/" className="font-medium text-primary underline-offset-4 hover:underline">Return to the employee landing page</Link>.
-              </div>
             </CardContent>
-          </Card>
+
+              <CardFooter className="relative flex flex-col gap-4">
+                <div className="w-full text-center text-xs text-muted-foreground">Secure &amp; authenticated employee access</div>
+                <div className="w-full rounded-md border border-border bg-panel px-4 py-4 text-center text-sm text-muted-foreground">
+                  Need portal context first?{" "}
+                  <Link to="/" className="font-medium text-primary underline-offset-4 hover:underline">
+                    Return to the employee landing page
+                  </Link>
+                  .
+                </div>
+              </CardFooter>
+            </Card>
+          </div>
         </section>
       </div>
 
       <Dialog open={forgotOpen} onOpenChange={setForgotOpen}>
-        <DialogContent className="border-border bg-card shadow-panel">
+        <DialogContent className="border-border bg-card shadow-panel sm:max-w-md">
           <DialogHeader>
             <DialogTitle>Reset your password</DialogTitle>
             <DialogDescription>
@@ -428,7 +486,15 @@ export default function Login() {
           </DialogHeader>
 
           <Form {...forgotPasswordForm}>
-            <form onSubmit={handleForgotPassword} className="space-y-5">
+            <form onSubmit={handleForgotPassword}>
+              <div className="space-y-4 py-4">
+                {forgotError && (
+                  <div className="flex items-center gap-2 rounded-md bg-destructive/10 p-3 text-sm text-destructive">
+                    <AlertCircle className="h-4 w-4 shrink-0" />
+                    <span>{forgotError}</span>
+                  </div>
+                )}
+
               <FormField
                 control={forgotPasswordForm.control}
                 name="email"
@@ -438,18 +504,23 @@ export default function Login() {
                     <FormControl>
                       <div className="relative">
                         <Mail className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
-                        <Input {...field} type="email" className="h-12 bg-panel pl-10" placeholder="name@bfcl.in" />
+                        <Input {...field} type="email" className="h-12 border-border/50 bg-background/50 pl-10" placeholder="name@bfcl.in" />
                       </div>
                     </FormControl>
-                    <FormMessage />
                   </FormItem>
                 )}
               />
+              </div>
 
-              <Button type="submit" className="h-12 w-full gap-2" disabled={forgotLoading || cooldownRemaining > 0}>
-                {forgotLoading ? "Sending reset link…" : cooldownRemaining > 0 ? `Retry in ${cooldownRemaining}s` : "Send reset link"}
-                {!forgotLoading && cooldownRemaining === 0 && <ArrowRight className="h-4 w-4" />}
-              </Button>
+              <DialogFooter>
+                <Button type="button" variant="outline" onClick={() => setForgotOpen(false)}>
+                  Cancel
+                </Button>
+                <Button type="submit" disabled={forgotLoading || cooldownRemaining > 0}>
+                  {forgotLoading ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : null}
+                  {cooldownRemaining > 0 ? `Wait ${cooldownRemaining}s` : "Send reset link"}
+                </Button>
+              </DialogFooter>
             </form>
           </Form>
         </DialogContent>
