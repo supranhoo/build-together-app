@@ -9,7 +9,9 @@ import AdminAudit from "@/pages/AdminAudit";
 
 const navigateMock = vi.fn();
 const logoutMock = vi.fn();
-const fetchAuditLogPageMock = vi.fn();
+const { fetchAuditLogPageMock } = vi.hoisted(() => ({
+  fetchAuditLogPageMock: vi.fn(),
+}));
 
 const buildAuditLog = (index: number) => ({
   id: `log-${index}`,
