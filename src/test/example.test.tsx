@@ -5,6 +5,7 @@ import Login from "@/pages/Login";
 import ProfitCenterSelector from "@/pages/ProfitCenterSelector";
 import { RequireAdmin } from "@/components/RequireAdmin";
 import { PortalShell } from "@/components/PortalShell";
+import AdminAudit from "@/pages/AdminAudit";
 
 const navigateMock = vi.fn();
 const logoutMock = vi.fn();
@@ -68,6 +69,30 @@ const workspaceState = {
     { id: "m2", moduleId: "mod-2", moduleKey: "reports", routeSegment: "reports", navLabel: "Management Reports", description: "Reports module", iconName: "file-bar-chart-2", sortOrder: 20, isDefaultEntry: true },
   ],
   settings: [],
+  allProfitCenters: [
+    {
+      id: "pc-1",
+      code: "SMS",
+      slug: "sms",
+      name: "SMS Plant",
+      description: "Steel melt shop workspace",
+      locationName: "Raipur",
+      processProfile: "SMS process",
+      isActive: true,
+    },
+  ],
+  appModules: [
+    { id: "mod-1", moduleKey: "inventory", routeSegment: "inventory", defaultLabel: "Inventory", description: "Inventory module", iconName: "warehouse", sortOrder: 10, isActive: true, isConfigurable: true },
+  ],
+  manageableProfiles: [
+    { userId: "u1", displayName: "Arjun Rao", department: "Operations", jobTitle: "Admin" },
+  ],
+  workspaceAssignments: [
+    { userId: "u1", isDefault: true, isActive: true },
+  ],
+  auditLogs: [
+    { id: "log-1", actorUserId: "u1", profitCenterId: "pc-1", entityType: "profit_center", entityId: "pc-1", action: "workspace.updated", changeSummary: { name: "SMS Plant" }, context: {}, createdAt: "2026-04-23T06:00:00.000Z" },
+  ],
   defaultModule: { id: "m2", moduleId: "mod-2", moduleKey: "reports", routeSegment: "reports", navLabel: "Management Reports", description: "Reports module", iconName: "file-bar-chart-2", sortOrder: 20, isDefaultEntry: true },
   isAdmin: true,
   isSuperAdmin: false,
@@ -183,5 +208,18 @@ describe("Login page", () => {
     expect(screen.getByText("Stores")).toBeInTheDocument();
     expect(screen.getAllByText("Management Reports").length).toBeGreaterThan(0);
     expect(screen.queryByText(/^Production$/)).not.toBeInTheDocument();
+  });
+
+  it("renders audit records in the admin area", () => {
+    authState.session = { user: { id: "u1" } };
+
+    render(
+      <MemoryRouter>
+        <AdminAudit />
+      </MemoryRouter>,
+    );
+
+    expect(screen.getByText("workspace.updated")).toBeInTheDocument();
+    expect(screen.getByText("profit_center")).toBeInTheDocument();
   });
 });
