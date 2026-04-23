@@ -109,13 +109,14 @@ export default function Login() {
   });
 
   const handleSignUp = signUpForm.handleSubmit(async (values) => {
+    const parsedValues = signUpSchema.parse(values);
     setLoading(true);
     const { error } = await signUp({
-      displayName: values.displayName,
-      email: values.email,
-      department: values.department,
-      jobTitle: values.jobTitle,
-      password: values.password,
+      displayName: parsedValues.displayName,
+      email: parsedValues.email,
+      department: parsedValues.department,
+      jobTitle: parsedValues.jobTitle,
+      password: parsedValues.password,
     });
     setLoading(false);
 
