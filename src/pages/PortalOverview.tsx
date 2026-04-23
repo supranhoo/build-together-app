@@ -1,56 +1,42 @@
-import { ArrowUpRight, BarChart3, Factory, Gauge, Warehouse } from "lucide-react";
+import { BarChart3, Factory, Gauge, MapPin, Warehouse } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { useAuth } from "@/hooks/use-auth";
-
-const metrics = [
-  { label: "Shift uptime", value: "98.4%", detail: "+1.6% vs target", icon: Gauge },
-  { label: "Billet stock", value: "4,280 MT", detail: "12 heats buffered", icon: Warehouse },
-  { label: "Rolling output", value: "1,240 T/day", detail: "3 lines active", icon: Factory },
-  { label: "Report queue", value: "14", detail: "Daily packs pending", icon: BarChart3 },
-];
-
-const modules = [
-  {
-    title: "Inventory workspace",
-    text: "Raw material receipts, stock positioning, consumable levels, and heat-wise traceability are ready for operational rollout.",
-    accent: "bg-primary/12 text-primary",
-  },
-  {
-    title: "Production workspace",
-    text: "Furnace planning, heat progress, tapping milestones, and line utilization mirror the industrial reference structure.",
-    accent: "bg-accent/14 text-accent",
-  },
-  {
-    title: "Reporting workspace",
-    text: "Leadership packs, plant summaries, and compliance snapshots are staged inside the authenticated portal shell.",
-    accent: "bg-success/14 text-success",
-  },
-];
+import { useWorkspace } from "@/hooks/use-workspace";
 
 export default function PortalOverview() {
   const { profile } = useAuth();
+  const { activeProfitCenter, modules, settings, assignments } = useWorkspace();
+
+  const metrics = [
+    { label: "Assigned workspaces", value: String(assignments.length), detail: "Access scope in current session", icon: Gauge },
+    { label: "Configured modules", value: String(modules.length), detail: "Driven by backend configuration", icon: Warehouse },
+    { label: "Active settings", value: String(settings.length), detail: "Workspace-level process records", icon: Factory },
+    { label: "Workspace status", value: activeProfitCenter?.isActive ? "Active" : "Pending", detail: activeProfitCenter?.code || "No workspace", icon: BarChart3 },
+  ];
 
   return (
     <div className="space-y-6">
       <section className="grid gap-4 xl:grid-cols-[1.6fr_1fr]">
         <Card className="border-border bg-panel-gradient shadow-panel">
           <CardHeader className="space-y-3">
-            <p className="text-[11px] font-semibold uppercase tracking-[0.22em] text-primary">Employee portal</p>
-            <CardTitle className="text-3xl text-balance">Operational command view for {profile?.department || "plant"} teams</CardTitle>
+            <p className="text-[11px] font-semibold uppercase tracking-[0.22em] text-primary">Workspace command view</p>
+            <CardTitle className="text-3xl text-balance">
+              {activeProfitCenter ? `${activeProfitCenter.name} operating context` : "Select a workspace to continue"}
+            </CardTitle>
             <p className="max-w-2xl text-sm text-muted-foreground">
-              Signed in as {profile?.display_name || "employee"}. This starter portal keeps the layout dense and shift-focused while preparing Inventory, Production, and Reports for the next delivery.
+              Signed in as {profile?.display_name || "employee"}. This portal shell now reads workspace access, modules, and process settings from backend configuration instead of hardcoded plant assumptions.
             </p>
           </CardHeader>
           <CardContent className="flex flex-wrap items-center gap-3">
-            <Button className="h-11 gap-2">Open daily brief <ArrowUpRight className="h-4 w-4" /></Button>
-            <Button variant="outline" className="h-11">View release roadmap</Button>
+            <Button className="h-11 gap-2">Open workspace brief</Button>
+            <Button variant="outline" className="h-11">Review configured modules</Button>
           </CardContent>
         </Card>
 
         <Card className="border-border bg-card shadow-panel">
           <CardHeader>
-            <CardTitle className="text-lg">Current access</CardTitle>
+            <CardTitle className="text-lg">Current workspace</CardTitle>
           </CardHeader>
           <CardContent className="space-y-4 text-sm">
             <div className="flex items-center justify-between rounded-md border border-border bg-panel px-4 py-3">
@@ -58,12 +44,12 @@ export default function PortalOverview() {
               <span className="font-semibold capitalize">{profile?.role || "user"}</span>
             </div>
             <div className="flex items-center justify-between rounded-md border border-border bg-panel px-4 py-3">
-              <span className="text-muted-foreground">Department</span>
-              <span className="font-semibold">{profile?.department || "Operations"}</span>
+              <span className="text-muted-foreground">Location</span>
+              <span className="font-semibold inline-flex items-center gap-2"><MapPin className="h-4 w-4 text-primary" />{activeProfitCenter?.locationName || "Admin configured"}</span>
             </div>
             <div className="flex items-center justify-between rounded-md border border-border bg-panel px-4 py-3">
-              <span className="text-muted-foreground">Job title</span>
-              <span className="font-semibold">{profile?.job_title || "Plant staff"}</span>
+              <span className="text-muted-foreground">Process profile</span>
+              <span className="font-semibold">{activeProfitCenter?.processProfile || "Workspace-defined"}</span>
             </div>
           </CardContent>
         </Card>
@@ -88,15 +74,15 @@ export default function PortalOverview() {
 
       <section className="grid gap-4 xl:grid-cols-3">
         {modules.map((module) => (
-          <Card key={module.title} className="border-border bg-card">
+          <Card key={module.id} className="border-border bg-card">
             <CardHeader>
-              <div className={`inline-flex w-fit rounded-full px-3 py-1 text-[11px] font-semibold uppercase tracking-[0.18em] ${module.accent}`}>
-                Planned module
+              <div className="inline-flex w-fit rounded-full bg-primary/12 px-3 py-1 text-[11px] font-semibold uppercase tracking-[0.18em] text-primary">
+                Configured module
               </div>
-              <CardTitle className="mt-3 text-xl">{module.title}</CardTitle>
+              <CardTitle className="mt-3 text-xl">{module.navLabel}</CardTitle>
             </CardHeader>
             <CardContent>
-              <p className="text-sm leading-6 text-muted-foreground">{module.text}</p>
+              <p className="text-sm leading-6 text-muted-foreground">{module.description || "Workspace-controlled module prepared for future operational delivery."}</p>
             </CardContent>
           </Card>
         ))}

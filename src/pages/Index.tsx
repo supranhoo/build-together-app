@@ -6,46 +6,40 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 
 const metrics = [
-  { label: "Heats coordinated", value: "128 / week" },
-  { label: "Tracked stock points", value: "312" },
-  { label: "Daily management packs", value: "14" },
+  { label: "Configurable workspaces", value: "Multi-plant ready" },
+  { label: "Module governance", value: "Backend-driven" },
+  { label: "Admin surfaces", value: "5 control areas" },
 ];
 
 const modules = [
   {
     title: "Inventory",
-    text: "Warehouse balances, raw material movement, and heat-linked traceability in a single employee workspace.",
+    text: "Workspace-controlled material visibility, stock movement, and traceability foundations.",
     icon: Warehouse,
   },
   {
     title: "Production",
-    text: "From furnace charge to casting and line status, the portal mirrors an industrial control model.",
+    text: "Plant-specific production flows can scale later without rewriting the shell or access model.",
     icon: Factory,
   },
   {
     title: "Reports",
-    text: "Shift summaries, plant KPIs, and management-ready reporting prepared inside the authenticated shell.",
+    text: "Reporting access and naming now originate from configuration rather than fixed navigation constants.",
     icon: BarChart3,
   },
 ];
 
 const trustPoints = [
-  "Employee-first access point",
-  "Email/password authentication with profile records",
-  "Industrial enterprise interface aligned to steel operations",
+  "Admin-created accounts only",
+  "Workspace-aware access after sign in",
+  "Configuration-first ERP foundation for multi-plant scale",
 ];
 
 export default function Index() {
   return (
     <main className="min-h-screen bg-background text-foreground">
       <section className="relative isolate overflow-hidden border-b border-border">
-        <img
-          src={heroImage}
-          alt="Steel plant operations floor with molten metal pouring"
-          className="absolute inset-0 -z-20 h-full w-full object-cover"
-          width={1920}
-          height={1080}
-        />
+        <img src={heroImage} alt="Steel plant operations floor with molten metal pouring" className="absolute inset-0 -z-20 h-full w-full object-cover" width={1920} height={1080} />
         <div className="absolute inset-0 -z-10 bg-hero-overlay" />
         <div className="surface-grid absolute inset-0 -z-10 opacity-30" />
 
@@ -66,17 +60,14 @@ export default function Index() {
             <div className="max-w-3xl">
               <p className="text-sm font-semibold uppercase tracking-[0.28em] text-primary">BFCL employee portal</p>
               <h1 className="mt-6 text-5xl font-semibold leading-[0.92] text-white sm:text-6xl xl:text-7xl">
-                One secure front door for steel plant operations.
+                Configurable plant access built for multi-workspace scale.
               </h1>
               <p className="mt-6 max-w-2xl text-lg leading-8 text-white/76 sm:text-xl">
-                SteelFlow ERP rebuilds the original plant system’s entry experience closely for V1, with an industrial landing page, employee login, and a ready shell for Inventory, Production, and Reports.
+                SteelFlow ERP now routes authenticated users through assigned workspaces so plants, modules, labels, and future process variations can grow from configuration instead of hardcoded portal behavior.
               </p>
               <div className="mt-10 flex flex-wrap gap-4">
                 <Button asChild size="lg" className="h-12 gap-2 px-6 shadow-signal">
                   <Link to="/login">Enter employee portal <ArrowRight className="h-4 w-4" /></Link>
-                </Button>
-                <Button asChild variant="outline" size="lg" className="h-12 border-white/12 bg-white/5 px-6 text-white hover:bg-white/10">
-                  <Link to="/login">Create access</Link>
                 </Button>
               </div>
             </div>
@@ -86,7 +77,7 @@ export default function Index() {
                 <div className="flex items-start justify-between gap-3">
                   <div>
                     <p className="text-[11px] font-semibold uppercase tracking-[0.24em] text-primary">Portal readiness</p>
-                    <h2 className="mt-3 text-2xl text-foreground">Shift-ready employee access</h2>
+                    <h2 className="mt-3 text-2xl text-foreground">Configuration-first operating shell</h2>
                   </div>
                   <div className="rounded-md border border-primary/20 bg-primary/12 p-3 text-primary">
                     <ShieldCheck className="h-5 w-5" />

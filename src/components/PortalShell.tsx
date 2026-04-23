@@ -1,36 +1,26 @@
 import { useMemo, useState } from "react";
-import { Outlet, useLocation } from "react-router-dom";
-import {
-  Bell,
-  ChevronRight,
-  ClipboardList,
-  Factory,
-  FileBarChart2,
-  LayoutDashboard,
-  LogOut,
-  Menu,
-  Search,
-  ShieldCheck,
-  Warehouse,
-} from "lucide-react";
+import { Outlet, useLocation, useNavigate } from "react-router-dom";
+import { Bell, ChevronRight, ClipboardList, Factory, FileBarChart2, LayoutDashboard, LogOut, Menu, Search, Settings2, ShieldCheck, Warehouse } from "lucide-react";
 import { BFCLLogo } from "@/components/BFCLLogo";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { cn } from "@/lib/utils";
 import { NavLink } from "@/components/NavLink";
 import { useAuth } from "@/hooks/use-auth";
+import { useWorkspace } from "@/hooks/use-workspace";
 
-const navItems = [
-  { label: "Overview", icon: LayoutDashboard, to: "/portal" },
-  { label: "Inventory", icon: Warehouse, to: "/portal/inventory" },
-  { label: "Production", icon: Factory, to: "/portal/production" },
-  { label: "Reports", icon: FileBarChart2, to: "/portal/reports" },
-];
+const iconMap = {
+  inventory: Warehouse,
+  production: Factory,
+  reports: FileBarChart2,
+};
 
 export function PortalShell() {
   const [sidebarOpen, setSidebarOpen] = useState(true);
   const { profile, logout } = useAuth();
+  const { activeProfitCenter, modules, settings, isAdmin } = useWorkspace();
   const location = useLocation();
+  const navigate = useNavigate();
 
   const initials = useMemo(() => {
     const source = profile?.display_name?.trim() || "Plant User";
@@ -40,6 +30,22 @@ export function PortalShell() {
       .map((part) => part.charAt(0).toUpperCase())
       .join("");
   }, [profile?.display_name]);
+
+  const navItems = useMemo(
+    () => [
+      { label: "Overview", to: "/portal", icon: LayoutDashboard },
+      ...modules.map((module) => ({
+        label: module.navLabel,
+        to: `/portal/${module.routeSegment}`,
+        icon: iconMap[module.moduleKey as keyof typeof iconMap] ?? Factory,
+      })),
+    ],
+    [modules],
+  );
+
+  const currentLabel = location.pathname === "/portal"
+    ? "Overview"
+    : navItems.find((item) => item.to === location.pathname)?.label || "Workspace";
 
   return (
     <div className="flex min-h-screen bg-background text-foreground">
@@ -68,9 +74,11 @@ export function PortalShell() {
           <div className="mb-6 rounded-md border border-sidebar-border bg-sidebar-accent/60 p-3">
             {sidebarOpen ? (
               <>
-                <p className="text-[11px] font-semibold uppercase tracking-[0.22em] text-muted-foreground">Portal mode</p>
-                <p className="mt-2 text-sm font-medium">Employee access active</p>
-                <p className="mt-1 text-xs text-muted-foreground">Inventory, production, and reporting workspaces are prepared for rollout.</p>
+                <p className="text-[11px] font-semibold uppercase tracking-[0.22em] text-muted-foreground">Active workspace</p>
+                <p className="mt-2 text-sm font-medium">{activeProfitCenter?.name || "No workspace selected"}</p>
+                <p className="mt-1 text-xs text-muted-foreground">
+                  {activeProfitCenter?.processProfile || "Modules, naming, and processes are driven by configuration."}
+                </p>
               </>
             ) : (
               <ShieldCheck className="mx-auto text-primary" />
@@ -93,6 +101,19 @@ export function PortalShell() {
                 {sidebarOpen && <span>{item.label}</span>}
               </NavLink>
             ))}
+            {isAdmin && (
+              <NavLink
+                to="/admin"
+                className={cn(
+                  "flex items-center gap-3 rounded-md px-3 py-3 text-sm font-medium text-muted-foreground transition-colors",
+                  !sidebarOpen && "justify-center px-2",
+                )}
+                activeClassName="bg-primary text-primary-foreground"
+              >
+                <Settings2 className="h-5 w-5 shrink-0" />
+                {sidebarOpen && <span>Admin</span>}
+              </NavLink>
+            )}
           </nav>
         </div>
 
@@ -126,9 +147,9 @@ export function PortalShell() {
               <div>
                 <p className="text-[11px] font-semibold uppercase tracking-[0.22em] text-primary">SteelFlow ERP</p>
                 <div className="mt-1 flex items-center gap-2 text-sm text-muted-foreground">
-                  <span>{location.pathname === "/portal" ? "Overview" : navItems.find((item) => item.to === location.pathname)?.label || "Module"}</span>
+                  <span>{currentLabel}</span>
                   <ChevronRight className="h-4 w-4" />
-                  <span>Plant operations</span>
+                  <span>{activeProfitCenter?.name || "Workspace selection required"}</span>
                 </div>
               </div>
             </div>
@@ -136,13 +157,13 @@ export function PortalShell() {
             <div className="hidden min-w-[260px] max-w-sm flex-1 md:block">
               <div className="relative">
                 <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
-                <Input className="h-11 border-border bg-panel pl-10 text-sm" placeholder="Search heat logs, inventory, reports" />
+                <Input className="h-11 border-border bg-panel pl-10 text-sm" placeholder="Search configured modules, reports, settings" />
               </div>
             </div>
 
             <div className="flex items-center gap-3">
-              <Button variant="outline" className="hidden h-11 gap-2 md:inline-flex">
-                <ClipboardList className="h-4 w-4" /> Shift log
+              <Button variant="outline" className="hidden h-11 gap-2 md:inline-flex" onClick={() => navigate("/profit-centers")}>
+                <ClipboardList className="h-4 w-4" /> Switch workspace
               </Button>
               <Button variant="ghost" size="icon" className="relative h-11 w-11 rounded-full border border-border bg-panel">
                 <Bell className="h-5 w-5" />
@@ -153,7 +174,7 @@ export function PortalShell() {
         </header>
 
         <main className="flex-1 px-4 py-6 sm:px-6 lg:px-8">
-          <Outlet />
+          <Outlet context={{ settings }} />
         </main>
       </div>
     </div>
