@@ -1,11 +1,53 @@
 
-1. Rebuild the uploaded steel-plant ERP app’s public-facing entry experience closely, but limit V1 to an employee portal landing page plus working authentication.
-2. Replace the placeholder homepage with an industrial enterprise-style portal homepage: strong header, plant/operations-oriented hero, concise value props, module highlights for Inventory, Production, and Reports, and clear “Sign in” entry points for employees.
-3. Use the uploaded ZIP as the main reference source during implementation so the layout, terminology, and overall feel stay aligned with the original app where it makes sense for this first version.
-4. Create a dedicated login flow for employees using email/password authentication, with a polished sign-in screen that visually matches the landing page and feels like part of the same ERP system.
-5. Add the essential auth UX around the login flow: validation states, loading/disabled states, friendly error messaging, success handling, and a basic signed-in redirect so the app feels usable end to end.
-6. Set up user profile storage so each authenticated user can have basic profile information such as name, avatar, department, and role-ready fields for later ERP expansion.
-7. Structure the authenticated experience so it can naturally expand into the first priority modules next: Inventory, Production, and Reports. For V1, this means preparing the app shell/navigation direction without fully building those modules yet.
-8. Keep the visual design dense, practical, and enterprise-oriented rather than marketing-heavy: efficient information layout, industrial color styling, durable card/table patterns, and a professional plant-operations tone.
-9. Ensure the landing page works well on desktop first, while remaining responsive on tablet/mobile for managers or staff accessing the portal on smaller screens.
-10. After implementation, verify the full V1 flow: landing page renders correctly, login experience works, profile creation is wired correctly, and the app is visually consistent with the uploaded ERP reference.
+Assumptions:
+- “Remove request access” means employees must no longer self-register from `/login`.
+- Admin-created users will continue to be provisioned through the backend/admin process already used for demo users.
+- Password reset should remain available for existing users.
+
+Pre-Implementation Risk & Impact Report:
+- Data Impact: No schema or RLS changes are required. Existing `profiles` and `user_roles` access rules can remain unchanged because this is a UI/auth-flow restriction, not a database-model change.
+- Workflow Impact: User onboarding changes from self-service to admin-provisioned only. Existing users still sign in normally; new users must be created by an admin outside this page.
+- UI/UX Impact: The login page becomes single-purpose: sign-in only. Copy that currently mentions “request access” must be updated to avoid misleading users.
+- Regression Risk: Low. Main risks are leaving behind hidden signup state/logic, broken tab layout assumptions, or stale text telling users they can self-register.
+- Mitigation Plan: Remove only the signup UI and related client-side handler usage, keep password reset intact, update copy consistently, and add focused tests for “signin-only” rendering.
+
+Implementation Plan:
+1. Remove self-service signup from the login page
+   - Delete the signup tab trigger and signup tab content from `src/pages/Login.tsx`.
+   - Remove signup-only local state and form setup that become unused (`activeTab`, signup form, signup password visibility, signup handler, related schema/type usage if no longer needed).
+   - Keep sign-in and forgot-password behavior unchanged.
+   - Verification: `Login.tsx` renders one sign-in flow only and no longer references “Request access”.
+
+2. Update login page messaging to match admin-only provisioning
+   - Replace text such as “Sign in or request access...” with admin-controlled wording like “Sign in to continue” or “Contact your administrator for access”.
+   - Optionally add a small helper line in the card footer or description clarifying that accounts are created by admins.
+   - Verification: No visible login-page copy suggests self-registration.
+
+3. Keep auth architecture aligned with the new rule
+   - Stop destructuring/using `signUp` from `useAuth()` inside `Login.tsx`.
+   - Leave the underlying signup helper in `src/lib/auth.ts` untouched unless it is proven unused elsewhere; this is the safer surgical change in case admin flows need it later.
+   - Verification: No compile-time unused-variable/import errors in `Login.tsx`.
+
+4. Add regression protection with minimal tests
+   - Add/update a test for the login page to assert:
+     - “Sign in” is present
+     - “Request access” is absent
+     - signup-only fields/buttons such as full name / department / create employee account are absent
+     - forgot password remains accessible
+   - If there is existing mock login data, keep it realistic and aligned with admin-created users only.
+   - Verification: tests cover the removed self-service path and preserved sign-in path.
+
+5. Keep documentation and policy in lockstep
+   - Create or update `DOCUMENTATION.md` with:
+     - login page behavior
+     - admin-only account provisioning rule
+     - version history entry for removal of self-service signup
+   - Create or update `POLICY.md` with:
+     - business rule: only admins may create users
+     - impact on employee onboarding and access requests
+   - Verification: code, documentation, and policy all state the same onboarding rule.
+
+Technical Notes:
+- No backend migration is needed for this change.
+- No RLS update is needed unless a future admin user-management UI is added.
+- This should be implemented as a surgical UI/auth-flow restriction only, without refactoring unrelated auth code.
