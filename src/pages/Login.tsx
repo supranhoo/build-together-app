@@ -3,7 +3,7 @@ import { Link, Navigate, useLocation, useNavigate } from "react-router-dom";
 import { z } from "zod";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
-import { AlertCircle, ArrowRight, Eye, EyeOff, Factory, Loader2, Mail, Lock, UserRound } from "lucide-react";
+import { AlertCircle, ArrowRight, Eye, EyeOff, Factory, Loader2, Mail, Lock } from "lucide-react";
 import heroImage from "@/assets/steel-plant-hero.jpg";
 import { BFCLLogo } from "@/components/BFCLLogo";
 import { Button } from "@/components/ui/button";
@@ -13,7 +13,6 @@ import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, D
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from "@/components/ui/form";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { useToast } from "@/hooks/use-toast";
 import { useAuth } from "@/hooks/use-auth";
 import { getRememberPreference, setRememberPreference } from "@/lib/auth-storage";
@@ -25,20 +24,11 @@ const signInSchema = z.object({
   password: z.string().min(8, "Password must be at least 8 characters"),
 });
 
-const signUpSchema = z.object({
-  displayName: z.string().trim().min(2, "Enter your full name").max(80, "Name is too long"),
-  email: z.string().trim().email("Enter a valid work email"),
-  department: z.string().trim().min(2, "Enter your department").max(80, "Department is too long"),
-  jobTitle: z.string().trim().min(2, "Enter your role title").max(80, "Job title is too long"),
-  password: z.string().min(8, "Password must be at least 8 characters").max(72, "Password is too long"),
-});
-
 const forgotPasswordSchema = z.object({
   email: z.string().trim().email("Enter a valid work email"),
 });
 
 type SignInValues = z.infer<typeof signInSchema>;
-type SignUpValues = z.infer<typeof signUpSchema>;
 type ForgotPasswordValues = z.infer<typeof forgotPasswordSchema>;
 
 const highlights = [
@@ -53,10 +43,8 @@ export default function Login() {
   const navigate = useNavigate();
   const location = useLocation();
   const { toast } = useToast();
-  const { session, signIn, signUp } = useAuth();
-  const [activeTab, setActiveTab] = useState("signin");
+  const { session, signIn } = useAuth();
   const [showPassword, setShowPassword] = useState(false);
-  const [showSignupPassword, setShowSignupPassword] = useState(false);
   const [loading, setLoading] = useState(false);
   const [rememberMe, setRememberMe] = useState(getRememberPreference());
   const [forgotOpen, setForgotOpen] = useState(false);
@@ -73,11 +61,6 @@ export default function Login() {
   const signInForm = useForm<SignInValues>({
     resolver: zodResolver(signInSchema),
     defaultValues: { email: "", password: "" },
-  });
-
-  const signUpForm = useForm<SignUpValues>({
-    resolver: zodResolver(signUpSchema),
-    defaultValues: { displayName: "", email: "", department: "", jobTitle: "", password: "" },
   });
 
   const forgotPasswordForm = useForm<ForgotPasswordValues>({
@@ -108,31 +91,6 @@ export default function Login() {
 
     toast({ title: "Access granted", description: "Welcome back to the plant portal." });
     navigate(nextPath, { replace: true });
-  });
-
-  const handleSignUp = signUpForm.handleSubmit(async (values) => {
-    const parsedValues = signUpSchema.parse(values);
-    setLoading(true);
-    const { error } = await signUp({
-      displayName: parsedValues.displayName,
-      email: parsedValues.email,
-      department: parsedValues.department,
-      jobTitle: parsedValues.jobTitle,
-      password: parsedValues.password,
-    });
-    setLoading(false);
-
-    if (error) {
-      toast({ title: "Account setup failed", description: error.message, variant: "destructive" });
-      return;
-    }
-
-    toast({
-      title: "Account created",
-      description: "Check your inbox to confirm access, then sign in to the employee portal.",
-    });
-    signUpForm.reset();
-    setActiveTab("signin");
   });
 
   const handleForgotPassword = forgotPasswordForm.handleSubmit(async ({ email }) => {
@@ -226,9 +184,7 @@ export default function Login() {
 
             <div className="mb-6 hidden text-center lg:block">
               <h1 className="text-3xl font-semibold leading-tight text-foreground">Plant access with the same operational shell.</h1>
-              <p className="mx-auto mt-2 max-w-sm text-sm text-muted-foreground">
-                Sign in or request access for inventory, production, and reporting workflows.
-              </p>
+                <p className="mx-auto mt-2 max-w-sm text-sm text-muted-foreground">Sign in to continue to inventory, production, and reporting workflows.</p>
             </div>
 
             <Card className="relative overflow-hidden border-border/50 bg-card/80 shadow-panel backdrop-blur-xl">
@@ -248,218 +204,109 @@ export default function Login() {
               </CardHeader>
 
               <CardContent className="space-y-6 pt-4">
-              <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
-                  <TabsList className="grid h-12 w-full grid-cols-2 bg-panel">
-                    <TabsTrigger value="signin">Sign in</TabsTrigger>
-                    <TabsTrigger value="signup">Request access</TabsTrigger>
-                  </TabsList>
+                <div className="rounded-md border border-border bg-panel px-4 py-3 text-sm text-muted-foreground">
+                  Accounts are provisioned by administrators only. Contact your administrator if you need portal access.
+                </div>
 
-                  <TabsContent value="signin" className="mt-6 space-y-6">
-                    <Form {...signInForm}>
-                      <form onSubmit={handleSignIn} className="space-y-5">
-                      <FormField
-                        control={signInForm.control}
-                        name="email"
-                        render={({ field }) => (
-                          <FormItem>
-                            <FormLabel>Work email</FormLabel>
-                            <FormControl>
-                              <div className="relative">
-                                <Mail
-                                  className={cn(
-                                    "pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 transition-colors",
-                                    focusedField === "signin-email" ? "text-primary" : "text-muted-foreground",
-                                  )}
-                                />
-                                <Input
-                                  {...field}
-                                  type="email"
-                                  autoComplete="email"
-                                  className="h-12 border-border/50 bg-background/50 pl-10 focus-visible:ring-primary/20"
-                                  placeholder="name@bfcl.in"
-                                  onFocus={() => setFocusedField("signin-email")}
-                                  onBlur={() => setFocusedField(null)}
-                                />
-                              </div>
-                            </FormControl>
-                            <FormMessage />
-                          </FormItem>
-                        )}
-                      />
+                <Form {...signInForm}>
+                  <form onSubmit={handleSignIn} className="space-y-5">
+                    <FormField
+                      control={signInForm.control}
+                      name="email"
+                      render={({ field }) => (
+                        <FormItem>
+                          <FormLabel>Work email</FormLabel>
+                          <FormControl>
+                            <div className="relative">
+                              <Mail
+                                className={cn(
+                                  "pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 transition-colors",
+                                  focusedField === "signin-email" ? "text-primary" : "text-muted-foreground",
+                                )}
+                              />
+                              <Input
+                                {...field}
+                                type="email"
+                                autoComplete="email"
+                                className="h-12 border-border/50 bg-background/50 pl-10 focus-visible:ring-primary/20"
+                                placeholder="name@bfcl.in"
+                                onFocus={() => setFocusedField("signin-email")}
+                                onBlur={() => setFocusedField(null)}
+                              />
+                            </div>
+                          </FormControl>
+                          <FormMessage />
+                        </FormItem>
+                      )}
+                    />
 
-                      <FormField
-                        control={signInForm.control}
-                        name="password"
-                        render={({ field }) => (
-                          <FormItem>
-                            <div className="flex items-center justify-between">
-                              <FormLabel>Password</FormLabel>
+                    <FormField
+                      control={signInForm.control}
+                      name="password"
+                      render={({ field }) => (
+                        <FormItem>
+                          <div className="flex items-center justify-between">
+                            <FormLabel>Password</FormLabel>
+                            <button
+                              type="button"
+                              onClick={() => setForgotOpen(true)}
+                              className="text-xs font-medium text-primary transition-colors hover:text-primary/80 hover:underline"
+                            >
+                              Forgot password?
+                            </button>
+                          </div>
+                          <FormControl>
+                            <div className="relative">
+                              <Lock
+                                className={cn(
+                                  "pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 transition-colors",
+                                  focusedField === "signin-password" ? "text-primary" : "text-muted-foreground",
+                                )}
+                              />
+                              <Input
+                                {...field}
+                                type={showPassword ? "text" : "password"}
+                                autoComplete="current-password"
+                                className="h-12 border-border/50 bg-background/50 pl-10 pr-11 focus-visible:ring-primary/20"
+                                placeholder="Enter your password"
+                                onFocus={() => setFocusedField("signin-password")}
+                                onBlur={() => setFocusedField(null)}
+                              />
                               <button
                                 type="button"
-                                onClick={() => setForgotOpen(true)}
-                                className="text-xs font-medium text-primary transition-colors hover:text-primary/80 hover:underline"
+                                className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground transition-colors hover:text-foreground"
+                                onClick={() => setShowPassword((value) => !value)}
+                                aria-label={showPassword ? "Hide password" : "Show password"}
                               >
-                                Forgot password?
+                                {showPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
                               </button>
                             </div>
-                            <FormControl>
-                              <div className="relative">
-                                <Lock
-                                  className={cn(
-                                    "pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 transition-colors",
-                                    focusedField === "signin-password" ? "text-primary" : "text-muted-foreground",
-                                  )}
-                                />
-                                <Input
-                                  {...field}
-                                  type={showPassword ? "text" : "password"}
-                                  autoComplete="current-password"
-                                  className="h-12 border-border/50 bg-background/50 pl-10 pr-11 focus-visible:ring-primary/20"
-                                  placeholder="Enter your password"
-                                  onFocus={() => setFocusedField("signin-password")}
-                                  onBlur={() => setFocusedField(null)}
-                                />
-                                <button
-                                  type="button"
-                                  className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground transition-colors hover:text-foreground"
-                                  onClick={() => setShowPassword((value) => !value)}
-                                  aria-label={showPassword ? "Hide password" : "Show password"}
-                                >
-                                  {showPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
-                                </button>
-                              </div>
-                            </FormControl>
-                            <FormMessage />
-                          </FormItem>
-                        )}
-                      />
+                          </FormControl>
+                          <FormMessage />
+                        </FormItem>
+                      )}
+                    />
 
-                      <div className="flex items-center gap-2">
-                        <Checkbox id="remember-me" checked={rememberMe} onCheckedChange={(checked) => setRememberMe(Boolean(checked))} />
-                        <Label htmlFor="remember-me" className="cursor-pointer text-sm font-normal text-muted-foreground">
-                          Remember me
-                        </Label>
-                      </div>
+                    <div className="flex items-center gap-2">
+                      <Checkbox id="remember-me" checked={rememberMe} onCheckedChange={(checked) => setRememberMe(Boolean(checked))} />
+                      <Label htmlFor="remember-me" className="cursor-pointer text-sm font-normal text-muted-foreground">
+                        Remember me
+                      </Label>
+                    </div>
 
-                      <Button type="submit" className="group h-11 w-full font-semibold" disabled={loading}>
-                        {loading ? (
-                          <Loader2 className="h-4 w-4 animate-spin" />
-                        ) : (
-                          <>
-                            Sign in
-                            <ArrowRight className="ml-2 h-4 w-4 transition-transform group-hover:translate-x-1" />
-                          </>
-                        )}
-                      </Button>
-                    </form>
-                  </Form>
-                </TabsContent>
-
-                  <TabsContent value="signup" className="mt-6 space-y-6">
-                    <Form {...signUpForm}>
-                      <form onSubmit={handleSignUp} className="space-y-5">
-                      <div className="grid gap-5 sm:grid-cols-2">
-                        <FormField
-                          control={signUpForm.control}
-                          name="displayName"
-                          render={({ field }) => (
-                            <FormItem>
-                              <FormLabel>Full name</FormLabel>
-                              <FormControl>
-                                <div className="relative">
-                                  <UserRound className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
-                                  <Input {...field} className="h-12 border-border/50 bg-background/50 pl-10" placeholder="Amit Kumar" />
-                                </div>
-                              </FormControl>
-                              <FormMessage />
-                            </FormItem>
-                          )}
-                        />
-
-                        <FormField
-                          control={signUpForm.control}
-                          name="department"
-                          render={({ field }) => (
-                            <FormItem>
-                              <FormLabel>Department</FormLabel>
-                              <FormControl>
-                                <Input {...field} className="h-12 border-border/50 bg-background/50" placeholder="Production" />
-                              </FormControl>
-                              <FormMessage />
-                            </FormItem>
-                          )}
-                        />
-                      </div>
-
-                      <div className="grid gap-5 sm:grid-cols-2">
-                        <FormField
-                          control={signUpForm.control}
-                          name="jobTitle"
-                          render={({ field }) => (
-                            <FormItem>
-                              <FormLabel>Job title</FormLabel>
-                              <FormControl>
-                                <Input {...field} className="h-12 border-border/50 bg-background/50" placeholder="Shift engineer" />
-                              </FormControl>
-                              <FormMessage />
-                            </FormItem>
-                          )}
-                        />
-
-                        <FormField
-                          control={signUpForm.control}
-                          name="email"
-                          render={({ field }) => (
-                            <FormItem>
-                              <FormLabel>Work email</FormLabel>
-                              <FormControl>
-                                <Input {...field} type="email" className="h-12 border-border/50 bg-background/50" placeholder="name@bfcl.in" />
-                              </FormControl>
-                              <FormMessage />
-                            </FormItem>
-                          )}
-                        />
-                      </div>
-
-                      <FormField
-                        control={signUpForm.control}
-                        name="password"
-                        render={({ field }) => (
-                          <FormItem>
-                            <FormLabel>Create password</FormLabel>
-                            <FormControl>
-                              <div className="relative">
-                                <Lock className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
-                                <Input
-                                  {...field}
-                                  type={showSignupPassword ? "text" : "password"}
-                                  className="h-12 border-border/50 bg-background/50 pl-10 pr-11"
-                                  placeholder="Minimum 8 characters"
-                                />
-                                <button
-                                  type="button"
-                                  className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground transition-colors hover:text-foreground"
-                                  onClick={() => setShowSignupPassword((value) => !value)}
-                                  aria-label={showSignupPassword ? "Hide password" : "Show password"}
-                                >
-                                  {showSignupPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
-                                </button>
-                              </div>
-                            </FormControl>
-                            <FormMessage />
-                          </FormItem>
-                        )}
-                      />
-
-                      <Button type="submit" className="h-11 w-full gap-2 font-semibold" disabled={loading}>
-                        {loading ? <Loader2 className="h-4 w-4 animate-spin" /> : "Create employee account"}
-                        {!loading && <Factory className="h-4 w-4" />}
-                      </Button>
-                    </form>
-                  </Form>
-                </TabsContent>
-              </Tabs>
-            </CardContent>
+                    <Button type="submit" className="group h-11 w-full font-semibold" disabled={loading}>
+                      {loading ? (
+                        <Loader2 className="h-4 w-4 animate-spin" />
+                      ) : (
+                        <>
+                          Sign in
+                          <ArrowRight className="ml-2 h-4 w-4 transition-transform group-hover:translate-x-1" />
+                        </>
+                      )}
+                    </Button>
+                  </form>
+                </Form>
+              </CardContent>
 
               <CardFooter className="relative flex flex-col gap-4">
                 <div className="w-full text-center text-xs text-muted-foreground">Secure &amp; authenticated employee access</div>
