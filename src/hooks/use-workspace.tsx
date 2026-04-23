@@ -74,6 +74,31 @@ export function WorkspaceProvider({ children }: { children: ReactNode }) {
   const [workspaceAssignments, setWorkspaceAssignments] = useState<Array<{ userId: string; isDefault: boolean; isActive: boolean }>>([]);
   const [auditLogs, setAuditLogs] = useState<AuditLogRecord[]>([]);
 
+  const refreshAdminState = async (profitCenterId: string | null, role: string | null | undefined) => {
+    if (!session?.user || !role || (role !== "admin" && role !== "super_admin")) {
+      setAllProfitCenters([]);
+      setAppModules([]);
+      setManageableProfiles([]);
+      setWorkspaceAssignments([]);
+      setAuditLogs([]);
+      return;
+    }
+
+    const [nextProfitCenters, nextAppModules, nextProfiles, nextAuditLogs, nextWorkspaceAssignments] = await Promise.all([
+      fetchAllProfitCenters(),
+      fetchAppModules(),
+      fetchManageableProfiles(),
+      fetchAuditLogs(profitCenterId),
+      profitCenterId ? fetchProfitCenterAssignmentsForWorkspace(profitCenterId) : Promise.resolve([]),
+    ]);
+
+    setAllProfitCenters(nextProfitCenters);
+    setAppModules(nextAppModules);
+    setManageableProfiles(nextProfiles);
+    setAuditLogs(nextAuditLogs);
+    setWorkspaceAssignments(nextWorkspaceAssignments);
+  };
+
   useEffect(() => {
     if (authLoading) return;
 
@@ -185,20 +210,8 @@ export function WorkspaceProvider({ children }: { children: ReactNode }) {
 
     const loadAdminState = async () => {
       try {
-        const [nextProfitCenters, nextAppModules, nextProfiles, nextAuditLogs, nextWorkspaceAssignments] = await Promise.all([
-          fetchAllProfitCenters(),
-          fetchAppModules(),
-          fetchManageableProfiles(),
-          fetchAuditLogs(activeProfitCenterId),
-          activeProfitCenterId ? fetchProfitCenterAssignmentsForWorkspace(activeProfitCenterId) : Promise.resolve([]),
-        ]);
-
+        await refreshAdminState(activeProfitCenterId, profile?.role);
         if (!isMounted) return;
-        setAllProfitCenters(nextProfitCenters);
-        setAppModules(nextAppModules);
-        setManageableProfiles(nextProfiles);
-        setAuditLogs(nextAuditLogs);
-        setWorkspaceAssignments(nextWorkspaceAssignments);
       } catch {
         if (!isMounted) return;
         setAllProfitCenters([]);
@@ -273,6 +286,8 @@ export function WorkspaceProvider({ children }: { children: ReactNode }) {
           setModules([]);
           setSettings([]);
         }
+
+        await refreshAdminState(nextActiveId, profile?.role);
       },
     };
   }, [activeProfitCenterId, allProfitCenters, appModules, assignments, auditLogs, authLoading, loading, manageableProfiles, modules, profile?.role, session?.user, settings, workspaceAssignments]);
