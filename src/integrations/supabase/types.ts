@@ -335,6 +335,10 @@ export type Database = {
         Args: { _profit_center_id: string; _user_id: string }
         Returns: boolean
       }
+      can_view_profile: {
+        Args: { _target_user_id: string; _viewer_user_id: string }
+        Returns: boolean
+      }
       has_elevated_role: { Args: { _user_id: string }; Returns: boolean }
       has_profit_center_access: {
         Args: { _profit_center_id: string; _user_id: string }
