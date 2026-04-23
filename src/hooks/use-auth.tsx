@@ -8,6 +8,7 @@ import {
   signInWithEmail,
   signOut,
   signUpWithEmail,
+  type SignUpInput,
   type EmployeeProfile,
 } from "@/lib/auth";
 
@@ -16,13 +17,7 @@ interface AuthContextValue {
   profile: EmployeeProfile | null;
   loading: boolean;
   signIn: (email: string, password: string) => ReturnType<typeof signInWithEmail>;
-  signUp: (args: {
-    email: string;
-    password: string;
-    displayName: string;
-    department?: string;
-    jobTitle?: string;
-  }) => ReturnType<typeof signUpWithEmail>;
+  signUp: (args: SignUpInput) => ReturnType<typeof signUpWithEmail>;
   logout: () => ReturnType<typeof signOut>;
   refreshProfile: () => Promise<void>;
 }

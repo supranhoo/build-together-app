@@ -2,6 +2,14 @@ import { supabase } from "@/integrations/supabase/client";
 import type { Session, User } from "@supabase/supabase-js";
 import type { Tables } from "@/integrations/supabase/types";
 
+export interface SignUpInput {
+  email: string;
+  password: string;
+  displayName: string;
+  department?: string;
+  jobTitle?: string;
+}
+
 export type EmployeeProfile = Tables<"profiles"> & {
   role: string;
 };
@@ -16,13 +24,7 @@ export async function signUpWithEmail({
   displayName,
   department,
   jobTitle,
-}: {
-  email: string;
-  password: string;
-  displayName: string;
-  department?: string;
-  jobTitle?: string;
-}) {
+}: SignUpInput) {
   const response = await supabase.auth.signUp({
     email,
     password,
@@ -56,6 +58,16 @@ export async function signUpWithEmail({
 
 export async function signOut() {
   return supabase.auth.signOut();
+}
+
+export async function requestPasswordReset(email: string) {
+  return supabase.auth.resetPasswordForEmail(email, {
+    redirectTo: `${window.location.origin}/reset-password`,
+  });
+}
+
+export async function completePasswordReset(password: string) {
+  return supabase.auth.updateUser({ password });
 }
 
 export async function getCurrentSession() {
