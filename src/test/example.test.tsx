@@ -1,5 +1,4 @@
-import { render, screen } from "@testing-library/react";
-import userEvent from "@testing-library/user-event";
+import { fireEvent, render, screen } from "@testing-library/react";
 import { MemoryRouter, Route, Routes } from "react-router-dom";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import Login from "@/pages/Login";
@@ -258,15 +257,13 @@ describe("Login page", () => {
       nextOffset: null,
     });
 
-    const user = userEvent.setup();
-
     render(
       <MemoryRouter>
         <AdminAudit />
       </MemoryRouter>,
     );
 
-    await user.click(screen.getByRole("button", { name: /load more/i }));
+    fireEvent.click(screen.getByRole("button", { name: /load more/i }));
 
     expect(fetchAuditLogPageMock).toHaveBeenCalledWith({
       profitCenterId: "pc-1",
@@ -275,7 +272,7 @@ describe("Login page", () => {
     });
     expect(screen.getByText(/page 1 of 2/i)).toBeInTheDocument();
 
-    await user.click(screen.getByRole("link", { name: /go to next page/i }));
+    fireEvent.click(screen.getByRole("link", { name: /go to next page/i }));
 
     expect(screen.getByText("audit.action.21")).toBeInTheDocument();
     expect(screen.queryByText("audit.action.1")).not.toBeInTheDocument();
