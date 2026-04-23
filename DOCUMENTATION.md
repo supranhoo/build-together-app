@@ -37,15 +37,16 @@ SteelFlow ERP now uses a configuration-first workspace foundation for steel and 
 - Module management now persists enablement, naming, ordering, route segments, and default entry behavior.
 - Access management now supports assigning users to the active workspace from the admin UI.
 - Settings management now persists JSON-based workspace settings from the admin UI.
-- Audit review now reads recent immutable configuration records.
+- Audit review now reads immutable configuration records in 20-row chunks with page navigation across loaded results and on-demand history loading.
 
 ## Testing Notes
 - Regression coverage verifies sign-in-only login behavior.
 - Routing and selector tests verify workspace selection and admin protection behavior.
 - Portal shell tests verify navigation renders from configured modules rather than fixed hardcoded labels alone.
-- Admin tests verify audit data renders inside the admin area.
+- Admin tests verify audit data renders inside the admin area and that audit browsing supports paging plus load-more behavior.
 
 ## Version History
 - 2026-04-23: Removed self-service signup from the public login page and retained sign-in plus password reset only.
 - 2026-04-23: Added configurable workspace foundation with workspace-aware routing, admin configuration shell, backend-managed module navigation, and signup-disabled authentication.
 - 2026-04-23: Enabled live admin management for workspaces, module configuration, workspace settings, access assignments, and audit review.
+- 2026-04-23: Added incremental audit log browsing with 20-row paging and load-more support in the admin audit area.
