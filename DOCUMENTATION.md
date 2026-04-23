@@ -26,19 +26,26 @@ SteelFlow ERP now uses a configuration-first workspace foundation for steel and 
 - Admins can manage configuration only within approved workspace scope.
 - Super admins can manage all workspaces.
 - Public signup is disabled in the authentication system.
-- Configuration and access changes are designed to append audit records rather than mutate audit history.
+- Configuration and access changes append audit records rather than mutating audit history.
+- Admin profile visibility is scoped to manageable users that share an authorized workspace, while super admins retain global visibility.
 
 ## UI Architecture V1
 - Route flow: `/ -> /login -> /profit-centers -> /portal -> /portal/{configured-module}` and `/admin/*`.
 - Sidebar navigation is driven from configured modules, with overview retained as the fixed portal entry.
 - Admin configuration is intentionally split across multiple pages: overview, workspaces, modules, access, settings, and audit.
-- Current business modules remain placeholders, but they now read the active workspace context.
+- Workspace management now supports editing existing workspaces and super-admin-only workspace creation.
+- Module management now persists enablement, naming, ordering, route segments, and default entry behavior.
+- Access management now supports assigning users to the active workspace from the admin UI.
+- Settings management now persists JSON-based workspace settings from the admin UI.
+- Audit review now reads recent immutable configuration records.
 
 ## Testing Notes
 - Regression coverage verifies sign-in-only login behavior.
 - Routing and selector tests verify workspace selection and admin protection behavior.
 - Portal shell tests verify navigation renders from configured modules rather than fixed hardcoded labels alone.
+- Admin tests verify audit data renders inside the admin area.
 
 ## Version History
 - 2026-04-23: Removed self-service signup from the public login page and retained sign-in plus password reset only.
 - 2026-04-23: Added configurable workspace foundation with workspace-aware routing, admin configuration shell, backend-managed module navigation, and signup-disabled authentication.
+- 2026-04-23: Enabled live admin management for workspaces, module configuration, workspace settings, access assignments, and audit review.
