@@ -19,6 +19,25 @@ export default {
         ring: "hsl(var(--ring))",
         background: "hsl(var(--background))",
         foreground: "hsl(var(--foreground))",
+        panel: {
+          DEFAULT: "hsl(var(--panel))",
+          foreground: "hsl(var(--panel-foreground))",
+          elevated: "hsl(var(--panel-elevated))",
+        },
+        steel: "hsl(var(--steel))",
+        signal: {
+          DEFAULT: "hsl(var(--signal))",
+          foreground: "hsl(var(--signal-foreground))",
+        },
+        success: "hsl(var(--success))",
+        warning: "hsl(var(--warning))",
+        danger: "hsl(var(--danger))",
+        brand: {
+          blue: "hsl(var(--brand-blue))",
+          red: "hsl(var(--brand-red))",
+          green: "hsl(var(--brand-green))",
+          amber: "hsl(var(--brand-amber))",
+        },
         primary: {
           DEFAULT: "hsl(var(--primary))",
           foreground: "hsl(var(--primary-foreground))",
@@ -62,6 +81,10 @@ export default {
         lg: "var(--radius)",
         md: "calc(var(--radius) - 2px)",
         sm: "calc(var(--radius) - 4px)",
+      },
+      fontFamily: {
+        heading: ["Rajdhani", "sans-serif"],
+        body: ["IBM Plex Sans", "sans-serif"],
       },
       keyframes: {
         "accordion-down": {
