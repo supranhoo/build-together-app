@@ -1,175 +1,90 @@
 
 Assumptions:
-- The approved V1 should be revised, not expanded into a full ERP build now.
-- “Make things configurable” means plant/location/module visibility, naming, workflow enablement, and process differences must come from backend-managed configuration, not frontend hardcoding.
-- We should preserve the current secure identity base (`profiles`, `user_roles`, admin-created users only) and build configurability around it.
-- A simpler and safer first slice is: configurable tenant/workspace foundation first, operational modules later.
+- “Implement pagination and a load-more button” applies only to the admin audit screen at `/admin/audit`.
+- The safest minimal change is to paginate audit logs in 20-row chunks and fetch additional chunks on demand, rather than redesigning the whole admin data-loading model.
+- The current audit table should remain immutable and read-only; this request is a browsing enhancement only.
 
 Pre-Implementation Risk & Impact Report:
-- Data Impact: The previous plan is too static for a multi-plant future. New configuration tables and RLS policies will be required so plant/workspace behavior is data-driven instead of hardcoded. Existing `profiles` and `user_roles` remain the identity foundation.
-- Workflow Impact: Users will sign in, enter an assigned workspace, and see modules/processes based on admin-managed configuration. Admins will need dedicated configuration screens.
-- UI/UX Impact: The portal must stop assuming one fixed sidebar/module set. Navigation, labels, and access must be rendered from backend configuration. Admin configuration may span multiple pages; that is appropriate for scale.
-- Regression Risk: Medium-high if configurability is faked with frontend constants. Risks include duplicate logic, permission drift, and future rewrite when more plants/processes are added.
-- Mitigation Plan: Move all plant/module/workspace behavior into backend tables first, keep business screens as placeholders, add focused tests for config-driven routing and visibility, and update `DOCUMENTATION.md` and `POLICY.md` in the same implementation.
+- Data Impact: No schema or RLS changes are required if the existing audit table and policies already support ordered reads. Only query shape and client state need to change.
+- Workflow Impact: Admins and super admins will be able to browse older audit records without changing how audit entries are created.
+- UI/UX Impact: The audit screen gains paging controls plus a “Load more” action. The table layout remains unchanged.
+- Regression Risk: Low to medium. Main risks are duplicate rows, skipped rows, broken state when switching workspaces, or stale pagination after refresh.
+- Mitigation Plan: Use deterministic ordering by `created_at desc`, fetch fixed-size slices, reset pagination when workspace scope changes, and add tests for initial page, next/previous page behavior, and load-more growth.
 
-Scope Correction / Architectural Pushback:
-- I do not recommend hardcoding module names, sidebar items, or plant-specific behavior in `PortalShell`, routes, or overview cards beyond a minimal fallback.
-- I also do not recommend a single generic “settings blob” for everything. For scale, configuration should be normalized into a few explicit tables with clear ownership and RLS.
-- Admin configuration should be multi-page, not one overloaded page, because plants, modules, assignments, and process settings are distinct concerns.
+Architectural Pushback / Simplicity Choice:
+- I do not recommend adding total-count-based numbered pagination for the full dataset right now. That would add avoidable query/count complexity for a read-only admin screen.
+- The simpler scalable solution is:
+  1. fetch audit logs in pages of 20
+  2. show pagination across the records already loaded
+  3. expose a “Load more” button to append the next 20 from the backend
+- This keeps the change surgical, avoids hardcoding totals, and still lets you browse beyond the initial set.
 
-Revised Implementation Plan:
+Implementation Plan:
 
-1. Align SSOT documents to a configuration-first architecture
-   - Expand `DOCUMENTATION.md` to define the V1 architecture as configuration-driven and multi-plant ready.
-   - Update `POLICY.md` to state:
-     - admin-only user creation
-     - plant/profit-center isolation
-     - config-driven module enablement
-     - role-based admin override
-     - immutable audit logging for sensitive admin configuration changes
-   - Explicitly forbid hardcoded plant/module/process behavior where configuration is expected.
-   - Verification: documentation and policy define a config-first architecture, not a fixed portal.
+1. Update audit log querying to support chunked reads
+   - Extend `src/lib/workspace.ts` audit fetching with paged parameters such as `limit` and `offset` (or equivalent range-based slicing).
+   - Return enough metadata for the UI to know whether more rows are available.
+   - Keep ordering stable and descending by creation time.
+   - Verification: the query can fetch the first 20 rows, then the next 20 without overlap.
 
-2. Replace the static data model with a scalable configuration model
-   - Create migrations for:
-     - `profit_centers` (or plants/workspaces)
-     - `user_profit_centers` (user assignments)
-     - `app_modules` (master catalog of modules)
-     - `profit_center_modules` (module enablement, labels, order, visibility by workspace)
-     - `profit_center_settings` (workspace-level settings, scoped and versionable)
-     - `audit_logs` (immutable admin/config change log)
-   - Keep `user_roles` as the role source of truth; do not create a second role system.
-   - Avoid hardcoding process values in code. If a value will vary by plant, it belongs in configuration.
-   - Verification: schema supports multiple plants, multiple modules, custom labels/order, and future per-plant variation without code rewrites.
+2. Keep workspace/admin architecture aligned with a minimal change
+   - Update `src/hooks/use-workspace.tsx` so the initial admin audit load uses 20 rows instead of the current larger slice.
+   - Avoid turning the global workspace context into a full audit pagination manager unless needed.
+   - Preserve the existing `auditLogs` context value as the first loaded page so other admin behavior does not change.
+   - Verification: current admin pages still load, and the audit page starts with only the first chunk.
 
-3. Add secure helper functions and RLS for scalable tenancy
-   - Add security-definer helpers for:
-     - user has access to profit center
-     - user is admin/super-admin
-     - user can manage configuration for a workspace
-   - Apply RLS so:
-     - users only read assigned workspace data
-     - admins can manage approved configuration scopes
-     - audit logs remain append-only and protected
-   - Avoid recursive RLS patterns by using helper functions rather than self-referencing policies.
-   - Verification: access is enforced server-side for assignments, configuration, and admin actions.
+3. Add local pagination state to the audit screen
+   - Update `src/pages/AdminAudit.tsx` to manage:
+     - currently loaded audit rows
+     - current visible page
+     - page size for display
+     - loading state for “Load more”
+     - has-more state
+   - Seed the page with `useWorkspace().auditLogs`, then append more rows on demand from the audit query helper.
+   - Reset local paging state whenever the active workspace changes.
+   - Verification: page state stays consistent when changing workspaces or re-entering the screen.
 
-4. Extend auth/session loading to fetch workspace configuration context
-   - Update auth-side loading so the client can fetch:
-     - profile
-     - role
-     - assigned profit centers
-     - active profit center
-     - enabled modules and workspace display settings for the active profit center
-   - Keep data-fetching and decision logic in hooks/services, not UI components.
-   - Add clear states for:
-     - no workspace assigned
-     - one workspace assigned
-     - multiple workspaces assigned
-     - workspace no longer authorized
-   - Verification: the app decides routing and navigation from backend data, not local constants.
+4. Add visible pagination controls plus load-more behavior
+   - Use the existing `src/components/ui/pagination.tsx` components for previous/next navigation.
+   - Show only the current page slice in the table.
+   - Add a “Load more” button below the table to fetch the next backend chunk when the user reaches the end of loaded data or wants more history.
+   - Disable controls appropriately during fetches and when no more rows exist.
+   - Verification:
+     - Previous/Next changes the visible page
+     - Load More appends older records
+     - No duplicate rows appear
+     - Empty state still renders correctly
 
-5. Build a config-driven workspace selector and protected route flow
-   - Add a dedicated workspace selector after login.
-   - Auto-continue when exactly one workspace is assigned.
-   - Persist the last selected workspace locally for resilience, but always re-validate against backend assignments.
-   - Update route protection so `/portal` requires:
-     - authenticated session
-     - valid workspace assignment
-     - available workspace configuration
-   - Verification: users can only enter authorized workspaces and only see configured functionality.
+5. Keep SSOT documents in lockstep
+   - Update `DOCUMENTATION.md` to state that admin audit review now loads records incrementally in 20-row chunks and supports pagination plus on-demand loading.
+   - Update `POLICY.md` to clarify that audit history remains immutable while admins can browse historical records through paged read access.
+   - Append version-history / policy-log entries for this change.
+   - Verification: code behavior, technical docs, and policy all describe the same audit browsing model.
 
-6. Refactor portal shell to render from configuration, not hardcoded navigation
-   - Replace the static `navItems` array with backend-driven module configuration.
-   - Allow per-workspace:
-     - module enable/disable
-     - navigation label override
-     - sort order
-     - landing/default module
-   - Keep current modules as placeholders, but make them render only when enabled by configuration.
-   - Verification: changing configuration changes portal navigation without code edits.
-
-7. Introduce a multi-page Admin configuration area
-   - Add an admin area with separate pages for:
-     - Workspace Management
-     - Module Configuration
-     - User Assignment / Access Mapping
-     - Settings / Process Configuration
-     - Audit Log Review
-   - This is intentionally multi-page for clarity and scale; one page would become a maintenance risk.
-   - V1 should implement the structure and first essential screens, not every deep setting.
-   - Verification: admins have a clear place to manage workspaces/modules without touching code.
-
-8. Define the boundary for “configurable now” vs “configurable later”
-   - Configurable in V1:
-     - workspace activation
-     - user-to-workspace assignment
-     - module visibility
-     - module labels/order
-     - workspace-level descriptive settings
-   - Deferred to later phases:
-     - full production workflow builder
-     - costing formula engine UI
-     - dynamic form designer
-     - advanced approval chains
-   - This keeps the first slice simple while avoiding hardcoded architecture that blocks scale.
-   - Verification: V1 remains deliverable without pretending to solve every future requirement.
-
-9. Add regression protection with realistic, policy-aligned tests
+6. Add regression tests with realistic audit data
+   - Extend `src/test/example.test.tsx` with realistic multiple audit entries.
    - Add tests for:
-     - login still works for existing users
-     - selector appears for multiple workspace assignments
-     - one-workspace auto-redirect works
-     - unauthorized workspace access is blocked
-     - sidebar modules render from configuration
-     - disabled modules do not render
-     - admin-only configuration routes are protected
-   - Keep mock data realistic: admin, plant head, operator, multiple plants, different module configs.
-   - Verification: both happy path and denied-access/config-driven cases are covered.
-
-10. Prepare Phase 2 on top of the configurable foundation
-   - After the above foundation, phase the domain modules in this order:
-     1. Production foundation
-     2. Inventory and material flows
-     3. Reporting/KPI aggregation
-     4. Finance & costing
-     5. Advanced admin/process controls
-   - Each new module must plug into the existing configuration model rather than introducing new hardcoded navigation or plant-specific branching.
-   - Verification: future modules extend the platform without rewriting tenancy, routing, or admin architecture.
+     - initial audit page renders the first chunk only
+     - next/previous pagination changes what is visible
+     - load-more appends additional audit entries
+     - empty state still appears when no logs exist
+   - Keep test data policy-aligned and immutable.
+   - Verification: tests cover happy path and no-data path for the audit browser.
 
 Technical Details:
-- Preserve:
-  - `profiles`
-  - `user_roles`
-  - admin-created users only
-  - sign-in + password reset flow
-- Replace static assumptions with configuration:
-  - static portal nav -> `app_modules` + `profit_center_modules`
-  - static portal labels -> per-workspace module config
-  - static workspace behavior -> `profit_center_settings`
-- Recommended route flow:
-```text
-/ -> /login -> /profit-centers -> /portal -> /portal/{configured-module}
-                                  \-> /admin/*
-```
-- Recommended security model:
-```text
-Authenticated user
-  -> load profile + role + assigned workspaces
-  -> validate active workspace
-  -> load workspace module configuration
-  -> render only configured modules
-  -> allow admin config changes only by role + scope
-  -> write immutable audit log for sensitive changes
-```
+- Preferred page size: 20 records per backend fetch and 20 per visible page.
+- Keep the change scoped to:
+  - `src/lib/workspace.ts`
+  - `src/hooks/use-workspace.tsx`
+  - `src/pages/AdminAudit.tsx`
+  - `src/test/example.test.tsx`
+  - `DOCUMENTATION.md`
+  - `POLICY.md`
+- No database migration is required unless the existing audit query proves insufficient, which it likely is not.
 
-Updated First Execution Slice After Approval:
-1. Documentation/policy update to configuration-first architecture
-2. Migrations + RLS for workspaces, assignments, module catalog, workspace module config, audit logs
-3. Workspace selector + protected routing
-4. Config-driven portal shell/overview
-5. Initial multi-page admin configuration shell
-6. Tests for config-driven access and visibility
-
-Design Principle for all implementation:
-- If a plant/location/module/process difference is expected to vary by customer or by site, it should be modeled as configuration in the backend, not hardcoded in React components.
+Step → Verification:
+1. Paged audit query helper → fetches non-overlapping 20-row chunks
+2. Initial admin load updated → audit page starts at 20 rows
+3. Admin audit UI updated → prev/next and load-more behave correctly
+4. Docs/policy updated → SSOT stays aligned
+5. Tests updated → audit browsing regression coverage passes
