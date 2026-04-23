@@ -14,6 +14,92 @@ export type Database = {
   }
   public: {
     Tables: {
+      app_modules: {
+        Row: {
+          created_at: string
+          default_label: string
+          description: string | null
+          icon_name: string | null
+          id: string
+          is_active: boolean
+          is_configurable: boolean
+          module_key: string
+          route_segment: string
+          sort_order: number
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          default_label: string
+          description?: string | null
+          icon_name?: string | null
+          id?: string
+          is_active?: boolean
+          is_configurable?: boolean
+          module_key: string
+          route_segment: string
+          sort_order?: number
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          default_label?: string
+          description?: string | null
+          icon_name?: string | null
+          id?: string
+          is_active?: boolean
+          is_configurable?: boolean
+          module_key?: string
+          route_segment?: string
+          sort_order?: number
+          updated_at?: string
+        }
+        Relationships: []
+      }
+      audit_logs: {
+        Row: {
+          action: string
+          actor_user_id: string
+          change_summary: Json
+          context: Json
+          created_at: string
+          entity_id: string | null
+          entity_type: string
+          id: string
+          profit_center_id: string | null
+        }
+        Insert: {
+          action: string
+          actor_user_id: string
+          change_summary?: Json
+          context?: Json
+          created_at?: string
+          entity_id?: string | null
+          entity_type: string
+          id?: string
+          profit_center_id?: string | null
+        }
+        Update: {
+          action?: string
+          actor_user_id?: string
+          change_summary?: Json
+          context?: Json
+          created_at?: string
+          entity_id?: string | null
+          entity_type?: string
+          id?: string
+          profit_center_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "audit_logs_profit_center_id_fkey"
+            columns: ["profit_center_id"]
+            isOneToOne: false
+            referencedRelation: "profit_centers"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       profiles: {
         Row: {
           avatar_url: string | null
@@ -47,6 +133,181 @@ export type Database = {
         }
         Relationships: []
       }
+      profit_center_modules: {
+        Row: {
+          created_at: string
+          id: string
+          is_default_entry: boolean
+          is_enabled: boolean
+          module_id: string
+          nav_label: string | null
+          profit_center_id: string
+          route_segment: string | null
+          sort_order: number
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          is_default_entry?: boolean
+          is_enabled?: boolean
+          module_id: string
+          nav_label?: string | null
+          profit_center_id: string
+          route_segment?: string | null
+          sort_order?: number
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          is_default_entry?: boolean
+          is_enabled?: boolean
+          module_id?: string
+          nav_label?: string | null
+          profit_center_id?: string
+          route_segment?: string | null
+          sort_order?: number
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "profit_center_modules_module_id_fkey"
+            columns: ["module_id"]
+            isOneToOne: false
+            referencedRelation: "app_modules"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "profit_center_modules_profit_center_id_fkey"
+            columns: ["profit_center_id"]
+            isOneToOne: false
+            referencedRelation: "profit_centers"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      profit_center_settings: {
+        Row: {
+          created_at: string
+          id: string
+          is_active: boolean
+          profit_center_id: string
+          scope: string
+          setting_key: string
+          setting_value: Json
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          is_active?: boolean
+          profit_center_id: string
+          scope?: string
+          setting_key: string
+          setting_value?: Json
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          is_active?: boolean
+          profit_center_id?: string
+          scope?: string
+          setting_key?: string
+          setting_value?: Json
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "profit_center_settings_profit_center_id_fkey"
+            columns: ["profit_center_id"]
+            isOneToOne: false
+            referencedRelation: "profit_centers"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      profit_centers: {
+        Row: {
+          code: string
+          created_at: string
+          description: string | null
+          id: string
+          is_active: boolean
+          location_name: string | null
+          name: string
+          process_profile: string | null
+          slug: string
+          updated_at: string
+        }
+        Insert: {
+          code: string
+          created_at?: string
+          description?: string | null
+          id?: string
+          is_active?: boolean
+          location_name?: string | null
+          name: string
+          process_profile?: string | null
+          slug: string
+          updated_at?: string
+        }
+        Update: {
+          code?: string
+          created_at?: string
+          description?: string | null
+          id?: string
+          is_active?: boolean
+          location_name?: string | null
+          name?: string
+          process_profile?: string | null
+          slug?: string
+          updated_at?: string
+        }
+        Relationships: []
+      }
+      user_profit_centers: {
+        Row: {
+          assigned_by: string | null
+          created_at: string
+          id: string
+          is_active: boolean
+          is_default: boolean
+          profit_center_id: string
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          assigned_by?: string | null
+          created_at?: string
+          id?: string
+          is_active?: boolean
+          is_default?: boolean
+          profit_center_id: string
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          assigned_by?: string | null
+          created_at?: string
+          id?: string
+          is_active?: boolean
+          is_default?: boolean
+          profit_center_id?: string
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "user_profit_centers_profit_center_id_fkey"
+            columns: ["profit_center_id"]
+            isOneToOne: false
+            referencedRelation: "profit_centers"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       user_roles: {
         Row: {
           id: string
@@ -70,6 +331,15 @@ export type Database = {
       [_ in never]: never
     }
     Functions: {
+      can_manage_profit_center: {
+        Args: { _profit_center_id: string; _user_id: string }
+        Returns: boolean
+      }
+      has_elevated_role: { Args: { _user_id: string }; Returns: boolean }
+      has_profit_center_access: {
+        Args: { _profit_center_id: string; _user_id: string }
+        Returns: boolean
+      }
       has_role: {
         Args: {
           _role: Database["public"]["Enums"]["app_role"]
