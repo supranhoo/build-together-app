@@ -236,7 +236,7 @@ export default function AdminWorkspaces() {
             <div className="rounded-md border border-border bg-panel px-4 py-3 text-sm text-muted-foreground">
               <p className="font-medium text-foreground">Creation restricted</p>
               <p className="mt-1">
-                Only super admins can create new workspaces. Select an existing workspace from the catalog on the left to edit its details.
+                You don't have permission to create new workspaces. Select an existing workspace from the catalog on the left to view its details.
               </p>
             </div>
           )}
