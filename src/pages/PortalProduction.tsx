@@ -87,6 +87,11 @@ export default function PortalProduction() {
   const [consumption, setConsumption] = useState<ConsumptionRow[]>([]);
   const [saving, setSaving] = useState(false);
   const [loading, setLoading] = useState(false);
+  const [canVoid, setCanVoid] = useState(false);
+  const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
+  const [voidOpen, setVoidOpen] = useState(false);
+  const [voidReason, setVoidReason] = useState("");
+  const [voiding, setVoiding] = useState(false);
 
   const loadAll = async () => {
     if (!activeProfitCenter) return;
