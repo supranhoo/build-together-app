@@ -17,7 +17,7 @@ interface FormState { id?: string; profitCenterId: string; code: string; name: s
 const empty: FormState = { profitCenterId: "", code: "", name: "", startTime: "06:00", endTime: "14:00", sortOrder: "0", isActive: true };
 
 export default function AdminShifts() {
-  const { activeProfitCenter } = useWorkspace();
+  const { activeProfitCenter, selectProfitCenter } = useWorkspace();
   const { session } = useAuth();
   const { toast } = useToast();
   const [shifts, setShifts] = useState<Shift[]>([]);
@@ -67,9 +67,18 @@ export default function AdminShifts() {
         action: form.id ? "shift.updated" : "shift.created",
         changeSummary: { code: form.code, name: form.name, profit_center_id: form.profitCenterId },
       });
-      toast({ title: "Shift saved" });
+      const targetPcId = form.profitCenterId;
+      const isCrossWorkspace = targetPcId !== activeProfitCenter.id;
+      toast({
+        title: "Shift saved",
+        description: isCrossWorkspace ? "Switched workspace to show the new record." : undefined,
+      });
       setOpen(false);
-      await load();
+      if (isCrossWorkspace) {
+        selectProfitCenter(targetPcId);
+      } else {
+        await load();
+      }
     } catch (error) {
       toast({ title: "Save failed", description: error instanceof Error ? error.message : "", variant: "destructive" });
     } finally {

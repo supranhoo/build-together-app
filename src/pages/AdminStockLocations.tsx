@@ -17,7 +17,7 @@ interface FormState { id?: string; profitCenterId: string; code: string; name: s
 const empty: FormState = { profitCenterId: "", code: "", name: "", isActive: true };
 
 export default function AdminStockLocations() {
-  const { activeProfitCenter } = useWorkspace();
+  const { activeProfitCenter, selectProfitCenter } = useWorkspace();
   const { session } = useAuth();
   const { toast } = useToast();
   const [locations, setLocations] = useState<StockLocation[]>([]);
@@ -64,9 +64,18 @@ export default function AdminStockLocations() {
         action: form.id ? "stock_location.updated" : "stock_location.created",
         changeSummary: { code: form.code, name: form.name, profit_center_id: form.profitCenterId },
       });
-      toast({ title: "Stock location saved" });
+      const targetPcId = form.profitCenterId;
+      const isCrossWorkspace = targetPcId !== activeProfitCenter.id;
+      toast({
+        title: "Stock location saved",
+        description: isCrossWorkspace ? "Switched workspace to show the new record." : undefined,
+      });
       setOpen(false);
-      await load();
+      if (isCrossWorkspace) {
+        selectProfitCenter(targetPcId);
+      } else {
+        await load();
+      }
     } catch (error) {
       toast({ title: "Save failed", description: error instanceof Error ? error.message : "", variant: "destructive" });
     } finally {

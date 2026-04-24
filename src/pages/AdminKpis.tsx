@@ -40,7 +40,7 @@ interface FormState {
 const empty: FormState = { profitCenterId: "", key: "", displayName: "", unit: "", formula: "{\n  \"source\": \"heat_logs\",\n  \"agg\": \"count\"\n}", sortOrder: "100", isActive: true };
 
 export default function AdminKpis() {
-  const { activeProfitCenter, isAdmin, isSuperAdmin, assignments } = useWorkspace();
+  const { activeProfitCenter, isAdmin, isSuperAdmin, assignments, selectProfitCenter } = useWorkspace();
   const { session } = useAuth();
   const { toast } = useToast();
   const [defs, setDefs] = useState<KpiDefinition[]>([]);
@@ -218,9 +218,18 @@ export default function AdminKpis() {
         action: form.id ? "kpi.updated" : "kpi.created",
         changeSummary: { key: form.key, displayName: form.displayName, profit_center_id: form.profitCenterId },
       });
-      toast({ title: "KPI saved" });
+      const targetPcId = form.profitCenterId;
+      const isCrossWorkspace = targetPcId !== activeProfitCenter.id;
+      toast({
+        title: "KPI saved",
+        description: isCrossWorkspace ? "Switched workspace to show the new record." : undefined,
+      });
       setOpen(false);
-      await load();
+      if (isCrossWorkspace) {
+        selectProfitCenter(targetPcId);
+      } else {
+        await load();
+      }
     } catch (err) {
       toast({ title: "Save failed", description: err instanceof Error ? err.message : "", variant: "destructive" });
     } finally {
