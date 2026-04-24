@@ -5,6 +5,7 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Badge } from "@/components/ui/badge";
+import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group";
 import { useToast } from "@/hooks/use-toast";
 import { useWorkspace } from "@/hooks/use-workspace";
 import { useAuth } from "@/hooks/use-auth";
@@ -12,11 +13,13 @@ import { KpiDetailDrawer } from "@/components/KpiDetailDrawer";
 import {
   buildDateRange,
   computeKpi,
+  computeKpiConsolidated,
   downloadCsv,
   exportKpiCsv,
   fetchKpiDefinitions,
   fetchMySubscriptions,
   unsubscribeFromKpi,
+  type KpiConsolidatedResult,
   type KpiDefinition,
   type KpiPreset,
   type KpiResult,
@@ -29,12 +32,16 @@ const presets: { value: KpiPreset; label: string }[] = [
   { value: "30d", label: "Last 30 days" },
 ];
 
+type ViewMode = "workspace" | "consolidated";
+
 export default function PortalReports() {
-  const { activeProfitCenter } = useWorkspace();
+  const { activeProfitCenter, assignments } = useWorkspace();
   const { session } = useAuth();
   const { toast } = useToast();
   const [definitions, setDefinitions] = useState<KpiDefinition[]>([]);
   const [results, setResults] = useState<Record<string, KpiResult>>({});
+  const [consolidated, setConsolidated] = useState<Record<string, KpiConsolidatedResult>>({});
+  const [view, setView] = useState<ViewMode>("workspace");
   const [preset, setPreset] = useState<KpiPreset>("7d");
   const [selectedKey, setSelectedKey] = useState<string | null>(null);
   const [drawerKey, setDrawerKey] = useState<string | null>(null);
@@ -42,6 +49,8 @@ export default function PortalReports() {
   const [loading, setLoading] = useState(false);
 
   const range = useMemo(() => buildDateRange(preset), [preset]);
+  const activeAssignmentCount = assignments.filter((a) => a.isActive).length;
+  const canConsolidate = activeAssignmentCount >= 2;
 
   useEffect(() => {
     if (!activeProfitCenter) return;
@@ -53,11 +62,19 @@ export default function PortalReports() {
         if (cancelled) return;
         setDefinitions(defs);
         if (!selectedKey && defs[0]) setSelectedKey(defs[0].key);
-        const entries = await Promise.all(
-          defs.map(async (d) => [d.key, await computeKpi(activeProfitCenter.id, d.key, range)] as const),
-        );
-        if (cancelled) return;
-        setResults(Object.fromEntries(entries));
+        if (view === "workspace") {
+          const entries = await Promise.all(
+            defs.map(async (d) => [d.key, await computeKpi(activeProfitCenter.id, d.key, range)] as const),
+          );
+          if (cancelled) return;
+          setResults(Object.fromEntries(entries));
+        } else {
+          const entries = await Promise.all(
+            defs.map(async (d) => [d.key, await computeKpiConsolidated(d.key, range)] as const),
+          );
+          if (cancelled) return;
+          setConsolidated(Object.fromEntries(entries));
+        }
       } catch (err) {
         toast({ title: "Failed to load KPIs", description: err instanceof Error ? err.message : String(err), variant: "destructive" });
       } finally {
@@ -67,7 +84,7 @@ export default function PortalReports() {
     return () => {
       cancelled = true;
     };
-  }, [activeProfitCenter, range, toast, selectedKey]);
+  }, [activeProfitCenter, range, toast, selectedKey, view]);
 
   const refreshSubs = async () => {
     if (!activeProfitCenter) return;
@@ -81,9 +98,10 @@ export default function PortalReports() {
 
   useEffect(() => { void refreshSubs(); /* eslint-disable-next-line */ }, [activeProfitCenter?.id, session?.user?.id]);
 
-  const selected = selectedKey ? results[selectedKey] : null;
+  const selected = view === "workspace" && selectedKey ? results[selectedKey] : null;
   const selectedDef = selectedKey ? definitions.find((d) => d.key === selectedKey) : null;
   const drawerDef = drawerKey ? definitions.find((d) => d.key === drawerKey) ?? null : null;
+  const drawerConsolidated = view === "consolidated" && drawerKey ? consolidated[drawerKey] : null;
 
   const handleExport = () => {
     if (!selected || !selectedDef) return;
@@ -112,12 +130,26 @@ export default function PortalReports() {
           <h2 className="text-2xl font-semibold tracking-tight">Operational KPIs</h2>
           <p className="text-sm text-muted-foreground">Aggregations driven by workspace formulas. Configure under Admin → KPIs.</p>
         </div>
-        <Select value={preset} onValueChange={(v) => setPreset(v as KpiPreset)}>
-          <SelectTrigger className="w-44"><SelectValue /></SelectTrigger>
-          <SelectContent>
-            {presets.map((p) => <SelectItem key={p.value} value={p.value}>{p.label}</SelectItem>)}
-          </SelectContent>
-        </Select>
+        <div className="flex items-center gap-3">
+          {canConsolidate && (
+            <ToggleGroup
+              type="single"
+              value={view}
+              onValueChange={(v) => { if (v === "workspace" || v === "consolidated") setView(v); }}
+              variant="outline"
+              size="sm"
+            >
+              <ToggleGroupItem value="workspace">Workspace</ToggleGroupItem>
+              <ToggleGroupItem value="consolidated">Consolidated</ToggleGroupItem>
+            </ToggleGroup>
+          )}
+          <Select value={preset} onValueChange={(v) => setPreset(v as KpiPreset)}>
+            <SelectTrigger className="w-44"><SelectValue /></SelectTrigger>
+            <SelectContent>
+              {presets.map((p) => <SelectItem key={p.value} value={p.value}>{p.label}</SelectItem>)}
+            </SelectContent>
+          </Select>
+        </div>
       </div>
 
       {definitions.length === 0 && !loading ? (
@@ -129,9 +161,12 @@ export default function PortalReports() {
       ) : (
         <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
           {definitions.map((def) => {
-            const r = results[def.key];
+            const ws = results[def.key];
+            const cons = consolidated[def.key];
+            const value = view === "workspace" ? ws?.value : cons?.value;
             const isSelected = selectedKey === def.key;
             const subCount = subscriptions.filter((s) => s.kpiDefinitionId === def.id).length;
+            const wsCount = view === "consolidated" ? (cons?.perWorkspace.length ?? 0) : 0;
             return (
               <button
                 key={def.id}
@@ -146,9 +181,12 @@ export default function PortalReports() {
                       {subCount > 0 ? <Badge variant="secondary" className="text-[10px]">subscribed</Badge> : null}
                     </div>
                     <CardTitle className="text-3xl">
-                      {r?.value == null ? "—" : Number(r.value).toLocaleString(undefined, { maximumFractionDigits: 2 })}
+                      {value == null ? "—" : Number(value).toLocaleString(undefined, { maximumFractionDigits: 2 })}
                       {def.unit ? <span className="ml-1 text-sm font-normal text-muted-foreground">{def.unit}</span> : null}
                     </CardTitle>
+                    {view === "consolidated" && wsCount > 0 ? (
+                      <p className="text-xs text-muted-foreground">across {wsCount} workspace{wsCount === 1 ? "" : "s"}</p>
+                    ) : null}
                   </CardHeader>
                 </Card>
               </button>
@@ -217,6 +255,7 @@ export default function PortalReports() {
         range={range}
         subscriptions={subscriptions}
         onSubscriptionsChanged={refreshSubs}
+        perWorkspace={drawerConsolidated?.perWorkspace}
       />
     </div>
   );

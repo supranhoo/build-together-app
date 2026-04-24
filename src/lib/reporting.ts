@@ -311,6 +311,81 @@ export function exportDrilldownCsv(rows: KpiDrilldownRow[]): string {
   return lines.join("\n");
 }
 
+// ===== Phase 7: Consolidated KPI + void/reverse =====
+
+export interface KpiPerWorkspace {
+  profitCenterId: string;
+  name: string;
+  value: number | null;
+  error?: string;
+}
+
+export interface KpiConsolidatedResult {
+  value: number | null;
+  perWorkspace: KpiPerWorkspace[];
+  unit?: string;
+  displayName?: string;
+}
+
+export async function computeKpiConsolidated(key: string, range: DateRange): Promise<KpiConsolidatedResult> {
+  const { data, error } = await (supabase as any).rpc("compute_kpi_consolidated", {
+    _key: key,
+    _from: range.from.toISOString(),
+    _to: range.to.toISOString(),
+  });
+  if (error) throw error;
+  const r = (data ?? {}) as any;
+  const per = ((r.per_workspace ?? []) as any[]).map((p) => ({
+    profitCenterId: p.profit_center_id,
+    name: p.name,
+    value: p.value ?? null,
+    error: p.error,
+  }));
+  return {
+    value: r.value ?? null,
+    perWorkspace: per,
+    unit: r.unit,
+    displayName: r.display_name,
+  };
+}
+
+/**
+ * Pure helper: sum the per-workspace values, ignoring null entries.
+ */
+export function sumPerWorkspace(rows: KpiPerWorkspace[]): number | null {
+  const present = rows.filter((r) => r.value !== null);
+  if (present.length === 0) return null;
+  return present.reduce((acc, r) => acc + Number(r.value ?? 0), 0);
+}
+
+export async function voidHeatLog(heatLogId: string, reason: string): Promise<void> {
+  const { data, error } = await (supabase as any).rpc("void_heat_log", {
+    _heat_log_id: heatLogId,
+    _reason: reason,
+  });
+  if (error) throw error;
+  if (data && (data as any).ok === false) throw new Error((data as any).error ?? "void_failed");
+}
+
+export async function reverseInventoryLedger(ledgerId: string, reason: string): Promise<void> {
+  const { data, error } = await (supabase as any).rpc("reverse_inventory_ledger", {
+    _ledger_id: ledgerId,
+    _reason: reason,
+  });
+  if (error) throw error;
+  if (data && (data as any).ok === false) throw new Error((data as any).error ?? "reversal_failed");
+}
+
+export async function userCanAct(userId: string, resource: string, action: string): Promise<boolean> {
+  const { data, error } = await (supabase as any).rpc("user_can_act", {
+    _user_id: userId,
+    _resource: resource,
+    _action: action,
+  });
+  if (error) return false;
+  return Boolean(data);
+}
+
 export function downloadCsv(filename: string, csv: string) {
   const blob = new Blob([csv], { type: "text/csv;charset=utf-8" });
   const url = URL.createObjectURL(blob);

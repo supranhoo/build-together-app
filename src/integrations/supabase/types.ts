@@ -193,12 +193,16 @@ export type Database = {
           furnace_id: string
           heat_number: string
           id: string
+          is_voided: boolean
           notes: string | null
           power_mwh: number | null
           profit_center_id: string
           shift_id: string
           tap_time: string
           updated_at: string
+          void_reason: string | null
+          voided_at: string | null
+          voided_by: string | null
           weight_mt: number | null
         }
         Insert: {
@@ -207,12 +211,16 @@ export type Database = {
           furnace_id: string
           heat_number: string
           id?: string
+          is_voided?: boolean
           notes?: string | null
           power_mwh?: number | null
           profit_center_id: string
           shift_id: string
           tap_time: string
           updated_at?: string
+          void_reason?: string | null
+          voided_at?: string | null
+          voided_by?: string | null
           weight_mt?: number | null
         }
         Update: {
@@ -221,12 +229,16 @@ export type Database = {
           furnace_id?: string
           heat_number?: string
           id?: string
+          is_voided?: boolean
           notes?: string | null
           power_mwh?: number | null
           profit_center_id?: string
           shift_id?: string
           tap_time?: string
           updated_at?: string
+          void_reason?: string | null
+          voided_at?: string | null
+          voided_by?: string | null
           weight_mt?: number | null
         }
         Relationships: [
@@ -970,6 +982,10 @@ export type Database = {
         Args: { _target_user_id: string; _viewer_user_id: string }
         Returns: boolean
       }
+      can_void_heat_log: {
+        Args: { _heat_log_id: string; _user_id: string }
+        Returns: boolean
+      }
       compute_kpi: {
         Args: {
           _from: string
@@ -977,6 +993,10 @@ export type Database = {
           _profit_center_id: string
           _to: string
         }
+        Returns: Json
+      }
+      compute_kpi_consolidated: {
+        Args: { _from: string; _key: string; _to: string }
         Returns: Json
       }
       compute_kpi_drilldown: {
@@ -1017,9 +1037,17 @@ export type Database = {
         }
         Returns: boolean
       }
+      reverse_inventory_ledger: {
+        Args: { _ledger_id: string; _reason: string }
+        Returns: Json
+      }
       user_can_act: {
         Args: { _action: string; _resource: string; _user_id: string }
         Returns: boolean
+      }
+      void_heat_log: {
+        Args: { _heat_log_id: string; _reason: string }
+        Returns: Json
       }
     }
     Enums: {
