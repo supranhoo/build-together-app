@@ -992,3 +992,22 @@ describe("route audit", () => {
   });
 });
 
+describe("deriveSlug (workspace name → slug)", () => {
+  it("converts a simple name to a hyphenated lowercase slug", () => {
+    expect(deriveSlug("Ferro Alloys")).toBe("ferro-alloys");
+  });
+
+  it("trims whitespace and collapses non-alphanumerics, including symbols", () => {
+    expect(deriveSlug("  Hot Strip Mill #2  ")).toBe("hot-strip-mill-2");
+  });
+
+  it("returns empty string for empty or whitespace-only input", () => {
+    expect(deriveSlug("")).toBe("");
+    expect(deriveSlug("    ")).toBe("");
+  });
+
+  it("passes an already-slug value through unchanged", () => {
+    expect(deriveSlug("ferro-alloys")).toBe("ferro-alloys");
+  });
+});
+
