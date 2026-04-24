@@ -67,18 +67,19 @@ const App = () => (
                 <Route element={<RequireAdmin />}>
                   <Route path="/admin" element={<AdminShell />}>
                     <Route index element={<AdminOverview />} />
-                    <Route path="workspaces" element={<AdminWorkspaces />} />
-                    <Route path="modules" element={<AdminModules />} />
-                    <Route path="access" element={<AdminAccess />} />
                     <Route path="settings" element={<AdminSettings />} />
-                    <Route path="audit" element={<AdminAudit />} />
-                    <Route path="furnaces" element={<AdminFurnaces />} />
-                    <Route path="shifts" element={<AdminShifts />} />
-                    <Route path="materials" element={<AdminMaterials />} />
-                    <Route path="stock-locations" element={<AdminStockLocations />} />
-                    <Route path="kpis" element={<AdminKpis />} />
-                    <Route path="report-deliveries" element={<AdminReportDeliveries />} />
-                    <Route path="roles" element={<AdminRoles />} />
+                    {/* Legacy admin routes — consolidated under Admin Settings tabs. */}
+                    <Route path="workspaces" element={<Navigate to="/admin/settings?tab=workspaces" replace />} />
+                    <Route path="modules" element={<Navigate to="/admin/settings?tab=modules" replace />} />
+                    <Route path="access" element={<Navigate to="/admin/settings?tab=access" replace />} />
+                    <Route path="audit" element={<Navigate to="/admin/settings?tab=audit" replace />} />
+                    <Route path="furnaces" element={<Navigate to="/admin/settings?tab=furnaces" replace />} />
+                    <Route path="shifts" element={<Navigate to="/admin/settings?tab=shifts" replace />} />
+                    <Route path="materials" element={<Navigate to="/admin/settings?tab=materials" replace />} />
+                    <Route path="stock-locations" element={<Navigate to="/admin/settings?tab=stock-locations" replace />} />
+                    <Route path="kpis" element={<Navigate to="/admin/settings?tab=kpis" replace />} />
+                    <Route path="report-deliveries" element={<Navigate to="/admin/settings?tab=report-deliveries" replace />} />
+                    <Route path="roles" element={<Navigate to="/admin/settings?tab=roles" replace />} />
                   </Route>
                 </Route>
               </Route>
