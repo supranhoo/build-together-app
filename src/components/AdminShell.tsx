@@ -10,7 +10,7 @@ import { useAuth } from "@/hooks/use-auth";
 import { useWorkspace } from "@/hooks/use-workspace";
 import { cn } from "@/lib/utils";
 
-const adminNavItems = [
+export const adminNavItems = [
   { label: "Overview", to: "/admin", icon: LayoutDashboard },
   { label: "Workspaces", to: "/admin/workspaces", icon: Map },
   { label: "Modules", to: "/admin/modules", icon: ClipboardList },

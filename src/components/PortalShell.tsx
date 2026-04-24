@@ -18,6 +18,12 @@ const iconMap = {
   reports: FileBarChart2,
 };
 
+// Static (non-module) portal nav entries. Exported so the route-audit test can
+// validate every link against the App router.
+export const portalStaticNavItems = [
+  { label: "Overview", to: "/portal" },
+];
+
 export function PortalShell() {
   const [sidebarOpen, setSidebarOpen] = useState(true);
   const [mobileNavOpen, setMobileNavOpen] = useState(false);
@@ -37,7 +43,7 @@ export function PortalShell() {
 
   const navItems = useMemo(
     () => [
-      { label: "Overview", to: "/portal", icon: LayoutDashboard },
+      ...portalStaticNavItems.map((item) => ({ ...item, icon: LayoutDashboard })),
       ...modules.map((module) => ({
         label: module.navLabel,
         to: `/portal/${module.routeSegment}`,

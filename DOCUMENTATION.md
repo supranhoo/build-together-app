@@ -253,4 +253,6 @@ SteelFlow ERP now uses a configuration-first workspace foundation for steel and 
 - The header `Switch workspace` button is reachable on every breakpoint: an icon-only variant is rendered below `md`.
 - The header search input is intentionally `disabled` with placeholder "Search (coming soon)" — kept as a visible affordance without misleading users that it works.
 - Tests for `buildBreadcrumbs` live in `src/test/example.test.tsx` ("Breadcrumbs helper" describe block): linked-vs-unlinked behavior, hyphen humanization, label overrides, and root-path empty result.
+- **Route audit invariant**: every navigation link surfaced by the shells must resolve to a route declared in `src/App.tsx`. Enforced by the `route audit` describe block in `src/test/example.test.tsx`, which validates `adminNavItems` (exported from `AdminShell.tsx`), `portalStaticNavItems` (exported from `PortalShell.tsx`), the dynamic `/portal/:module` pattern, the cross-shell jump links, and the inventory CTA links against a static `ROUTE_CATALOG` that mirrors `App.tsx`. When you add or rename a route in `App.tsx`, update both the nav array and `ROUTE_CATALOG`.
+
 
