@@ -164,7 +164,7 @@ export async function fetchHeatLogs(profitCenterId: string, filters?: {
 }): Promise<HeatLog[]> {
   let query = client
     .from("heat_logs")
-    .select("id, profit_center_id, furnace_id, shift_id, heat_number, tap_time, weight_mt, power_mwh, notes, created_by, created_at, updated_at")
+    .select("id, profit_center_id, furnace_id, shift_id, heat_number, tap_time, weight_mt, power_mwh, notes, created_by, created_at, updated_at, is_voided, void_reason")
     .eq("profit_center_id", profitCenterId)
     .order("tap_time", { ascending: false })
     .limit(200);
