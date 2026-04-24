@@ -33,7 +33,7 @@ SteelFlow ERP now uses a configuration-first workspace foundation for steel and 
 - Route flow: `/ -> /login -> /profit-centers -> /portal -> /portal/{configured-module}` and `/admin/*`.
 - Sidebar navigation is driven from configured modules, with overview retained as the fixed portal entry.
 - Admin configuration is intentionally split across multiple pages: overview, workspaces, modules, access, settings, and audit.
-- Workspace management now supports editing existing workspaces and super-admin-only workspace creation.
+- Workspace management supports editing existing workspaces and admin/super-admin workspace creation. The creator is auto-assigned as a manager of the new workspace via a database trigger so subsequent edits succeed under the existing per-workspace authorization.
 - Module management now persists enablement, naming, ordering, route segments, and default entry behavior.
 - Access management now supports assigning users to the active workspace from the admin UI.
 - Settings management now persists JSON-based workspace settings from the admin UI.
