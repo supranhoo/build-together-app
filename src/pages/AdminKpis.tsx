@@ -47,6 +47,93 @@ export default function AdminKpis() {
   const [saving, setSaving] = useState(false);
   const [preview, setPreview] = useState<KpiResult | null>(null);
   const [previewLoading, setPreviewLoading] = useState(false);
+  const [defaultsIds, setDefaultsIds] = useState<string[]>([]);
+  const [defaultsOpen, setDefaultsOpen] = useState(false);
+  const [defaultsSaving, setDefaultsSaving] = useState(false);
+  const [applyingDefaults, setApplyingDefaults] = useState(false);
+
+  const managedProfitCenterIds = useMemo(
+    () => assignments.filter((a) => a.isActive).map((a) => a.profitCenterId),
+    [assignments],
+  );
+  const canManageDefaults = activeProfitCenter
+    ? canShareKpiPin({
+        isSuperAdmin,
+        isAdmin,
+        profitCenterId: activeProfitCenter.id,
+        managedProfitCenterIds,
+      })
+    : false;
+
+  const loadDefaults = async () => {
+    if (!activeProfitCenter) return;
+    try {
+      const settings = await fetchProfitCenterSettings(activeProfitCenter.id);
+      const row = settings.find((s) => s.settingKey === SHARED_PIN_DEFAULTS_KEY);
+      const ids = (row?.settingValue as { kpi_definition_ids?: unknown })?.kpi_definition_ids;
+      setDefaultsIds(Array.isArray(ids) ? (ids as string[]) : []);
+    } catch (err) {
+      // Non-fatal — admins without settings access just see an empty list.
+      setDefaultsIds([]);
+    }
+  };
+
+  useEffect(() => { void loadDefaults(); /* eslint-disable-next-line */ }, [activeProfitCenter?.id]);
+
+  const handleSaveDefaults = async (orderedIds: string[]) => {
+    if (!activeProfitCenter || !session?.user || !canManageDefaults) return;
+    setDefaultsSaving(true);
+    try {
+      await upsertProfitCenterSetting({
+        profitCenterId: activeProfitCenter.id,
+        settingKey: SHARED_PIN_DEFAULTS_KEY,
+        scope: "workspace",
+        settingValue: { kpi_definition_ids: orderedIds },
+      });
+      await createAuditLog({
+        actorUserId: session.user.id,
+        profitCenterId: activeProfitCenter.id,
+        entityType: "profit_center_setting",
+        action: "shared_pin_defaults.updated",
+        changeSummary: { kpi_definition_ids: orderedIds, count: orderedIds.length },
+      });
+      setDefaultsIds(orderedIds);
+      toast({ title: "Defaults saved", description: `${orderedIds.length} KPI(s) marked as workspace defaults.` });
+      setDefaultsOpen(false);
+    } catch (err) {
+      toast({ title: "Save failed", description: err instanceof Error ? err.message : "", variant: "destructive" });
+    } finally {
+      setDefaultsSaving(false);
+    }
+  };
+
+  const handleApplyDefaults = async () => {
+    if (!activeProfitCenter || !session?.user || !canManageDefaults) return;
+    if (defaultsIds.length === 0) {
+      toast({ title: "No defaults configured", description: "Edit defaults first.", variant: "destructive" });
+      return;
+    }
+    setApplyingDefaults(true);
+    try {
+      const result = await applySharedPinDefaults({
+        actorUserId: session.user.id,
+        profitCenterId: activeProfitCenter.id,
+        kpiDefinitionIds: defaultsIds,
+      });
+      toast({
+        title: "Defaults applied",
+        description: `${result.shared} shared · ${result.unshared} unshared${
+          result.errors.length > 0 ? ` · ${result.errors.length} failed` : ""
+        }`,
+        variant: result.errors.length > 0 ? "destructive" : "default",
+      });
+    } catch (err) {
+      toast({ title: "Apply failed", description: err instanceof Error ? err.message : "", variant: "destructive" });
+    } finally {
+      setApplyingDefaults(false);
+    }
+  };
+
 
   const load = async () => {
     if (!activeProfitCenter) return;
