@@ -124,8 +124,19 @@ export default function PortalProduction() {
 
   useEffect(() => {
     void loadAll();
+    setSelectedIds(new Set());
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [activeProfitCenter?.id, filterFurnace, filterShift, filterDate]);
+
+  useEffect(() => {
+    if (!session?.user?.id) return;
+    let cancelled = false;
+    (async () => {
+      const ok = await userCanAct(session.user.id, "heat_log", "void");
+      if (!cancelled) setCanVoid(ok);
+    })();
+    return () => { cancelled = true; };
+  }, [session?.user?.id]);
 
   const canCreate = useMemo(() => userRoleAllows(grants, profile?.role, "heat_log", "create"), [grants, profile?.role]);
   const canConsume = useMemo(() => userRoleAllows(grants, profile?.role, "inventory", "consume"), [grants, profile?.role]);
