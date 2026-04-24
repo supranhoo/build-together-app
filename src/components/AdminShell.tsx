@@ -12,7 +12,7 @@ import { cn } from "@/lib/utils";
 
 export const adminNavItems = [
   { label: "Overview", to: "/admin", icon: LayoutDashboard },
-  { label: "Workspaces", to: "/admin/workspaces", icon: Map },
+  { label: "Profit Centers", to: "/admin/workspaces", icon: Map },
   { label: "Modules", to: "/admin/modules", icon: ClipboardList },
   { label: "Access", to: "/admin/access", icon: ShieldCheck },
   { label: "Settings", to: "/admin/settings", icon: Cog },
