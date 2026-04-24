@@ -136,6 +136,35 @@ export default function PortalReports() {
     }
   };
 
+  const handleTogglePin = async (def: KpiDefinition) => {
+    if (!activeProfitCenter || !session?.user?.id) return;
+    const existing = pins.find((p) => p.kpiDefinitionId === def.id);
+    try {
+      if (existing) {
+        await unpinKpi(existing.id);
+        await refreshPins();
+        toast({ title: "Unpinned from overview" });
+        return;
+      }
+      if (enforceMaxPins(pins.length)) {
+        toast({ title: `Pin limit reached`, description: `Maximum ${KPI_PIN_CAP} pins per workspace.`, variant: "destructive" });
+        return;
+      }
+      await pinKpi({
+        userId: session.user.id,
+        profitCenterId: activeProfitCenter.id,
+        kpiDefinitionId: def.id,
+        sortOrder: pins.length,
+      });
+      await refreshPins();
+      toast({ title: "Pinned to overview" });
+    } catch (err) {
+      const msg = err instanceof Error ? err.message : "";
+      const friendly = msg.includes("pin_cap_exceeded") ? `Maximum ${KPI_PIN_CAP} pins per workspace.` : msg;
+      toast({ title: "Pin update failed", description: friendly, variant: "destructive" });
+    }
+  };
+
   if (!activeProfitCenter) {
     return <p className="text-sm text-muted-foreground">Select a workspace to view reports.</p>;
   }
