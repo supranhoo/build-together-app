@@ -134,7 +134,18 @@ export default function PortalProduction() {
       powerMwh: log.powerMwh?.toString() ?? "",
       notes: log.notes ?? "",
     });
+    setConsumption([]);
     setCreateOpen(true);
+  };
+
+  const addConsumptionRow = () => {
+    setConsumption((rows) => [...rows, { key: crypto.randomUUID(), materialId: "", stockLocationId: "", quantity: 0 }]);
+  };
+  const updateConsumptionRow = (key: string, patch: Partial<ConsumptionRow>) => {
+    setConsumption((rows) => rows.map((r) => (r.key === key ? { ...r, ...patch } : r)));
+  };
+  const removeConsumptionRow = (key: string) => {
+    setConsumption((rows) => rows.filter((r) => r.key !== key));
   };
 
   const validate = (): string | null => {
@@ -142,6 +153,10 @@ export default function PortalProduction() {
     if (!form.shiftId) return "Shift is required";
     if (!form.heatNumber.trim()) return "Heat number is required";
     if (!form.tapTime) return "Tap time is required";
+    for (const r of consumption) {
+      if (!r.materialId || !r.stockLocationId) return "Each consumption row needs a material and location";
+      if (!Number.isFinite(r.quantity) || r.quantity <= 0) return "Each consumption quantity must be > 0";
+    }
     return null;
   };
 
@@ -166,7 +181,7 @@ export default function PortalProduction() {
           notes: form.notes || null,
         });
       } else {
-        await createHeatLog({
+        const newId = await createHeatLog({
           profitCenterId: activeProfitCenter.id,
           furnaceId: form.furnaceId,
           shiftId: form.shiftId,
@@ -177,6 +192,14 @@ export default function PortalProduction() {
           notes: form.notes || null,
           createdBy: session.user.id,
         });
+        if (consumption.length > 0) {
+          await recordHeatConsumption({
+            heatLogId: newId,
+            profitCenterId: activeProfitCenter.id,
+            createdBy: session.user.id,
+            rows: consumption.map((r) => ({ materialId: r.materialId, stockLocationId: r.stockLocationId, quantity: r.quantity })),
+          });
+        }
       }
       toast({ title: editing ? "Heat log updated" : "Heat log recorded" });
       setCreateOpen(false);
