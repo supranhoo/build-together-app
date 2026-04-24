@@ -45,6 +45,15 @@ export function canCreateWorkspace(role: string | null | undefined): boolean {
   return role === "admin" || role === "super_admin";
 }
 
+/**
+ * Filter a list of profit centers down to active ones only.
+ * Pure helper — exported for unit tests.
+ * Used to scope the Admin → Profit Centers catalog so it shows only active records.
+ */
+export function filterActiveProfitCenters<T extends { isActive: boolean }>(rows: T[]): T[] {
+  return rows.filter((row) => row.isActive);
+}
+
 /** Detect a Postgres / PostgREST RLS rejection so we can show a friendly message. */
 function isRlsError(err: unknown): boolean {
   if (!(err instanceof Error)) return false;
@@ -136,7 +145,7 @@ export default function AdminWorkspaces() {
         });
       } else {
         if (!canCreate) {
-          throw new Error("You don't have permission to create new workspaces.");
+          throw new Error("You don't have permission to create new Profit Centers.");
         }
         const created = await createProfitCenter(form);
         await createAuditLog({
@@ -168,15 +177,15 @@ export default function AdminWorkspaces() {
       }
 
       await refreshWorkspace();
-      toast({ title: "Workspace saved", description: "Configuration changes were saved successfully." });
+      toast({ title: "Profit Center saved", description: "Configuration changes were saved successfully." });
     } catch (error) {
       const friendly = isRlsError(error)
-        ? "You don't have permission to save this workspace. Contact a super admin."
+        ? "You don't have permission to save this Profit Center. Contact a super admin."
         : error instanceof Error
           ? error.message
           : "Please try again.";
       toast({
-        title: "Workspace save failed",
+        title: "Profit Center save failed",
         description: friendly,
         variant: "destructive",
       });
@@ -188,11 +197,16 @@ export default function AdminWorkspaces() {
   const isSubmitDisabled = saving || !form.name || !form.code || !form.slug;
   const requiredHint = !form.name || !form.code || !form.slug;
 
+  const visibleProfitCenters = useMemo(
+    () => filterActiveProfitCenters(allProfitCenters),
+    [allProfitCenters],
+  );
+
   return (
     <div className="grid gap-6 xl:grid-cols-[1.1fr_0.9fr]">
       <Card className="border-border bg-card shadow-panel">
         <CardHeader>
-          <CardTitle>Workspace catalog</CardTitle>
+          <CardTitle>Profit Center catalog</CardTitle>
         </CardHeader>
         <CardContent>
           <Table>
@@ -205,14 +219,26 @@ export default function AdminWorkspaces() {
               </TableRow>
             </TableHeader>
             <TableBody>
-              {allProfitCenters.map((workspace) => (
-                <TableRow key={workspace.id} className="cursor-pointer" onClick={() => setSelectedId(workspace.id)}>
+              {visibleProfitCenters.map((workspace) => (
+                <TableRow
+                  key={workspace.id}
+                  className={`cursor-pointer ${workspace.id === selectedId ? "bg-accent" : ""}`}
+                  onClick={() => setSelectedId(workspace.id)}
+                  aria-selected={workspace.id === selectedId}
+                >
                   <TableCell className="font-medium text-foreground">{workspace.name}</TableCell>
                   <TableCell>{workspace.code}</TableCell>
                   <TableCell>{workspace.locationName || "—"}</TableCell>
                   <TableCell>{workspace.isActive ? "Active" : "Inactive"}</TableCell>
                 </TableRow>
               ))}
+              {visibleProfitCenters.length === 0 && (
+                <TableRow>
+                  <TableCell colSpan={4} className="text-center text-sm text-muted-foreground">
+                    No active Profit Centers yet. Create one to get started.
+                  </TableCell>
+                </TableRow>
+              )}
             </TableBody>
           </Table>
           <Button
@@ -220,23 +246,23 @@ export default function AdminWorkspaces() {
             className="mt-4"
             onClick={() => { setSelectedId(null); setForm(emptyForm); setSlugTouched(false); }}
             disabled={!canCreate}
-            title={!canCreate ? "Admins and super admins can create workspaces" : undefined}
+            title={!canCreate ? "Admins and super admins can create Profit Centers" : undefined}
           >
-            New workspace
+            New Profit Center
           </Button>
         </CardContent>
       </Card>
 
       <Card className="border-border bg-card shadow-panel">
         <CardHeader>
-          <CardTitle>{selectedWorkspace ? "Edit workspace" : "Create workspace"}</CardTitle>
+          <CardTitle>{selectedWorkspace ? "Edit Profit Center" : "Create Profit Center"}</CardTitle>
         </CardHeader>
         <CardContent className="space-y-4">
           {!showForm && (
             <div className="rounded-md border border-border bg-panel px-4 py-3 text-sm text-muted-foreground">
               <p className="font-medium text-foreground">Creation restricted</p>
               <p className="mt-1">
-                You don't have permission to create new workspaces. Select an existing workspace from the catalog on the left to view its details.
+                You don't have permission to create new Profit Centers. Select an existing Profit Center from the catalog on the left to view its details.
               </p>
             </div>
           )}
@@ -274,8 +300,8 @@ export default function AdminWorkspaces() {
               <div className="space-y-2"><Label htmlFor="workspace-description">Description</Label><Textarea id="workspace-description" value={form.description} onChange={(e) => setForm((current) => ({ ...current, description: e.target.value }))} /></div>
               <div className="flex items-center justify-between rounded-md border border-border bg-panel px-4 py-3">
                 <div>
-                  <p className="font-medium text-foreground">Active workspace</p>
-                  <p className="text-sm text-muted-foreground">Inactive workspaces remain configured but should not be selectable.</p>
+                  <p className="font-medium text-foreground">Active Profit Center</p>
+                  <p className="text-sm text-muted-foreground">Inactive Profit Centers remain configured but are hidden from the catalog above.</p>
                 </div>
                 <Switch checked={form.isActive} onCheckedChange={(checked) => setForm((current) => ({ ...current, isActive: checked }))} />
               </div>
@@ -283,7 +309,7 @@ export default function AdminWorkspaces() {
                 <div className="flex items-center justify-between rounded-md border border-border bg-panel px-4 py-3">
                   <div>
                     <p className="font-medium text-foreground">Copy shared-pin defaults</p>
-                    <p className="text-sm text-muted-foreground">Apply the shared-pin defaults from <strong>{activeProfitCenter.name}</strong> to the new workspace after creation.</p>
+                    <p className="text-sm text-muted-foreground">Apply the shared-pin defaults from <strong>{activeProfitCenter.name}</strong> to the new Profit Center after creation.</p>
                   </div>
                   <Switch checked={copyDefaults} onCheckedChange={setCopyDefaults} />
                 </div>
@@ -292,7 +318,7 @@ export default function AdminWorkspaces() {
                 <p className="text-xs text-muted-foreground">Name, Code and Slug are required to save.</p>
               )}
               <Button className="w-full" onClick={() => void handleSubmit()} disabled={isSubmitDisabled}>
-                {saving ? "Saving…" : selectedWorkspace ? "Save workspace" : "Create workspace"}
+                {saving ? "Saving…" : selectedWorkspace ? "Save Profit Center" : "Create Profit Center"}
               </Button>
             </>
           )}

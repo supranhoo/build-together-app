@@ -9,7 +9,7 @@ import AdminAudit from "@/pages/AdminAudit";
 import { canEditHeatLogClient, describeRule, userRoleAllows, type PermissionGrant } from "@/lib/permissions";
 import { computeStockBalances, type InventoryLedgerEntry } from "@/lib/inventory";
 import { buildBreadcrumbs } from "@/components/Breadcrumbs";
-import { canCreateWorkspace, deriveSlug } from "@/pages/AdminWorkspaces";
+import { canCreateWorkspace, deriveSlug, filterActiveProfitCenters } from "@/pages/AdminWorkspaces";
 import { buildDateRange, backtestForecast, canShareKpiPin, diffSharedPinSelection, enforceMaxPins, exportKpiCsv, exportDrilldownCsv, filterDeliveriesByStatus, forecastLinear, forecastSeasonal, KPI_PIN_CAP, reorderPins, splitPinsByScope, sumPerWorkspace, type KpiPerWorkspace, type KpiPin, type KpiSeriesPoint, type ReportDelivery } from "@/lib/reporting";
 
 const navigateMock = vi.fn();
@@ -1027,6 +1027,26 @@ describe("canCreateWorkspace (UI gate mirrors RLS INSERT policy)", () => {
     expect(canCreateWorkspace(null)).toBe(false);
     expect(canCreateWorkspace(undefined)).toBe(false);
     expect(canCreateWorkspace("")).toBe(false);
+  });
+});
+
+describe("filterActiveProfitCenters (catalog scoping)", () => {
+  const rows = [
+    { id: "a", isActive: true },
+    { id: "b", isActive: false },
+    { id: "c", isActive: true },
+  ];
+
+  it("returns only active rows", () => {
+    expect(filterActiveProfitCenters(rows).map((r) => r.id)).toEqual(["a", "c"]);
+  });
+
+  it("returns empty array when no rows are active", () => {
+    expect(filterActiveProfitCenters([{ id: "x", isActive: false }])).toEqual([]);
+  });
+
+  it("returns empty array for empty input", () => {
+    expect(filterActiveProfitCenters([])).toEqual([]);
   });
 });
 
