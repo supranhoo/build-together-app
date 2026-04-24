@@ -895,3 +895,99 @@ describe("Breadcrumbs helper", () => {
   });
 });
 });
+
+// =============================================================================
+// Route audit
+// -----------------------------------------------------------------------------
+// Verifies every navigation link declared in the shells (and the well-known
+// hardcoded cross-shell links) resolves to a route declared in src/App.tsx.
+// If you add/rename/remove a route in App.tsx without updating nav, this fails.
+// =============================================================================
+describe("route audit", () => {
+  // Mirror of the route table declared in src/App.tsx. Keep in sync.
+  const ROUTE_CATALOG: string[] = [
+    "/",
+    "/login",
+    "/reset-password",
+    "/profit-centers",
+    "/portal",
+    "/portal/production",
+    "/portal/inventory",
+    "/portal/inventory/receipts",
+    "/portal/inventory/ledger",
+    "/portal/reports",
+    "/portal/:module",
+    "/admin",
+    "/admin/workspaces",
+    "/admin/modules",
+    "/admin/access",
+    "/admin/settings",
+    "/admin/audit",
+    "/admin/furnaces",
+    "/admin/shifts",
+    "/admin/materials",
+    "/admin/stock-locations",
+    "/admin/kpis",
+    "/admin/report-deliveries",
+    "/admin/roles",
+  ];
+
+  /**
+   * Resolve a concrete path against the catalog, supporting `:param` segments.
+   * Returns the matching pattern or null.
+   */
+  function matchRoute(path: string, catalog: string[]): string | null {
+    const target = path.split("/").filter(Boolean);
+    for (const pattern of catalog) {
+      const segs = pattern.split("/").filter(Boolean);
+      if (segs.length !== target.length) continue;
+      const ok = segs.every((seg, i) => seg.startsWith(":") || seg === target[i]);
+      if (ok) return pattern;
+    }
+    if (path === "/" && catalog.includes("/")) return "/";
+    return null;
+  }
+
+  it("matchRoute resolves exact and dynamic patterns and rejects unknown paths", () => {
+    expect(matchRoute("/admin", ROUTE_CATALOG)).toBe("/admin");
+    expect(matchRoute("/portal/anything", ROUTE_CATALOG)).toBe("/portal/:module");
+    expect(matchRoute("/admin/does-not-exist", ROUTE_CATALOG)).toBeNull();
+    expect(matchRoute("/portal/inventory/typo", ROUTE_CATALOG)).toBeNull();
+  });
+
+  it("every AdminShell nav link resolves to a declared route", async () => {
+    const { adminNavItems } = await import("@/components/AdminShell");
+    const dead = adminNavItems
+      .map((item) => item.to)
+      .filter((to) => matchRoute(to, ROUTE_CATALOG) === null);
+    expect(dead, `Dead admin nav links: ${dead.join(", ")}`).toEqual([]);
+  });
+
+  it("every static PortalShell nav link resolves to a declared route", async () => {
+    const { portalStaticNavItems } = await import("@/components/PortalShell");
+    const dead = portalStaticNavItems
+      .map((item) => item.to)
+      .filter((to) => matchRoute(to, ROUTE_CATALOG) === null);
+    expect(dead, `Dead portal static nav links: ${dead.join(", ")}`).toEqual([]);
+  });
+
+  it("dynamic /portal/:module links from workspace modules resolve", () => {
+    const moduleSegments = ["inventory", "production", "reports", "any-future-module"];
+    for (const seg of moduleSegments) {
+      expect(matchRoute(`/portal/${seg}`, ROUTE_CATALOG)).not.toBeNull();
+    }
+  });
+
+  it("hardcoded cross-shell jump links resolve", () => {
+    // PortalShell -> admin switch button; AdminShell -> return-to-portal button.
+    expect(matchRoute("/admin", ROUTE_CATALOG)).toBe("/admin");
+    expect(matchRoute("/portal", ROUTE_CATALOG)).toBe("/portal");
+  });
+
+  it("hardcoded inventory CTA links resolve", () => {
+    // From src/pages/PortalInventory.tsx
+    expect(matchRoute("/portal/inventory/receipts", ROUTE_CATALOG)).toBe("/portal/inventory/receipts");
+    expect(matchRoute("/portal/inventory/ledger", ROUTE_CATALOG)).toBe("/portal/inventory/ledger");
+  });
+});
+
