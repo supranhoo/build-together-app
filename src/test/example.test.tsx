@@ -141,6 +141,7 @@ vi.mock("@/hooks/use-toast", () => ({
 vi.mock("@/lib/auth-storage", () => ({
   getRememberPreference: () => false,
   setRememberPreference: vi.fn(),
+  authStorage: { getItem: vi.fn(), setItem: vi.fn(), removeItem: vi.fn() },
 }));
 
 vi.mock("@/lib/auth", () => ({
