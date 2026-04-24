@@ -27,6 +27,7 @@ import AdminRoles from "./pages/AdminRoles";
 import AdminMaterials from "./pages/AdminMaterials";
 import AdminStockLocations from "./pages/AdminStockLocations";
 import AdminKpis from "./pages/AdminKpis";
+import AdminReportDeliveries from "./pages/AdminReportDeliveries";
 import ModulePlaceholder from "./pages/ModulePlaceholder";
 import PortalProduction from "./pages/PortalProduction";
 import PortalInventory from "./pages/PortalInventory";
@@ -76,6 +77,7 @@ const App = () => (
                     <Route path="materials" element={<AdminMaterials />} />
                     <Route path="stock-locations" element={<AdminStockLocations />} />
                     <Route path="kpis" element={<AdminKpis />} />
+                    <Route path="report-deliveries" element={<AdminReportDeliveries />} />
                     <Route path="roles" element={<AdminRoles />} />
                   </Route>
                 </Route>
