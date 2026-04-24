@@ -806,5 +806,31 @@ describe("Shared pin bulk helpers (Phase 12)", () => {
   it("diffSharedPinSelection: preserves order of desiredKpiIds for toShare", () => {
     const { toShare } = diffSharedPinSelection([], ["z", "a", "m"]);
     expect(toShare).toEqual(["z", "a", "m"]);
+});
+
+describe("Breadcrumbs helper", () => {
+  it("builds linked crumbs for portal sub-routes and leaves the last unlinked", () => {
+    const crumbs = buildBreadcrumbs("/portal/inventory/receipts");
+    expect(crumbs).toEqual([
+      { label: "Portal", href: "/portal" },
+      { label: "Inventory", href: "/portal/inventory" },
+      { label: "Receipts" },
+    ]);
   });
+
+  it("humanizes unknown segments with hyphens", () => {
+    const crumbs = buildBreadcrumbs("/admin/stock-locations/extras-area");
+    expect(crumbs[1].label).toBe("Stock Locations");
+    expect(crumbs[2].label).toBe("Extras Area");
+  });
+
+  it("respects label overrides for dynamic module segments", () => {
+    const crumbs = buildBreadcrumbs("/portal/reports", { reports: "Management Reports" });
+    expect(crumbs.at(-1)?.label).toBe("Management Reports");
+  });
+
+  it("returns an empty array for the root path", () => {
+    expect(buildBreadcrumbs("/")).toEqual([]);
+  });
+});
 });
