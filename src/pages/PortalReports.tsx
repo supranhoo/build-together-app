@@ -252,47 +252,91 @@ export default function PortalReports() {
           </CardContent>
         </Card>
       ) : (
-        <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
-          {definitions.map((def) => {
-            const ws = results[def.key];
-            const cons = consolidated[def.key];
-            const value = view === "workspace" ? ws?.value : cons?.value;
-            const isSelected = selectedKey === def.key;
-            const subCount = subscriptions.filter((s) => s.kpiDefinitionId === def.id).length;
-            const wsCount = view === "consolidated" ? (cons?.perWorkspace.length ?? 0) : 0;
-            const isPinned = pins.some((p) => p.kpiDefinitionId === def.id);
-            return (
-              <Card
-                key={def.id}
-                className={`relative cursor-pointer transition-colors ${isSelected ? "border-primary" : ""}`}
-                onClick={() => { setSelectedKey(def.key); setDrawerKey(def.key); }}
-              >
-                <Button
-                  size="icon"
-                  variant="ghost"
-                  className="absolute right-2 top-2 h-7 w-7"
-                  aria-label={isPinned ? "Unpin from overview" : "Pin to overview"}
-                  onClick={(e) => { e.stopPropagation(); void handleTogglePin(def); }}
+        <>
+          <div className="flex items-center justify-end">
+            <TooltipProvider delayDuration={150}>
+              <UITooltip>
+                <TooltipTrigger asChild>
+                  <span className="inline-flex items-center gap-1.5 text-xs text-muted-foreground">
+                    <Pin className="h-3 w-3" />
+                    {personalPins.length} / {KPI_PIN_CAP} personal pinned
+                    {sharedPins.length > 0 ? (
+                      <span className="ml-1 inline-flex items-center gap-1 text-muted-foreground">
+                        · <Users className="h-3 w-3" /> {sharedPins.length} team
+                      </span>
+                    ) : null}
+                  </span>
+                </TooltipTrigger>
+                <TooltipContent>
+                  Personal pins count toward the {KPI_PIN_CAP}-pin cap. Team pins are shared by an admin and don't count.
+                </TooltipContent>
+              </UITooltip>
+            </TooltipProvider>
+          </div>
+          <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
+            {definitions.map((def) => {
+              const ws = results[def.key];
+              const cons = consolidated[def.key];
+              const value = view === "workspace" ? ws?.value : cons?.value;
+              const isSelected = selectedKey === def.key;
+              const subCount = subscriptions.filter((s) => s.kpiDefinitionId === def.id).length;
+              const wsCount = view === "consolidated" ? (cons?.perWorkspace.length ?? 0) : 0;
+              const isPinned = personalPins.some((p) => p.kpiDefinitionId === def.id);
+              const isShared = sharedPins.some((p) => p.kpiDefinitionId === def.id);
+              return (
+                <Card
+                  key={def.id}
+                  className={`relative cursor-pointer transition-colors ${isSelected ? "border-primary" : ""}`}
+                  onClick={() => { setSelectedKey(def.key); setDrawerKey(def.key); }}
                 >
-                  {isPinned ? <PinOff className="h-4 w-4 text-primary" /> : <Pin className="h-4 w-4 text-muted-foreground" />}
-                </Button>
-                <CardHeader className="pb-2">
-                  <div className="flex items-center justify-between pr-8">
-                    <CardDescription>{def.displayName}</CardDescription>
-                    {subCount > 0 ? <Badge variant="secondary" className="text-[10px]">subscribed</Badge> : null}
+                  <div className="absolute right-2 top-2 flex items-center gap-0.5">
+                    {canShare && (
+                      <Button
+                        size="icon"
+                        variant="ghost"
+                        className="h-7 w-7"
+                        aria-label={isShared ? "Unshare from workspace" : "Share with workspace"}
+                        title={isShared ? "Unshare from workspace" : "Share with workspace"}
+                        onClick={(e) => { e.stopPropagation(); void handleToggleShare(def); }}
+                      >
+                        <Share2 className={`h-4 w-4 ${isShared ? "text-primary" : "text-muted-foreground"}`} />
+                      </Button>
+                    )}
+                    <Button
+                      size="icon"
+                      variant="ghost"
+                      className="h-7 w-7"
+                      aria-label={isPinned ? "Unpin from overview" : "Pin to overview"}
+                      onClick={(e) => { e.stopPropagation(); void handleTogglePin(def); }}
+                    >
+                      {isPinned ? <PinOff className="h-4 w-4 text-primary" /> : <Pin className="h-4 w-4 text-muted-foreground" />}
+                    </Button>
                   </div>
-                  <CardTitle className="text-3xl">
-                    {value == null ? "—" : Number(value).toLocaleString(undefined, { maximumFractionDigits: 2 })}
-                    {def.unit ? <span className="ml-1 text-sm font-normal text-muted-foreground">{def.unit}</span> : null}
-                  </CardTitle>
-                  {view === "consolidated" && wsCount > 0 ? (
-                    <p className="text-xs text-muted-foreground">across {wsCount} workspace{wsCount === 1 ? "" : "s"}</p>
-                  ) : null}
-                </CardHeader>
-              </Card>
-            );
-          })}
-        </div>
+                  <CardHeader className="pb-2">
+                    <div className="flex flex-wrap items-center justify-between gap-1 pr-16">
+                      <CardDescription>{def.displayName}</CardDescription>
+                      <div className="flex items-center gap-1">
+                        {isShared ? (
+                          <Badge variant="outline" className="gap-1 text-[10px]">
+                            <Users className="h-2.5 w-2.5" /> team
+                          </Badge>
+                        ) : null}
+                        {subCount > 0 ? <Badge variant="secondary" className="text-[10px]">subscribed</Badge> : null}
+                      </div>
+                    </div>
+                    <CardTitle className="text-3xl">
+                      {value == null ? "—" : Number(value).toLocaleString(undefined, { maximumFractionDigits: 2 })}
+                      {def.unit ? <span className="ml-1 text-sm font-normal text-muted-foreground">{def.unit}</span> : null}
+                    </CardTitle>
+                    {view === "consolidated" && wsCount > 0 ? (
+                      <p className="text-xs text-muted-foreground">across {wsCount} workspace{wsCount === 1 ? "" : "s"}</p>
+                    ) : null}
+                  </CardHeader>
+                </Card>
+              );
+            })}
+          </div>
+        </>
       )}
 
       {subscriptions.length > 0 && (
