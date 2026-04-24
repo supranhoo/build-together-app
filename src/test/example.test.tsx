@@ -512,4 +512,79 @@ describe("Pinned KPI helpers (Phase 8)", () => {
     const pins = [buildPin("a", 0), buildPin("b", 1)];
     expect(reorderPins(pins, "missing", 0)).toBe(pins);
   });
+
+  it("only changes sort_order for pins involved in an adjacent swap", () => {
+    const pins = [buildPin("a", 0), buildPin("b", 1), buildPin("c", 2), buildPin("d", 3)];
+    // Swap b and c by moving c up one slot.
+    const moved = reorderPins(pins, "c", 1);
+    expect(moved.map((p) => p.id)).toEqual(["a", "c", "b", "d"]);
+    // a and d keep their original sort_order; b and c are the only ones that flipped.
+    const byId = new Map(moved.map((p) => [p.id, p.sortOrder]));
+    expect(byId.get("a")).toBe(0);
+    expect(byId.get("d")).toBe(3);
+    expect(byId.get("c")).toBe(1);
+    expect(byId.get("b")).toBe(2);
+  });
+});
+
+describe("Forecast helper (Phase 9)", () => {
+  const point = (day: string, value: number | null): KpiSeriesPoint => ({ day, value });
+
+  it("returns [] when the series has fewer than 2 usable points", () => {
+    expect(forecastLinear([], 7)).toEqual([]);
+    expect(forecastLinear([point("2026-04-23", 10)], 7)).toEqual([]);
+    expect(forecastLinear([point("2026-04-22", null), point("2026-04-23", 10)], 7)).toEqual([]);
+  });
+
+  it("returns [] when horizon is non-positive", () => {
+    const series = [point("2026-04-22", 1), point("2026-04-23", 2), point("2026-04-24", 3)];
+    expect(forecastLinear(series, 0)).toEqual([]);
+    expect(forecastLinear(series, -3)).toEqual([]);
+  });
+
+  it("projects a known linear series with the correct slope", () => {
+    // y = x + 10 over 5 consecutive days
+    const series: KpiSeriesPoint[] = [
+      point("2026-04-20", 10),
+      point("2026-04-21", 11),
+      point("2026-04-22", 12),
+      point("2026-04-23", 13),
+      point("2026-04-24", 14),
+    ];
+    const out = forecastLinear(series, 3);
+    expect(out).toHaveLength(3);
+    expect(out[0].value).toBeCloseTo(15, 6);
+    expect(out[1].value).toBeCloseTo(16, 6);
+    expect(out[2].value).toBeCloseTo(17, 6);
+    expect(out[0].day).toBe("2026-04-25");
+    expect(out[2].day).toBe("2026-04-27");
+  });
+
+  it("never produces NaN values, even on sparse / noisy series", () => {
+    const series: KpiSeriesPoint[] = [
+      point("2026-04-20", 5),
+      point("2026-04-21", null),
+      point("2026-04-22", 7),
+      point("2026-04-23", null),
+      point("2026-04-24", 9),
+    ];
+    const out = forecastLinear(series, 5);
+    expect(out.length).toBeGreaterThan(0);
+    for (const p of out) {
+      expect(p.value).not.toBeNull();
+      expect(Number.isFinite(p.value as number)).toBe(true);
+    }
+  });
+
+  it("returns [] when all usable points share the same x (degenerate slope)", () => {
+    // Two identical-day entries would produce zero variance in x; usable filter keeps both
+    // but we expect denom check to short-circuit. Construct via duplicated values that
+    // collapse to a single distinct x by using only one usable point after filtering.
+    const series: KpiSeriesPoint[] = [
+      point("2026-04-20", null),
+      point("2026-04-21", null),
+      point("2026-04-22", 5),
+    ];
+    expect(forecastLinear(series, 7)).toEqual([]);
+  });
 });
