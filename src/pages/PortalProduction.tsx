@@ -30,7 +30,7 @@ import {
   type Material,
   type StockLocation,
 } from "@/lib/inventory";
-import { supabase } from "@/integrations/supabase/client";
+
 
 interface FormState {
   furnaceId: string;
@@ -279,6 +279,39 @@ export default function PortalProduction() {
                   <Textarea value={form.notes} onChange={(e) => setForm({ ...form, notes: e.target.value })} />
                 </div>
               </div>
+              {!editing && canConsume && materials.length > 0 && stockLocations.length > 0 && (
+                <div className="space-y-2 rounded-md border border-border bg-panel p-3">
+                  <div className="flex items-center justify-between">
+                    <Label className="text-sm">Material consumption (optional)</Label>
+                    <Button type="button" size="sm" variant="outline" onClick={addConsumptionRow}>Add row</Button>
+                  </div>
+                  {consumption.length === 0 && (
+                    <p className="text-xs text-muted-foreground">No consumption recorded for this heat.</p>
+                  )}
+                  {consumption.map((row) => (
+                    <div key={row.key} className="grid gap-2 sm:grid-cols-[1fr_1fr_120px_40px]">
+                      <Select value={row.materialId} onValueChange={(v) => updateConsumptionRow(row.key, { materialId: v })}>
+                        <SelectTrigger><SelectValue placeholder="Material" /></SelectTrigger>
+                        <SelectContent>
+                          {materials.filter((m) => m.isActive).map((m) => (
+                            <SelectItem key={m.id} value={m.id}>{m.code} ({m.uom})</SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                      <Select value={row.stockLocationId} onValueChange={(v) => updateConsumptionRow(row.key, { stockLocationId: v })}>
+                        <SelectTrigger><SelectValue placeholder="Location" /></SelectTrigger>
+                        <SelectContent>
+                          {stockLocations.filter((l) => l.isActive).map((l) => (
+                            <SelectItem key={l.id} value={l.id}>{l.code}</SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                      <Input type="number" step="0.001" placeholder="Qty" value={row.quantity || ""} onChange={(e) => updateConsumptionRow(row.key, { quantity: Number(e.target.value) })} />
+                      <Button type="button" size="icon" variant="ghost" onClick={() => removeConsumptionRow(row.key)}><Trash2 className="h-4 w-4" /></Button>
+                    </div>
+                  ))}
+                </div>
+              )}
               <DialogFooter>
                 <Button variant="outline" onClick={() => setCreateOpen(false)}>Cancel</Button>
                 <Button onClick={() => void handleSave()} disabled={saving}>{saving ? "Saving…" : "Save"}</Button>
