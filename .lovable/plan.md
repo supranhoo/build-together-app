@@ -98,3 +98,4 @@ Target: 6 new tests, total 47 passing.
 - **Decision 2c (free numeric horizon)** I'd push back on. `forecastSeasonal` for `horizonDays > series.length` produces a number, but it's a number you should not show a shift manager. The 7/14/30 chips bound the foot-gun.
 
 **Please confirm the 4 decisions above (or say "use defaults") before I proceed.**
+Phase 11 complete - Fri Apr 24 14:23:53 UTC 2026
