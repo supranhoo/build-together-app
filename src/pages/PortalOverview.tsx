@@ -25,8 +25,10 @@ interface PinnedKpiCard {
 export default function PortalOverview() {
   const { profile, session } = useAuth();
   const { activeProfitCenter, modules, settings, assignments } = useWorkspace();
+  const { toast } = useToast();
   const [pinned, setPinned] = useState<PinnedKpiCard[]>([]);
   const [pinnedLoading, setPinnedLoading] = useState(false);
+  const [reordering, setReordering] = useState(false);
 
   useEffect(() => {
     if (!activeProfitCenter || !session?.user?.id) {
