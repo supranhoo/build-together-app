@@ -7,6 +7,7 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
+import { Trash2 } from "lucide-react";
 import { useWorkspace } from "@/hooks/use-workspace";
 import { useAuth } from "@/hooks/use-auth";
 import { useToast } from "@/hooks/use-toast";
@@ -21,6 +22,15 @@ import {
   type Shift,
 } from "@/lib/production";
 import { canEditHeatLogClient, fetchPermissionGrants, userRoleAllows, type PermissionGrant } from "@/lib/permissions";
+import {
+  fetchMaterials,
+  fetchStockLocations,
+  recordHeatConsumption,
+  type ConsumptionInput,
+  type Material,
+  type StockLocation,
+} from "@/lib/inventory";
+import { supabase } from "@/integrations/supabase/client";
 
 interface FormState {
   furnaceId: string;
@@ -30,6 +40,10 @@ interface FormState {
   weightMt: string;
   powerMwh: string;
   notes: string;
+}
+
+interface ConsumptionRow extends ConsumptionInput {
+  key: string;
 }
 
 const emptyForm: FormState = { furnaceId: "", shiftId: "", heatNumber: "", tapTime: "", weightMt: "", powerMwh: "", notes: "" };
