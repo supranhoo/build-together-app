@@ -69,7 +69,8 @@ SteelFlow ERP now uses a configuration-first workspace foundation for steel and 
 - Phase 4 — Inventory and material flows: complete.
 - Phase 5 — Reporting and KPI aggregation: complete.
 - Phase 6 — Drill-down, subscriptions, scheduled report digests: complete (email delivery active when `RESEND_API_KEY` is configured).
-- Phase 7 — Advanced admin and process workflow builder: not started.
+- Phase 7 — Cross-workspace consolidation and operational editing (void / reversal): complete.
+- Phase 8 — Advanced admin and process workflow builder: not started.
 
 ## Phase 3 — Production Foundation
 - New tables: `furnaces`, `shifts`, `heat_logs`, `heat_log_events`, `permission_grants`. All workspace-scoped (except `permission_grants` which is global) and RLS-protected.
@@ -106,6 +107,7 @@ SteelFlow ERP now uses a configuration-first workspace foundation for steel and 
 - `/portal/reports` — KPI cards plus daily time-series chart with CSV export
 - `/admin/kpis` — KPI definition management (workspace overrides plus inherited global defaults)
 - `/admin/report-deliveries` — read-only log of scheduled KPI digest deliveries
+- `/portal/reports` — also supports a "Consolidated" view toggle for users with ≥2 active workspace assignments (cross-workspace KPI aggregation)
 
 ## Phase 4 — Inventory & Material Flows
 - New tables: `materials`, `stock_locations`, `inventory_ledger`, `material_consumption`. All workspace-scoped, RLS-protected.
@@ -142,3 +144,14 @@ SteelFlow ERP now uses a configuration-first workspace foundation for steel and 
 - Portal `/portal/reports`: clicking a KPI card opens a drawer (`KpiDetailDrawer`) with the source rows, CSV export, and per-cadence subscribe toggles. A "My subscriptions" panel surfaces active subscriptions with quick unsubscribe.
 - Admin `/admin/report-deliveries`: read-only delivery log filtered by status (sent/failed/skipped).
 - Edge function `scheduled-report-digest` (cron 07:00 UTC daily, weekly on Mondays) computes KPIs for each active subscription, sends email via Resend, and writes the outcome to `report_deliveries`. Idempotent per `(user, kpi, cadence, day)`. Logs `failed` with `RESEND_API_KEY not configured` if the secret is absent — UI/admin path is unaffected.
+
+## Phase 7 — Cross-Workspace Consolidation & Operational Editing
+- New columns on `heat_logs`: `is_voided boolean not null default false`, `void_reason text`, `voided_at timestamptz`, `voided_by uuid`. Voided rows are retained for audit but excluded from KPI aggregations.
+- New SQL function `can_void_heat_log(_user_id, _heat_log_id)` — single source of truth for void eligibility. Combined with `can_edit_heat_log` in the `heat_logs` UPDATE RLS policy so a user with `heat_log/void` permission may set the void columns even outside the normal edit window.
+- New SQL function `void_heat_log(_heat_log_id, _reason)` (SECURITY DEFINER) — verifies `can_void_heat_log`, requires a non-empty reason, sets the void columns, and appends a `heat_log_events` row plus an `audit_logs` entry.
+- New SQL function `reverse_inventory_ledger(_ledger_id, _reason)` (SECURITY DEFINER) — verifies `user_can_act(_, 'inventory', 'void')`, inserts a negative-quantity ledger row with `reference_type = 'reversal'` and `reference_id` pointing at the original. Original row is never modified — ledger remains immutable.
+- `_compute_kpi_aggregate` and `_compute_kpi_series` now filter `is_voided = false` for the `heat_logs` source so voided heats disappear from KPIs without losing their audit history.
+- New SQL function `compute_kpi_consolidated(_key, _from, _to)` — iterates every workspace the calling user can access (via `has_profit_center_access`), calls `compute_kpi` for each, and returns `{ value, unit, display_name, per_workspace: [{ profit_center_id, name, value, error? }] }`. Used by the consolidated reporting toggle.
+- `permission_grants` seeded with two new resources: `(super_admin, heat_log, void, always)` and `(super_admin, inventory, void, always)`. All other roles default to `never` and may be elevated via `/admin/roles` without code changes.
+- Portal `/portal/reports`: header gains a "Workspace / Consolidated" toggle (only shown when the user has ≥2 active workspace assignments). KPI cards in consolidated mode show a per-workspace breakdown count.
+- `KpiDetailDrawer` now renders a per-workspace breakdown table (consolidated mode) and a row-level action menu when the user has the relevant void permission. Void / reversal both require a typed reason via `<AlertDialog>` and refetch on success.
