@@ -36,6 +36,15 @@ export function deriveSlug(name: string): string {
     .replace(/^-+|-+$/g, "");
 }
 
+/**
+ * Whether the current user may create a new workspace.
+ * Pure helper — exported for unit tests. Mirrors the RLS INSERT policy on `profit_centers`
+ * which allows users with role `admin` or `super_admin`.
+ */
+export function canCreateWorkspace(role: string | null | undefined): boolean {
+  return role === "admin" || role === "super_admin";
+}
+
 /** Detect a Postgres / PostgREST RLS rejection so we can show a friendly message. */
 function isRlsError(err: unknown): boolean {
   if (!(err instanceof Error)) return false;
