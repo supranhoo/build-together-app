@@ -37,7 +37,7 @@ export function PortalShell() {
 
   const navItems = useMemo(
     () => [
-      { label: "Overview", to: "/portal", icon: LayoutDashboard },
+      ...portalStaticNavItems.map((item) => ({ ...item, icon: LayoutDashboard })),
       ...modules.map((module) => ({
         label: module.navLabel,
         to: `/portal/${module.routeSegment}`,
