@@ -12,11 +12,13 @@ vi.mock("@/integrations/supabase/client", () => ({
 
 import { createProfitCenter } from "@/lib/workspace";
 
-function buildInsertChain(result: { data: any; error: any }) {
-  const single = vi.fn().mockResolvedValue(result);
-  const select = vi.fn(() => ({ single }));
-  const insert = vi.fn(() => ({ select }));
-  return { insert, select, single };
+function buildCreateFlow(result: { data: any; error: any }, reloadError: any = null) {
+  const maybeSingle = vi.fn().mockResolvedValue({ data: result.data, error: reloadError });
+  const eqSlug = vi.fn(() => ({ maybeSingle }));
+  const eqCode = vi.fn(() => ({ eq: eqSlug }));
+  const select = vi.fn(() => ({ eq: eqCode }));
+  const insert = vi.fn().mockResolvedValue({ error: result.error });
+  return { insert, select, eqCode, eqSlug, maybeSingle };
 }
 
 describe("createProfitCenter", () => {
@@ -24,7 +26,7 @@ describe("createProfitCenter", () => {
     fromMock.mockReset();
   });
 
-  it("returns the freshly inserted row from a single round-trip", async () => {
+  it("inserts then reloads the freshly created row", async () => {
     const row = {
       id: "pc-3",
       code: "PC-001",
@@ -35,8 +37,10 @@ describe("createProfitCenter", () => {
       process_profile: "PRODUCTION OF FERRO MANGANESE",
       is_active: true,
     };
-    const { insert, select } = buildInsertChain({ data: row, error: null });
-    fromMock.mockReturnValueOnce({ insert });
+    const { insert, select, eqCode, eqSlug } = buildCreateFlow({ data: row, error: null });
+    fromMock
+      .mockReturnValueOnce({ insert })
+      .mockReturnValueOnce({ select });
 
     const created = await createProfitCenter({
       code: "PC-001",
@@ -56,6 +60,8 @@ describe("createProfitCenter", () => {
       process_profile: "PRODUCTION OF FERRO MANGANESE",
     });
     expect(select).toHaveBeenCalledWith("id, code, slug, name, description, location_name, process_profile, is_active");
+    expect(eqCode).toHaveBeenCalledWith("code", "PC-001");
+    expect(eqSlug).toHaveBeenCalledWith("slug", "ferro-alloys-division");
     expect(created).toEqual({
       id: "pc-3",
       code: "PC-001",
@@ -66,13 +72,12 @@ describe("createProfitCenter", () => {
       processProfile: "PRODUCTION OF FERRO MANGANESE",
       isActive: true,
     });
-    // Only one call to from() — no separate reload that could match the wrong row.
-    expect(fromMock).toHaveBeenCalledTimes(1);
+    expect(fromMock).toHaveBeenCalledTimes(2);
   });
 
   it("surfaces insert errors immediately", async () => {
     const insertError = new Error("new row violates row-level security policy");
-    const { insert } = buildInsertChain({ data: null, error: insertError });
+    const { insert } = buildCreateFlow({ data: null, error: insertError });
     fromMock.mockReturnValueOnce({ insert });
 
     await expect(
@@ -85,8 +90,10 @@ describe("createProfitCenter", () => {
   });
 
   it("fails clearly when no row is returned after insert", async () => {
-    const { insert } = buildInsertChain({ data: null, error: null });
-    fromMock.mockReturnValueOnce({ insert });
+    const { insert, select } = buildCreateFlow({ data: null, error: null });
+    fromMock
+      .mockReturnValueOnce({ insert })
+      .mockReturnValueOnce({ select });
 
     await expect(
       createProfitCenter({
