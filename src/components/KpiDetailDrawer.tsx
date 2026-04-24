@@ -21,13 +21,14 @@ import {
 import { Textarea } from "@/components/ui/textarea";
 import { useToast } from "@/hooks/use-toast";
 import {
+  backtestForecast,
   bulkReverseInventoryLedger,
   bulkVoidHeatLogs,
   computeKpi,
   downloadCsv,
   exportDrilldownCsv,
   fetchKpiDrilldown,
-  forecastLinear,
+  forecastSeasonal,
   reverseInventoryLedger,
   subscribeToKpi,
   unsubscribeFromKpi,
@@ -39,6 +40,7 @@ import {
   type KpiResult,
   type KpiSeriesPoint,
   type KpiSubscription,
+  type SeasonalityMode,
 } from "@/lib/reporting";
 
 interface Props {
