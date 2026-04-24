@@ -1,6 +1,8 @@
 import { useEffect, useMemo, useState } from "react";
+import { CartesianGrid, Line, LineChart, ResponsiveContainer, Tooltip, XAxis, YAxis } from "recharts";
 import { Download, MoreHorizontal } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import { Checkbox } from "@/components/ui/checkbox";
 import { Sheet, SheetContent, SheetDescription, SheetHeader, SheetTitle } from "@/components/ui/sheet";
 import { Switch } from "@/components/ui/switch";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
@@ -19,9 +21,13 @@ import {
 import { Textarea } from "@/components/ui/textarea";
 import { useToast } from "@/hooks/use-toast";
 import {
+  bulkReverseInventoryLedger,
+  bulkVoidHeatLogs,
+  computeKpi,
   downloadCsv,
   exportDrilldownCsv,
   fetchKpiDrilldown,
+  forecastLinear,
   reverseInventoryLedger,
   subscribeToKpi,
   unsubscribeFromKpi,
@@ -30,19 +36,10 @@ import {
   type DateRange,
   type KpiDefinition,
   type KpiDrilldownResult,
+  type KpiResult,
+  type KpiSeriesPoint,
   type KpiSubscription,
 } from "@/lib/reporting";
-
-interface Props {
-  open: boolean;
-  onOpenChange: (open: boolean) => void;
-  definition: KpiDefinition | null;
-  profitCenterId: string;
-  userId: string;
-  range: DateRange;
-  subscriptions: KpiSubscription[];
-  onSubscriptionsChanged: () => Promise<void> | void;
-}
 
 interface Props {
   open: boolean;
@@ -60,7 +57,11 @@ interface Props {
 type PendingAction =
   | { kind: "void_heat_log"; id: string; label: string }
   | { kind: "reverse_inventory"; id: string; label: string }
+  | { kind: "bulk_void_heat_log"; ids: string[] }
+  | { kind: "bulk_reverse_inventory"; ids: string[] }
   | null;
+
+const FORECAST_HORIZON_DAYS = 7;
 
 export function KpiDetailDrawer({
   open,
@@ -75,12 +76,15 @@ export function KpiDetailDrawer({
 }: Props) {
   const { toast } = useToast();
   const [drill, setDrill] = useState<KpiDrilldownResult | null>(null);
+  const [series, setSeries] = useState<KpiResult | null>(null);
   const [loading, setLoading] = useState(false);
   const [busy, setBusy] = useState(false);
   const [canVoidHeat, setCanVoidHeat] = useState(false);
   const [canReverseInv, setCanReverseInv] = useState(false);
   const [pending, setPending] = useState<PendingAction>(null);
   const [reason, setReason] = useState("");
+  const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
+  const [showForecast, setShowForecast] = useState(false);
 
   useEffect(() => {
     if (!open || !definition) return;
@@ -88,8 +92,15 @@ export function KpiDetailDrawer({
     (async () => {
       setLoading(true);
       try {
-        const result = await fetchKpiDrilldown(profitCenterId, definition.key, range);
-        if (!cancelled) setDrill(result);
+        const [drillResult, seriesResult] = await Promise.all([
+          fetchKpiDrilldown(profitCenterId, definition.key, range),
+          computeKpi(profitCenterId, definition.key, range).catch(() => null),
+        ]);
+        if (!cancelled) {
+          setDrill(drillResult);
+          setSeries(seriesResult);
+          setSelectedIds(new Set());
+        }
       } catch (err) {
         if (!cancelled) toast({ title: "Drill-down failed", description: err instanceof Error ? err.message : "", variant: "destructive" });
       } finally {
@@ -117,6 +128,32 @@ export function KpiDetailDrawer({
   }, [open, userId]);
 
   const headers = useMemo(() => (drill && drill.rows[0] ? Object.keys(drill.rows[0]) : []), [drill]);
+
+  const bulkKind: "void" | "reverse" | null = useMemo(() => {
+    if (drill?.source === "heat_logs" && canVoidHeat) return "void";
+    if (drill?.source === "inventory_ledger" && canReverseInv) return "reverse";
+    return null;
+  }, [drill?.source, canVoidHeat, canReverseInv]);
+
+  const selectableIds = useMemo(() => {
+    if (!drill || !bulkKind) return [] as string[];
+    return drill.rows
+      .map((r) => String(r.id ?? ""))
+      .filter((id) => id.length > 0);
+  }, [drill, bulkKind]);
+
+  const allSelected = selectableIds.length > 0 && selectableIds.every((id) => selectedIds.has(id));
+
+  const forecastPoints = useMemo<KpiSeriesPoint[]>(() => {
+    if (!showForecast || !series?.series) return [];
+    return forecastLinear(series.series, FORECAST_HORIZON_DAYS);
+  }, [showForecast, series?.series]);
+
+  const chartData = useMemo(() => {
+    const actual = (series?.series ?? []).map((p) => ({ day: p.day, value: p.value, forecast: null as number | null }));
+    const projected = forecastPoints.map((p) => ({ day: p.day, value: null as number | null, forecast: p.value }));
+    return [...actual, ...projected];
+  }, [series?.series, forecastPoints]);
 
   if (!definition) return null;
 
@@ -165,13 +202,33 @@ export function KpiDetailDrawer({
     return null;
   };
 
-  const hasRowActions = (drill?.source === "heat_logs" && canVoidHeat) || (drill?.source === "inventory_ledger" && canReverseInv);
+  const hasRowActions = bulkKind !== null;
+
+  const toggleRow = (id: string, checked: boolean) => {
+    setSelectedIds((prev) => {
+      const next = new Set(prev);
+      if (checked) next.add(id);
+      else next.delete(id);
+      return next;
+    });
+  };
+
+  const toggleAll = (checked: boolean) => {
+    setSelectedIds(checked ? new Set(selectableIds) : new Set());
+  };
+
+  const openBulk = () => {
+    if (!bulkKind || selectedIds.size === 0) return;
+    const ids = Array.from(selectedIds);
+    setPending(bulkKind === "void" ? { kind: "bulk_void_heat_log", ids } : { kind: "bulk_reverse_inventory", ids });
+  };
 
   const refreshDrill = async () => {
     if (!definition) return;
     try {
       const r = await fetchKpiDrilldown(profitCenterId, definition.key, range);
       setDrill(r);
+      setSelectedIds(new Set());
     } catch {
       /* ignored */
     }
@@ -191,6 +248,14 @@ export function KpiDetailDrawer({
       } else if (pending.kind === "reverse_inventory") {
         await reverseInventoryLedger(pending.id, reason.trim());
         toast({ title: "Inventory entry reversed" });
+      } else if (pending.kind === "bulk_void_heat_log") {
+        const result = await bulkVoidHeatLogs(pending.ids, reason.trim());
+        if (!result.ok) throw new Error(result.error ?? "bulk_void_failed");
+        toast({ title: `Voided ${result.succeeded ?? pending.ids.length} heat log(s)` });
+      } else if (pending.kind === "bulk_reverse_inventory") {
+        const result = await bulkReverseInventoryLedger(pending.ids, reason.trim());
+        if (!result.ok) throw new Error(result.error ?? "bulk_reverse_failed");
+        toast({ title: `Reversed ${result.succeeded ?? pending.ids.length} entry(ies)` });
       }
       setPending(null);
       setReason("");
@@ -201,6 +266,16 @@ export function KpiDetailDrawer({
       setBusy(false);
     }
   };
+
+  const dialogTitle = pending?.kind === "void_heat_log"
+    ? `Void heat log ${pending.label}?`
+    : pending?.kind === "reverse_inventory"
+      ? "Reverse entry?"
+      : pending?.kind === "bulk_void_heat_log"
+        ? `Void ${pending.ids.length} heat log(s)?`
+        : pending?.kind === "bulk_reverse_inventory"
+          ? `Reverse ${pending.ids.length} entry(ies)?`
+          : "";
 
   return (
     <Sheet open={open} onOpenChange={onOpenChange}>
@@ -255,8 +330,10 @@ export function KpiDetailDrawer({
         <Tabs defaultValue="rows" className="mt-6">
           <TabsList>
             <TabsTrigger value="rows">Rows</TabsTrigger>
+            <TabsTrigger value="trend">Trend</TabsTrigger>
             <TabsTrigger value="meta">Definition</TabsTrigger>
           </TabsList>
+
           <TabsContent value="rows" className="mt-3">
             <div className="mb-3 flex items-center justify-between">
               <p className="text-xs text-muted-foreground">
@@ -266,10 +343,35 @@ export function KpiDetailDrawer({
                 <Download className="mr-2 h-4 w-4" /> Export CSV
               </Button>
             </div>
+
+            {bulkKind && selectedIds.size > 0 && (
+              <div className="mb-3 flex items-center justify-between rounded-md border border-primary/40 bg-primary/10 px-3 py-2">
+                <span className="text-xs font-medium">{selectedIds.size} selected</span>
+                <div className="flex items-center gap-2">
+                  <Button size="sm" variant="ghost" onClick={() => setSelectedIds(new Set())} aria-label="Clear selection">
+                    Clear
+                  </Button>
+                  <Button size="sm" variant="destructive" onClick={openBulk}>
+                    {bulkKind === "void" ? `Void ${selectedIds.size} selected` : `Reverse ${selectedIds.size} selected`}
+                  </Button>
+                </div>
+              </div>
+            )}
+
             <div className="max-h-96 overflow-auto rounded-md border border-border">
               <Table>
                 <TableHeader>
                   <TableRow>
+                    {hasRowActions ? (
+                      <TableHead className="w-10">
+                        <Checkbox
+                          checked={allSelected}
+                          onCheckedChange={(v) => toggleAll(v === true)}
+                          aria-label="Select all rows"
+                          disabled={selectableIds.length === 0}
+                        />
+                      </TableHead>
+                    ) : null}
                     {headers.map((h) => <TableHead key={h} className="whitespace-nowrap text-xs">{h}</TableHead>)}
                     {hasRowActions ? <TableHead className="w-10" /> : null}
                   </TableRow>
@@ -277,8 +379,21 @@ export function KpiDetailDrawer({
                 <TableBody>
                   {drill?.rows.map((r, i) => {
                     const action = rowAction(r);
+                    const id = String(r.id ?? "");
+                    const checked = id ? selectedIds.has(id) : false;
                     return (
                       <TableRow key={i}>
+                        {hasRowActions ? (
+                          <TableCell className="w-10">
+                            {id ? (
+                              <Checkbox
+                                checked={checked}
+                                onCheckedChange={(v) => toggleRow(id, v === true)}
+                                aria-label={`Select row ${i + 1}`}
+                              />
+                            ) : null}
+                          </TableCell>
+                        ) : null}
                         {headers.map((h) => <TableCell key={h} className="whitespace-nowrap text-xs">{String(r[h] ?? "")}</TableCell>)}
                         {hasRowActions ? (
                           <TableCell className="w-10">
@@ -302,12 +417,63 @@ export function KpiDetailDrawer({
                     );
                   })}
                   {!loading && drill && drill.rows.length === 0 && (
-                    <TableRow><TableCell colSpan={Math.max(headers.length, 1)} className="text-center text-muted-foreground">No rows in this window.</TableCell></TableRow>
+                    <TableRow>
+                      <TableCell colSpan={Math.max(headers.length, 1) + (hasRowActions ? 2 : 0)} className="text-center text-muted-foreground">
+                        No rows in this window.
+                      </TableCell>
+                    </TableRow>
                   )}
                 </TableBody>
               </Table>
             </div>
           </TabsContent>
+
+          <TabsContent value="trend" className="mt-3">
+            <div className="mb-3 flex items-center justify-between rounded-md border border-border bg-panel px-3 py-2">
+              <div>
+                <p className="text-sm font-medium">Show forecast</p>
+                <p className="text-[11px] text-muted-foreground">
+                  Linear projection · {FORECAST_HORIZON_DAYS}-day horizon · advisory only
+                </p>
+              </div>
+              <Switch
+                checked={showForecast}
+                onCheckedChange={setShowForecast}
+                disabled={!series || (series.series ?? []).length < 2}
+                aria-label="Toggle forecast projection"
+              />
+            </div>
+            <div className="h-64 rounded-md border border-border bg-card p-2">
+              {!series || (series.series ?? []).length === 0 ? (
+                <div className="flex h-full items-center justify-center text-sm text-muted-foreground">
+                  No data in this window.
+                </div>
+              ) : (
+                <ResponsiveContainer width="100%" height="100%">
+                  <LineChart data={chartData}>
+                    <CartesianGrid strokeDasharray="3 3" className="stroke-border" />
+                    <XAxis dataKey="day" tick={{ fontSize: 11 }} />
+                    <YAxis tick={{ fontSize: 11 }} />
+                    <Tooltip contentStyle={{ background: "hsl(var(--popover))", border: "1px solid hsl(var(--border))" }} />
+                    <Line type="monotone" dataKey="value" stroke="hsl(var(--primary))" strokeWidth={2} dot={false} connectNulls={false} name="Actual" />
+                    {showForecast && forecastPoints.length > 0 && (
+                      <Line
+                        type="monotone"
+                        dataKey="forecast"
+                        stroke="hsl(var(--primary))"
+                        strokeWidth={2}
+                        strokeDasharray="5 5"
+                        dot={false}
+                        connectNulls
+                        name="Forecast"
+                      />
+                    )}
+                  </LineChart>
+                </ResponsiveContainer>
+              )}
+            </div>
+          </TabsContent>
+
           <TabsContent value="meta" className="mt-3">
             <pre className="max-h-80 overflow-auto rounded-md border border-border bg-panel p-3 text-xs">{JSON.stringify(definition.formula, null, 2)}</pre>
           </TabsContent>
@@ -316,11 +482,9 @@ export function KpiDetailDrawer({
         <AlertDialog open={!!pending} onOpenChange={(o) => { if (!o) { setPending(null); setReason(""); } }}>
           <AlertDialogContent>
             <AlertDialogHeader>
-              <AlertDialogTitle>
-                {pending?.kind === "void_heat_log" ? `Void heat log ${pending?.label}?` : "Reverse entry?"}
-              </AlertDialogTitle>
+              <AlertDialogTitle>{dialogTitle}</AlertDialogTitle>
               <AlertDialogDescription>
-                This action is auditable and cannot be undone. Voided heat logs are excluded from KPIs but retained for audit.
+                This action is auditable and cannot be undone. Bulk operations are atomic — all selected rows succeed or none are applied. Voided heat logs are excluded from KPIs but retained for audit.
               </AlertDialogDescription>
             </AlertDialogHeader>
             <Textarea

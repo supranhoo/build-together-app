@@ -498,6 +498,68 @@ export async function bulkReverseInventoryLedger(ids: string[], reason: string):
   };
 }
 
+// ===== Phase 9: Pin reorder persistence + linear forecast =====
+
+/**
+ * Persist a pair of reordered pins by writing their new sort_order values.
+ * Used after `reorderPins` produces an optimistic local order.
+ * Throws on the first failure so the caller can revert local state.
+ */
+export async function persistPinOrder(pins: Array<Pick<KpiPin, "id" | "sortOrder">>): Promise<void> {
+  if (pins.length === 0) return;
+  for (const p of pins) {
+    const { error } = await (supabase as any)
+      .from("kpi_pins")
+      .update({ sort_order: p.sortOrder })
+      .eq("id", p.id);
+    if (error) throw error;
+  }
+}
+
+/**
+ * Pure helper: project a KPI series forward using simple linear regression
+ * on the (index, value) pairs of points with non-null values. Returns a
+ * list of `horizonDays` projected points starting the day after the last
+ * input point. Returns `[]` when the series has fewer than 2 usable points
+ * or when the slope/intercept cannot be computed (e.g. NaN).
+ *
+ * Display-only: the result is NEVER persisted, audited, or fed back into
+ * any KPI compute path. See POLICY.md → Forecast Display Policy.
+ */
+export function forecastLinear(series: KpiSeriesPoint[], horizonDays: number): KpiSeriesPoint[] {
+  if (horizonDays <= 0) return [];
+  const usable = series
+    .map((p, i) => ({ x: i, y: p.value, day: p.day }))
+    .filter((p): p is { x: number; y: number; day: string } => typeof p.y === "number" && Number.isFinite(p.y));
+  if (usable.length < 2) return [];
+
+  const n = usable.length;
+  const sumX = usable.reduce((s, p) => s + p.x, 0);
+  const sumY = usable.reduce((s, p) => s + p.y, 0);
+  const sumXY = usable.reduce((s, p) => s + p.x * p.y, 0);
+  const sumXX = usable.reduce((s, p) => s + p.x * p.x, 0);
+  const denom = n * sumXX - sumX * sumX;
+  if (denom === 0) return [];
+  const slope = (n * sumXY - sumX * sumY) / denom;
+  const intercept = (sumY - slope * sumX) / n;
+  if (!Number.isFinite(slope) || !Number.isFinite(intercept)) return [];
+
+  const lastDay = series[series.length - 1]?.day;
+  const baseDate = lastDay ? new Date(`${lastDay}T00:00:00Z`) : new Date();
+  if (Number.isNaN(baseDate.getTime())) return [];
+
+  const out: KpiSeriesPoint[] = [];
+  for (let i = 1; i <= horizonDays; i++) {
+    const xi = series.length - 1 + i;
+    const yi = slope * xi + intercept;
+    if (!Number.isFinite(yi)) return [];
+    const d = new Date(baseDate);
+    d.setUTCDate(d.getUTCDate() + i);
+    out.push({ day: d.toISOString().slice(0, 10), value: yi });
+  }
+  return out;
+}
+
 export function downloadCsv(filename: string, csv: string) {
   const blob = new Blob([csv], { type: "text/csv;charset=utf-8" });
   const url = URL.createObjectURL(blob);
