@@ -63,7 +63,8 @@ type PendingAction =
   | { kind: "bulk_reverse_inventory"; ids: string[] }
   | null;
 
-const FORECAST_HORIZON_DAYS = 7;
+const FORECAST_HORIZONS = [7, 14, 30] as const;
+type ForecastHorizon = (typeof FORECAST_HORIZONS)[number];
 
 export function KpiDetailDrawer({
   open,
@@ -87,6 +88,8 @@ export function KpiDetailDrawer({
   const [reason, setReason] = useState("");
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
   const [showForecast, setShowForecast] = useState(false);
+  const [forecastHorizon, setForecastHorizon] = useState<ForecastHorizon>(7);
+  const [seasonalityMode, setSeasonalityMode] = useState<SeasonalityMode>("auto");
 
   useEffect(() => {
     if (!open || !definition) return;
@@ -148,8 +151,13 @@ export function KpiDetailDrawer({
 
   const forecastPoints = useMemo<KpiSeriesPoint[]>(() => {
     if (!showForecast || !series?.series) return [];
-    return forecastLinear(series.series, FORECAST_HORIZON_DAYS);
-  }, [showForecast, series?.series]);
+    return forecastSeasonal(series.series, forecastHorizon, { seasonality: seasonalityMode });
+  }, [showForecast, series?.series, forecastHorizon, seasonalityMode]);
+
+  const backtest = useMemo(() => {
+    if (!series?.series || series.series.length < 6) return null;
+    return backtestForecast(series.series, forecastHorizon, { seasonality: seasonalityMode });
+  }, [series?.series, forecastHorizon, seasonalityMode]);
 
   const chartData = useMemo(() => {
     const actual = (series?.series ?? []).map((p) => ({ day: p.day, value: p.value, forecast: null as number | null }));
