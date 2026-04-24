@@ -141,9 +141,20 @@ export default function PortalReports() {
     }
   };
 
+  const { personal: personalPins, shared: sharedPins } = useMemo(() => splitPinsByScope(pins), [pins]);
+
+  const managedProfitCenterIds = useMemo(
+    () => assignments.filter((a) => a.isActive).map((a) => a.profitCenterId),
+    [assignments],
+  );
+
+  const canShare = activeProfitCenter
+    ? canShareKpiPin({ isSuperAdmin, isAdmin, profitCenterId: activeProfitCenter.id, managedProfitCenterIds })
+    : false;
+
   const handleTogglePin = async (def: KpiDefinition) => {
     if (!activeProfitCenter || !session?.user?.id) return;
-    const existing = pins.find((p) => p.kpiDefinitionId === def.id);
+    const existing = personalPins.find((p) => p.kpiDefinitionId === def.id);
     try {
       if (existing) {
         await unpinKpi(existing.id);
@@ -151,22 +162,53 @@ export default function PortalReports() {
         toast({ title: "Unpinned from overview" });
         return;
       }
-      if (enforceMaxPins(pins.length)) {
-        toast({ title: `Pin limit reached`, description: `Maximum ${KPI_PIN_CAP} pins per workspace.`, variant: "destructive" });
+      if (enforceMaxPins(personalPins.length)) {
+        toast({ title: `Pin limit reached`, description: `Maximum ${KPI_PIN_CAP} personal pins per workspace.`, variant: "destructive" });
         return;
       }
       await pinKpi({
         userId: session.user.id,
         profitCenterId: activeProfitCenter.id,
         kpiDefinitionId: def.id,
-        sortOrder: pins.length,
+        sortOrder: personalPins.length,
       });
       await refreshPins();
       toast({ title: "Pinned to overview" });
     } catch (err) {
       const msg = err instanceof Error ? err.message : "";
-      const friendly = msg.includes("pin_cap_exceeded") ? `Maximum ${KPI_PIN_CAP} pins per workspace.` : msg;
+      const friendly = msg.includes("pin_cap_exceeded") ? `Maximum ${KPI_PIN_CAP} personal pins per workspace.` : msg;
       toast({ title: "Pin update failed", description: friendly, variant: "destructive" });
+    }
+  };
+
+  const handleToggleShare = async (def: KpiDefinition) => {
+    if (!activeProfitCenter || !session?.user?.id || !canShare) return;
+    const alreadyShared = sharedPins.some((p) => p.kpiDefinitionId === def.id);
+    try {
+      if (alreadyShared) {
+        await unshareKpiPin({
+          actorUserId: session.user.id,
+          profitCenterId: activeProfitCenter.id,
+          kpiDefinitionId: def.id,
+        });
+        await refreshPins();
+        toast({ title: "Unshared from workspace" });
+      } else {
+        await shareKpiPin({
+          actorUserId: session.user.id,
+          profitCenterId: activeProfitCenter.id,
+          kpiDefinitionId: def.id,
+          sortOrder: sharedPins.length,
+        });
+        await refreshPins();
+        toast({ title: "Shared with workspace", description: "All members will see this pin on Overview." });
+      }
+    } catch (err) {
+      toast({
+        title: "Share update failed",
+        description: err instanceof Error ? err.message : "",
+        variant: "destructive",
+      });
     }
   };
 
