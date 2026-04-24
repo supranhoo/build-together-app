@@ -385,30 +385,36 @@ export type Database = {
       kpi_pins: {
         Row: {
           created_at: string
+          created_by: string | null
           id: string
           kpi_definition_id: string
           profit_center_id: string
+          scope: string
           sort_order: number
           updated_at: string
-          user_id: string
+          user_id: string | null
         }
         Insert: {
           created_at?: string
+          created_by?: string | null
           id?: string
           kpi_definition_id: string
           profit_center_id: string
+          scope?: string
           sort_order?: number
           updated_at?: string
-          user_id: string
+          user_id?: string | null
         }
         Update: {
           created_at?: string
+          created_by?: string | null
           id?: string
           kpi_definition_id?: string
           profit_center_id?: string
+          scope?: string
           sort_order?: number
           updated_at?: string
-          user_id?: string
+          user_id?: string | null
         }
         Relationships: []
       }
