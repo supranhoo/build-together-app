@@ -6,6 +6,7 @@ import ProfitCenterSelector from "@/pages/ProfitCenterSelector";
 import { RequireAdmin } from "@/components/RequireAdmin";
 import { PortalShell } from "@/components/PortalShell";
 import AdminAudit from "@/pages/AdminAudit";
+import { canEditHeatLogClient, describeRule, userRoleAllows, type PermissionGrant } from "@/lib/permissions";
 
 const navigateMock = vi.fn();
 const logoutMock = vi.fn();
@@ -301,10 +302,7 @@ describe("Login page", () => {
 });
 
 describe("Permission rule helpers (Phase 3)", () => {
-  // eslint-disable-next-line @typescript-eslint/no-require-imports
-  const { canEditHeatLogClient, userRoleAllows, describeRule } = require("@/lib/permissions");
-
-  const grants = [
+  const grants: PermissionGrant[] = [
     { id: "g1", role: "operator", resource: "heat_log", action: "create", rule: { type: "always" }, isActive: true },
     { id: "g2", role: "operator", resource: "heat_log", action: "update", rule: { type: "within_minutes", minutes: 60 }, isActive: true },
     { id: "g3", role: "user", resource: "heat_log", action: "update", rule: { type: "never" }, isActive: true },
