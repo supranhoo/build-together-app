@@ -13,9 +13,11 @@ import { useAuth } from "@/hooks/use-auth";
 import { KpiDetailDrawer } from "@/components/KpiDetailDrawer";
 import {
   buildDateRange,
+  bulkApplySharedPins,
   canShareKpiPin,
   computeKpi,
   computeKpiConsolidated,
+  diffSharedPinSelection,
   downloadCsv,
   enforceMaxPins,
   exportKpiCsv,
@@ -23,6 +25,7 @@ import {
   fetchKpiPins,
   fetchMySubscriptions,
   KPI_PIN_CAP,
+  persistPinOrder,
   pinKpi,
   shareKpiPin,
   splitPinsByScope,
@@ -36,6 +39,7 @@ import {
   type KpiResult,
   type KpiSubscription,
 } from "@/lib/reporting";
+import { SharedPinBulkDialog } from "@/components/SharedPinBulkDialog";
 
 const presets: { value: KpiPreset; label: string }[] = [
   { value: "today", label: "Today" },
@@ -59,6 +63,8 @@ export default function PortalReports() {
   const [subscriptions, setSubscriptions] = useState<KpiSubscription[]>([]);
   const [pins, setPins] = useState<KpiPin[]>([]);
   const [loading, setLoading] = useState(false);
+  const [bulkOpen, setBulkOpen] = useState(false);
+  const [bulkSaving, setBulkSaving] = useState(false);
 
   const range = useMemo(() => buildDateRange(preset), [preset]);
   const activeAssignmentCount = assignments.filter((a) => a.isActive).length;
@@ -212,6 +218,59 @@ export default function PortalReports() {
     }
   };
 
+  const initialBulkSelection = useMemo(() => {
+    // Preserve current shared sort order (sharedPins is already sorted by sortOrder).
+    return sharedPins.map((p) => p.kpiDefinitionId);
+  }, [sharedPins]);
+
+  const handleBulkApply = async (orderedKpiIds: string[]) => {
+    if (!activeProfitCenter || !session?.user?.id || !canShare) return;
+    setBulkSaving(true);
+    try {
+      const currentIds = sharedPins.map((p) => p.kpiDefinitionId);
+      const { toShare, toUnshare } = diffSharedPinSelection(currentIds, orderedKpiIds);
+      const result = await bulkApplySharedPins({
+        actorUserId: session.user.id,
+        profitCenterId: activeProfitCenter.id,
+        toShare,
+        toUnshare,
+        baseSortOrder: currentIds.length,
+      });
+      // After share/unshare settles, persist the desired display order across ALL chosen pins
+      // (covers reorder of pre-existing shared rows too).
+      const fresh = await fetchKpiPins(session.user.id, activeProfitCenter.id);
+      const freshShared = fresh.filter((p) => p.scope === "shared");
+      const orderUpdates = orderedKpiIds
+        .map((kpiId, idx) => {
+          const row = freshShared.find((p) => p.kpiDefinitionId === kpiId);
+          if (!row) return null;
+          if (row.sortOrder === idx) return null;
+          return { id: row.id, sortOrder: idx };
+        })
+        .filter((x): x is { id: string; sortOrder: number } => x !== null);
+      if (orderUpdates.length > 0) await persistPinOrder(orderUpdates);
+      await refreshPins();
+
+      const desc = `${result.shared} shared · ${result.unshared} unshared${
+        orderUpdates.length > 0 ? ` · ${orderUpdates.length} reordered` : ""
+      }${result.errors.length > 0 ? ` · ${result.errors.length} failed` : ""}`;
+      toast({
+        title: "Bulk share applied",
+        description: desc,
+        variant: result.errors.length > 0 ? "destructive" : "default",
+      });
+      setBulkOpen(false);
+    } catch (err) {
+      toast({
+        title: "Bulk share failed",
+        description: err instanceof Error ? err.message : "",
+        variant: "destructive",
+      });
+    } finally {
+      setBulkSaving(false);
+    }
+  };
+
   if (!activeProfitCenter) {
     return <p className="text-sm text-muted-foreground">Select a workspace to view reports.</p>;
   }
@@ -224,6 +283,12 @@ export default function PortalReports() {
           <p className="text-sm text-muted-foreground">Aggregations driven by workspace formulas. Configure under Admin → KPIs.</p>
         </div>
         <div className="flex items-center gap-3">
+          {canShare && (
+            <Button size="sm" variant="outline" onClick={() => setBulkOpen(true)}>
+              <Users className="mr-1.5 h-3.5 w-3.5" />
+              Bulk share
+            </Button>
+          )}
           {canConsolidate && (
             <ToggleGroup
               type="single"
@@ -401,6 +466,20 @@ export default function PortalReports() {
         onSubscriptionsChanged={refreshSubs}
         perWorkspace={drawerConsolidated?.perWorkspace}
       />
+      {canShare && (
+        <SharedPinBulkDialog
+          open={bulkOpen}
+          onOpenChange={setBulkOpen}
+          title="Bulk share KPIs with this workspace"
+          description="Toggle KPIs on or off and reorder them. Changes apply to every member of this workspace."
+          definitions={definitions}
+          initialSelectedIds={initialBulkSelection}
+          enableReorder
+          saving={bulkSaving}
+          applyLabel="Apply changes"
+          onApply={handleBulkApply}
+        />
+      )}
     </div>
   );
 }

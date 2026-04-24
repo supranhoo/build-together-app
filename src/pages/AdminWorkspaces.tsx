@@ -9,7 +9,8 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import { useWorkspace } from "@/hooks/use-workspace";
 import { useAuth } from "@/hooks/use-auth";
 import { useToast } from "@/hooks/use-toast";
-import { createAuditLog, createProfitCenter, updateProfitCenter } from "@/lib/workspace";
+import { createAuditLog, createProfitCenter, fetchProfitCenterSettings, updateProfitCenter } from "@/lib/workspace";
+import { applySharedPinDefaults } from "@/lib/reporting";
 
 const emptyForm = {
   code: "",
@@ -28,6 +29,7 @@ export default function AdminWorkspaces() {
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [form, setForm] = useState(emptyForm);
   const [saving, setSaving] = useState(false);
+  const [copyDefaults, setCopyDefaults] = useState(false);
 
   const selectedWorkspace = useMemo(
     () => allProfitCenters.find((workspace) => workspace.id === selectedId) ?? null,
@@ -86,6 +88,23 @@ export default function AdminWorkspaces() {
           action: "workspace.created",
           changeSummary: { code: created.code, slug: created.slug, name: created.name },
         });
+        if (copyDefaults && activeProfitCenter) {
+          try {
+            const settings = await fetchProfitCenterSettings(activeProfitCenter.id);
+            const row = settings.find((s) => s.settingKey === "shared_pin_defaults");
+            const ids = (row?.settingValue as { kpi_definition_ids?: unknown })?.kpi_definition_ids;
+            if (Array.isArray(ids) && ids.length > 0) {
+              const result = await applySharedPinDefaults({
+                actorUserId: session.user.id,
+                profitCenterId: created.id,
+                kpiDefinitionIds: ids as string[],
+              });
+              toast({ title: "Defaults copied", description: `${result.shared} shared from ${activeProfitCenter.name}.` });
+            }
+          } catch (err) {
+            toast({ title: "Copy defaults failed", description: err instanceof Error ? err.message : "", variant: "destructive" });
+          }
+        }
         setSelectedId(created.id);
       }
 
@@ -155,6 +174,15 @@ export default function AdminWorkspaces() {
             </div>
             <Switch checked={form.isActive} onCheckedChange={(checked) => setForm((current) => ({ ...current, isActive: checked }))} />
           </div>
+          {!selectedWorkspace && activeProfitCenter && (
+            <div className="flex items-center justify-between rounded-md border border-border bg-panel px-4 py-3">
+              <div>
+                <p className="font-medium text-foreground">Copy shared-pin defaults</p>
+                <p className="text-sm text-muted-foreground">Apply the shared-pin defaults from <strong>{activeProfitCenter.name}</strong> to the new workspace after creation.</p>
+              </div>
+              <Switch checked={copyDefaults} onCheckedChange={setCopyDefaults} />
+            </div>
+          )}
           <Button className="w-full" onClick={() => void handleSubmit()} disabled={saving || !form.name || !form.code || !form.slug}>
             {saving ? "Saving…" : selectedWorkspace ? "Save workspace" : "Create workspace"}
           </Button>

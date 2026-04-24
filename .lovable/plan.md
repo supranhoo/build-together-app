@@ -1,101 +1,97 @@
-## Phase 11 — Seasonality, Multi-Horizon Forecasting & Accuracy Backtests
+## Phase 12 — Shared-Pin Governance Polish
 
-Phase 9 shipped a 7-day linear projection as deliberate "groundwork." Phase 11 turns that into something a shift manager can actually trust: weekly seasonality (the dominant pattern in shift-based plant data), selectable horizons, and an honest accuracy readout via walk-forward backtests.
+Phase 10 shipped the core shared-pin mechanism: admins can publish `scope='shared'` pins, RLS gates writes to admins-only, every share/unshare appends an audit row, and Overview renders a separate "Pinned by your team" section. The deferred items — bulk share, admin-side reordering of shared pins, per-workspace defaults — are governance/UX polish that have **no schema impact** but fix real friction for admins managing 5+ KPIs across multiple workspaces.
 
-This is **strictly additive and display-only**. Phase 9's Forecast Display Governance (POLICY.md) still applies verbatim: no persistence, no audit, no digest payloads, no CSV-of-series leakage, fail-closed on degenerate inputs.
+This phase is additive only. No new tables, no new RPCs, no RLS changes. The existing Phase 10 RLS already permits everything we need.
 
 ### Open Decisions (please confirm or say "use defaults")
 
-1. **Seasonality period** — *default: weekly (period=7) only.*
-   - 1a (default): Weekly only. Captures shift/weekend cycles, needs ≥14 points to engage.
-   - 1b: Weekly + monthly (period=30). Needs ≥60 points; most series in the current 30-day default window won't qualify, so monthly will silently be unavailable for almost everyone. Adds code without much real-world payoff yet.
+1. **Bulk share UX surface** — *default: a "Share to workspace" multi-select dialog on `/portal/reports`, opened from a new toolbar button visible only when `canShareKpiPin` is true.*
+   - 1a (default): Reports page toolbar button → modal dialog with checkboxes for every active KPI definition + a single "Apply" action that diffs against current shared pins (shares newly checked, unshares newly unchecked). One audit row per share/unshare, exactly like single-action today.
+   - 1b: Inline "select multiple" mode on the reports cards (like the Phase 8 bulk-void pattern). More consistent with existing bulk UX, but the cards also serve non-admin browsing — adding a checkbox column for an admin-only flow clutters the primary view.
+   - 1c: New `/admin/shared-kpis` page. Cleaner separation, but requires a new route + nav entry for what is essentially one screen of checkboxes.
 
-2. **Horizons offered** — *default: 7 / 14 / 30 days.*
-   - 2a (default): 7, 14, 30. Single-select, default 7.
-   - 2b: 7 / 14 only. More conservative; 30-day projections from 30-day input series are statistically dubious.
-   - 2c: Free numeric input (1–60). Maximum flexibility, easier to misuse.
+2. **Shared-pin reordering** — *default: admins can reorder shared pins from the same Reports page bulk dialog (drag-handle list inside the dialog), persisted via `persistPinOrder` (already exists; works for both scopes since RLS allows admin UPDATE on shared rows).*
+   - 2a (default): Reorder lives inside the bulk dialog. Drag handle on each currently-shared row.
+   - 2b: ↑/↓ buttons on each shared card on `/portal/overview`, gated by `canShareKpiPin`. Mirrors the existing personal-pin reorder pattern. Risk: every workspace member sees the controls disabled, which is visual clutter for ~99% of users.
+   - 2c: Defer reordering entirely. Rejected — without it, admins who shared 6 KPIs in the wrong order have no remedy short of unshare+reshare, which doubles the audit noise.
 
-3. **Backtest readout** — *default: MAPE + MAE on the last 7 actual days, recomputed whenever horizon or seasonality changes.*
-   - 3a (default): Single hold-out (last 7 points), report MAPE % and MAE in series unit. Cheap, honest enough.
-   - 3b: Rolling-origin walk-forward (5 folds × 1-day step). More robust, ~5× the compute, still trivial client-side.
-   - 3c: Skip backtests entirely. Rejected by me — shipping a seasonal model without an accuracy readout is exactly the "linear-trend toy bolted with features" failure mode I flagged when Phase 9 was scoped.
+3. **Per-workspace defaults** — *default: a "Workspace shared-pin defaults" admin tool on `/admin/kpis`: an admin can mark up to N KPI definitions as "shared by default for new workspaces." Applied only on workspace creation (or via an explicit "Apply defaults" admin action), never retroactively.*
+   - 3a (default): New `profit_center_settings` row with `setting_key='shared_pin_defaults'` and `setting_value={ kpi_definition_ids: [...] }` per workspace. Reuses the existing settings table — zero schema change. Applied on workspace create by `AdminWorkspaces` and via an explicit admin button on `/admin/kpis`.
+   - 3b: Global defaults (one row, no `profit_center_id`). Simpler but ignores that different workspaces (steel furnace vs. casting) have different KPI priorities.
+   - 3c: Skip per-workspace defaults this phase. Defensible — bulk share already lets an admin set up a new workspace in one click. I'd actually recommend 3c if the team isn't planning to onboard new workspaces frequently.
 
-4. **UI surface** — *default: extend the existing Trend tab in `KpiDetailDrawer`.*
-   - 4a (default): Same drawer tab. Add a horizon selector + seasonality toggle + accuracy badge. Zero new routes.
-   - 4b: New "Forecast" tab next to Trend. Cleaner separation, but Trend already shows the chart; splitting feels artificial.
+4. **Audit detail level** — *default: bulk operations emit one `audit_logs` row per pin (matching today's single-action behavior); the dialog records a `batch_id` in `change_summary` so admins can see "this share was part of a bulk action" without losing per-pin granularity.*
+   - 4a (default): N audit rows per bulk apply, all sharing one `batch_id` UUID inside `change_summary`. Mirrors `bulk_void_heat_logs` semantics.
+   - 4b: One aggregated audit row listing all KPI IDs. Compact but breaks the "one entity, one audit row" pattern other bulk flows follow.
 
 ---
 
-### What gets built
+### What Gets Built
 
-**1. Pure helpers in `src/lib/reporting.ts`** (no schema, no DB, no new deps)
+**1. Pure helpers in `src/lib/reporting.ts`** (no DB, no schema)
 
-- `forecastSeasonal(series, horizonDays, opts)` — returns projected `KpiSeriesPoint[]`. Algorithm: detrend with linear regression → if `series.length >= 2 * period` (default period=7), compute mean residual per weekday → project as `trend(future_x) + seasonal_index(future_weekday)`. Falls back to `forecastLinear` when seasonality cannot engage. Fails closed on the same conditions as `forecastLinear` (NaN, degenerate slope, <2 usable points).
-- `backtestForecast(series, horizonDays, opts)` — holds out the last `min(7, floor(series.length / 3))` points, runs `forecastSeasonal` on the prefix, returns `{ mape: number | null, mae: number | null, holdoutCount: number, method: "seasonal" | "linear" | "none" }`. Returns `mape: null` when any actual is 0 (avoid divide-by-zero) and falls back to MAE only.
-- Existing `forecastLinear` stays untouched and exported — `forecastSeasonal` calls it internally for the trend component and as the fallback.
+- `diffSharedPinSelection(currentSharedKpiIds: string[], desiredKpiIds: string[]): { toShare: string[]; toUnshare: string[] }` — pure helper that computes the share/unshare delta. Used by the bulk dialog so the apply action only touches what changed.
+- `bulkApplySharedPins(input: { actorUserId, profitCenterId, toShare, toUnshare, baseSortOrder })` — sequential calls to existing `shareKpiPin` / `unshareKpiPin`, each augmented with a shared `batch_id` (uuid generated client-side) added into `change_summary`. Returns `{ shared: number, unshared: number, batchId: string, errors: Array<{ kpiId, error }> }`. Continues on per-pin failure (matches the optimistic UX).
+- `applySharedPinDefaults(input: { actorUserId, profitCenterId, kpiDefinitionIds })` — thin wrapper around `bulkApplySharedPins` that reads current shared pins, computes the diff against the defaults, and applies. Used by `AdminWorkspaces` on create and by the "Apply defaults" admin button.
+- Extend `shareKpiPin` and `unshareKpiPin` to accept an optional `batchId?: string` parameter that flows into `change_summary`. Default `undefined` preserves today's behavior — no migration of existing call sites required beyond the bulk dialog.
 
-**2. UI changes — `src/components/KpiDetailDrawer.tsx` only**
+**2. UI changes**
 
-The Trend tab gets three new controls above the chart, replacing the current single Switch:
+`src/pages/PortalReports.tsx`:
+- New "Bulk share" button in the page header, visible only when `canShare === true`. Opens a dialog.
+- Dialog body: a vertical list of all `kpiDefinitions`. Each row has a checkbox (preselected from current `sharedPins`) and a drag handle for reordering (only the currently-checked rows participate in the order list at the top of the dialog).
+- Footer: "Apply" button → calls `bulkApplySharedPins`, then `persistPinOrder` for any reordered shared rows, then `refreshPins`. Toast summarizes `{shared, unshared, reordered}` counts.
+- The existing single-card Share/Unshare button stays — it's the right tool for one-off changes.
 
-```text
-┌───────────────────────────────────────────────────────────────┐
-│  Show forecast  [Switch]                                      │
-│  Horizon: [7d] [14d] [30d]    Seasonality: [Auto ▼]           │
-│  Accuracy (last 7d holdout): MAPE 8.2% · MAE 1.4 mt · weekly  │
-└───────────────────────────────────────────────────────────────┘
-```
+`src/pages/AdminKpis.tsx`:
+- New "Workspace shared-pin defaults" card at the top, showing the current default list (from `profit_center_settings` for `setting_key='shared_pin_defaults'`) and an "Edit" button that opens a checkbox dialog (same component as Reports bulk dialog, no reorder section). "Apply to this workspace now" button below triggers `applySharedPinDefaults` for the active workspace.
+- Visible only for `super_admin` or workspace admin (reuses `canShareKpiPin` gating logic).
 
-- Horizon segmented control (default 7).
-- Seasonality select: `Auto` (default — engages when data allows) / `Off` (linear only).
-- Accuracy badge: shows MAPE/MAE, the method actually used (`seasonal`/`linear`/`none`), and the holdout size. Greyed-out with "Insufficient data" text when fewer than 6 points exist.
-- Dashed forecast line on the chart — same styling as today, just longer when 14/30 selected.
-- Tooltip on the accuracy badge: "Computed by holding out the last N actual days and comparing the model's prediction. Display-only; never persisted."
+`src/pages/AdminWorkspaces.tsx`:
+- After successful workspace create, if a `shared_pin_defaults` setting exists for the **calling admin's currently-active** workspace, offer a "Copy shared-pin defaults from <ws>" checkbox in the create dialog. Default unchecked — admins must opt in. When checked, calls `applySharedPinDefaults` on the new workspace right after creation. (No automatic copying — too magical for a destructive-feeling default.)
 
-No changes to `PortalOverview.tsx`, `PortalReports.tsx`, or any export/CSV/digest path.
+`src/pages/PortalOverview.tsx`:
+- No changes. Shared-pin reorder lives in the Reports bulk dialog, not the Overview surface (per decision 2a).
 
 **3. Tests** (`src/test/example.test.tsx`)
 
-Add a `describe("Seasonal forecast helper (Phase 11)")` block covering:
-- Returns linear-only when series < 14 points.
-- Engages weekly seasonality at exactly 14 points.
-- Reproduces a synthetic `trend + sin(2π·weekday/7)` signal within tight tolerance.
-- Fails closed (`[]`) on all-null, single-point, NaN, and zero-variance series.
-- `backtestForecast` returns `{ mape: null, mae: number, holdoutCount: 0, method: "none" }` on tiny series and never throws.
-- Backtest MAPE on a known synthetic series matches a hand-computed expected value.
+- `diffSharedPinSelection`: empty current + non-empty desired → all toShare; identical sets → empty diff; partial overlap → correct partition.
+- `applySharedPinDefaults` happy path with mocked `supabase` (matches the existing mock pattern in the file).
+- `canShareKpiPin` is unchanged — no new tests needed there.
 
-Target: 6 new tests, total 47 passing.
+Target: 4–5 new tests. Total ~52 passing.
 
-**4. Documentation & policy updates (atomic, same response as code)**
+**4. Documentation & Policy (atomic, same response as code)**
 
-- `DOCUMENTATION.md` — append Phase 11 section describing helpers, UI, holdout convention, and the unchanged "no schema, no persistence" boundary. Add Version History entry.
-- `POLICY.md` — extend the existing Phase 9 "Forecast Display Governance" with one paragraph for Phase 11: backtest accuracy figures (MAPE/MAE) are themselves display-only artifacts, MUST NOT be persisted to `kpi_definitions`, `report_deliveries`, or audit logs, and MUST NOT appear in CSV-of-series exports. Add Policy Change Log entry.
+- `DOCUMENTATION.md`: Phase 12 section listing the new helpers, UI locations, and the explicit non-changes (no schema, no RLS, no new RPCs). Add Version History entry.
+- `POLICY.md`: extend the existing Shared Pin Governance (Phase 10) with two clauses for Phase 12:
+  - Bulk share/unshare from the dialog MUST emit one `audit_logs` row per affected pin, sharing a `batch_id` in `change_summary`. The bulk path MUST NOT consolidate audit entries.
+  - Shared-pin defaults are admin intent, not policy. Defaults stored in `profit_center_settings` MUST be applied only on explicit admin action (workspace create with the opt-in checked, or "Apply defaults" button) — never automatically on workspace updates, never on user assignment, never retroactively. RLS on `profit_center_settings` already restricts writes to workspace admins.
 
 ### Pre-Implementation Risk & Impact Report
 
-- **Data Impact**: None. No schema changes, no migrations, no new tables, no RLS edits. `kpi_pins`, `kpi_definitions`, `report_deliveries`, `audit_logs` all untouched.
-- **Workflow Impact**: None. Permissions, roles, RPCs, edge functions unchanged. Forecast UI is visible to anyone who can already open the drawer.
-- **UI/UX Impact**: One existing tab gains controls. No new routes, no nav changes. Same dashed-line styling on the chart.
-- **Regression Risk**: Low and contained.
-  - `KpiDetailDrawer` rerenders when horizon/seasonality changes — both `forecastSeasonal` and `backtestForecast` are wrapped in `useMemo` keyed on `[series, horizon, seasonalityMode]`, matching the existing `forecastPoints` pattern.
-  - `forecastLinear` is unchanged and re-exported, so all 41 existing tests still pass.
-  - Recharts handles longer dashed lines fine; no library bump.
-- **Mitigation**: New tests cover the new helpers; manual QA flow is "open drawer → switch horizons → confirm chart redraws and accuracy badge updates."
+- **Data Impact**: None. No schema. New rows in `profit_center_settings` use the existing `setting_key='shared_pin_defaults'` convention. New audit rows use the existing `entity_type='kpi_pin'` and `action IN ('share','unshare')` taxonomy with an added `batch_id` field inside `change_summary`.
+- **Workflow Impact**: Admin-only flows. Non-admin users see no new UI. The existing single-action Share/Unshare button is unchanged.
+- **UI/UX Impact**: One new dialog reused in two pages (Reports + AdminKpis). One new card on AdminKpis. One new optional checkbox in AdminWorkspaces create.
+- **Regression Risk**:
+  - `shareKpiPin`/`unshareKpiPin` signature gains an optional parameter — existing callers untouched.
+  - `persistPinOrder` is already used for personal pins; admin RLS on shared rows is permissive for UPDATE per Phase 10, so no policy change needed. Verified by reading the policies in context.
+  - Bulk apply continues on per-pin failure — partial state is possible. Mitigation: errors are surfaced in the toast and the dialog reopens with the remaining diff.
+- **Mitigation**: Tests cover the diff helper and the apply wrapper. Manual QA: open dialog → toggle 3 KPIs → reorder 2 → apply → confirm Overview reflects new order and audit shows N rows with matching `batch_id`.
 
-### Out of Scope (deferred — call out explicitly)
+### Out of Scope (deferred — explicit)
 
-- Server-side forecasting in `compute_kpi` (would violate the display-only boundary).
-- Forecasts in scheduled digests / `report_deliveries`.
-- Confidence intervals / prediction bands (Recharts Area overlay is doable but adds visual noise; defer until users ask).
-- Anomaly detection (separate feature, separate phase).
-- Holt-Winters / ARIMA / Prophet (overkill for daily plant data without a real forecasting need that the simple seasonal-naive model can't serve).
-- Per-shift (intra-day) seasonality — current series are already daily-bucketed by `compute_kpi`; intra-day would require new RPCs.
+- Per-user "hide this shared pin" (still rejected — violates the Phase 10 mandatory-display rule).
+- Role-targeted shared pins (requires schema change to add `target_role`).
+- Cross-workspace sharing (separate phase, governance design needed).
+- Drag-and-drop reordering of personal pins on Overview (still ↑/↓ buttons; was deferred in Phase 9 and not in this phase's scope).
+- Server-side bulk RPC for shared pins. The N-row sequential approach is fine for the realistic ceiling (≤30 KPI definitions); a dedicated RPC would be worth it only if we routinely shared 100+.
 
-### Pushback I want on the record
+### Pushback I Want On The Record
 
-- **Decision 1b (monthly seasonality)** I recommend against right now. With the default 30-day window in `compute_kpi` callers, almost no series will hit the 60-point engagement threshold, so the code path will exist but never run for real users. Add it the day we add 90-day windows.
-- **Decision 3c (skip backtests)** I refuse to build silently. If you genuinely don't want them, say so explicitly and I'll add a one-line POLICY.md entry stating "no accuracy readout is shown" so the omission is intentional rather than accidental.
-- **Decision 2c (free numeric horizon)** I'd push back on. `forecastSeasonal` for `horizonDays > series.length` produces a number, but it's a number you should not show a shift manager. The 7/14/30 chips bound the foot-gun.
+- **Decision 3c (skip per-workspace defaults)** is genuinely defensible. If your team rarely creates new workspaces, the defaults feature is solving a problem you don't have. Building it adds two UI surfaces and one settings-table convention to maintain. Pick 3c if onboarding is rare; pick 3a if you're spinning up workspaces monthly.
+- **Decision 2b (per-card reorder on Overview)** I'd push back on. Every member of the workspace would see disabled ↑/↓ buttons or no buttons at all (depending on gating), which is either clutter or an admin-only affordance leaking into a non-admin page. The bulk dialog (2a) keeps admin tooling in admin-context surfaces.
+- **The N-row audit pattern (4a)** intentionally produces more audit volume than 4b. If you regularly bulk-share 20 KPIs, that's 20 rows per apply. I think that's correct — it preserves the entity-row invariant the rest of the audit log uses — but if it bothers your audit reviewer, say so and I'll switch to 4b.
 
 **Please confirm the 4 decisions above (or say "use defaults") before I proceed.**
-Phase 11 complete - Fri Apr 24 14:23:53 UTC 2026

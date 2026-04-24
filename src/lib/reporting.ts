@@ -497,6 +497,7 @@ export async function shareKpiPin(input: {
   profitCenterId: string;
   kpiDefinitionId: string;
   sortOrder?: number;
+  batchId?: string;
 }): Promise<void> {
   const { data, error } = await (supabase as any)
     .from("kpi_pins")
@@ -511,27 +512,31 @@ export async function shareKpiPin(input: {
     .select("id")
     .single();
   if (error) throw error;
+  const summary: Record<string, unknown> = {
+    kpi_definition_id: input.kpiDefinitionId,
+    profit_center_id: input.profitCenterId,
+  };
+  if (input.batchId) summary.batch_id = input.batchId;
   await (supabase as any).from("audit_logs").insert({
     actor_user_id: input.actorUserId,
     profit_center_id: input.profitCenterId,
     entity_type: "kpi_pin",
     entity_id: data?.id ?? null,
     action: "share",
-    change_summary: {
-      kpi_definition_id: input.kpiDefinitionId,
-      profit_center_id: input.profitCenterId,
-    },
+    change_summary: summary,
   });
 }
 
 /**
  * Unpublish a workspace-shared pin by (profit_center_id, kpi_definition_id).
- * Writes an audit_logs entry on success.
+ * Writes an audit_logs entry on success. Optional batchId is recorded in
+ * change_summary when invoked from a bulk apply (Phase 12).
  */
 export async function unshareKpiPin(input: {
   actorUserId: string;
   profitCenterId: string;
   kpiDefinitionId: string;
+  batchId?: string;
 }): Promise<void> {
   const { data: existing, error: findErr } = await (supabase as any)
     .from("kpi_pins")
@@ -544,16 +549,118 @@ export async function unshareKpiPin(input: {
   if (!existing) return;
   const { error: delErr } = await (supabase as any).from("kpi_pins").delete().eq("id", existing.id);
   if (delErr) throw delErr;
+  const summary: Record<string, unknown> = {
+    kpi_definition_id: input.kpiDefinitionId,
+    profit_center_id: input.profitCenterId,
+  };
+  if (input.batchId) summary.batch_id = input.batchId;
   await (supabase as any).from("audit_logs").insert({
     actor_user_id: input.actorUserId,
     profit_center_id: input.profitCenterId,
     entity_type: "kpi_pin",
     entity_id: existing.id,
     action: "unshare",
-    change_summary: {
-      kpi_definition_id: input.kpiDefinitionId,
-      profit_center_id: input.profitCenterId,
-    },
+    change_summary: summary,
+  });
+}
+
+/**
+ * Phase 12 — Pure helper: compute the share/unshare delta between the
+ * currently-shared KPI definition IDs and the desired set.
+ */
+export function diffSharedPinSelection(
+  currentSharedKpiIds: string[],
+  desiredKpiIds: string[],
+): { toShare: string[]; toUnshare: string[] } {
+  const current = new Set(currentSharedKpiIds);
+  const desired = new Set(desiredKpiIds);
+  const toShare: string[] = [];
+  const toUnshare: string[] = [];
+  for (const id of desired) if (!current.has(id)) toShare.push(id);
+  for (const id of current) if (!desired.has(id)) toUnshare.push(id);
+  return { toShare, toUnshare };
+}
+
+/**
+ * Phase 12 — Bulk apply share/unshare for the workspace. Continues on
+ * per-pin failure so a single bad row does not block the rest. Each affected
+ * row receives the same batch_id in its audit change_summary.
+ */
+export interface BulkSharedPinResult {
+  shared: number;
+  unshared: number;
+  batchId: string;
+  errors: Array<{ kpiId: string; action: "share" | "unshare"; message: string }>;
+}
+
+export async function bulkApplySharedPins(input: {
+  actorUserId: string;
+  profitCenterId: string;
+  toShare: string[];
+  toUnshare: string[];
+  baseSortOrder?: number;
+}): Promise<BulkSharedPinResult> {
+  const batchId =
+    typeof crypto !== "undefined" && typeof crypto.randomUUID === "function"
+      ? crypto.randomUUID()
+      : `bulk-${Date.now()}-${Math.random().toString(36).slice(2)}`;
+  const result: BulkSharedPinResult = { shared: 0, unshared: 0, batchId, errors: [] };
+  let nextSort = input.baseSortOrder ?? 0;
+  for (const kpiId of input.toShare) {
+    try {
+      await shareKpiPin({
+        actorUserId: input.actorUserId,
+        profitCenterId: input.profitCenterId,
+        kpiDefinitionId: kpiId,
+        sortOrder: nextSort,
+        batchId,
+      });
+      result.shared += 1;
+      nextSort += 1;
+    } catch (err) {
+      result.errors.push({ kpiId, action: "share", message: err instanceof Error ? err.message : String(err) });
+    }
+  }
+  for (const kpiId of input.toUnshare) {
+    try {
+      await unshareKpiPin({
+        actorUserId: input.actorUserId,
+        profitCenterId: input.profitCenterId,
+        kpiDefinitionId: kpiId,
+        batchId,
+      });
+      result.unshared += 1;
+    } catch (err) {
+      result.errors.push({ kpiId, action: "unshare", message: err instanceof Error ? err.message : String(err) });
+    }
+  }
+  return result;
+}
+
+/**
+ * Phase 12 — Apply the workspace's shared-pin defaults: read the current
+ * shared pin set, diff it against `kpiDefinitionIds`, and bulk-apply.
+ * Used by AdminKpis "Apply defaults" and AdminWorkspaces opt-in copy.
+ */
+export async function applySharedPinDefaults(input: {
+  actorUserId: string;
+  profitCenterId: string;
+  kpiDefinitionIds: string[];
+}): Promise<BulkSharedPinResult> {
+  const { data, error } = await (supabase as any)
+    .from("kpi_pins")
+    .select("kpi_definition_id")
+    .eq("scope", "shared")
+    .eq("profit_center_id", input.profitCenterId);
+  if (error) throw error;
+  const currentIds = ((data ?? []) as Array<{ kpi_definition_id: string }>).map((r) => r.kpi_definition_id);
+  const { toShare, toUnshare } = diffSharedPinSelection(currentIds, input.kpiDefinitionIds);
+  return bulkApplySharedPins({
+    actorUserId: input.actorUserId,
+    profitCenterId: input.profitCenterId,
+    toShare,
+    toUnshare,
+    baseSortOrder: currentIds.length,
   });
 }
 
