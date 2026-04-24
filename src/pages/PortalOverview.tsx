@@ -32,6 +32,12 @@ export default function PortalOverview() {
   const [pinned, setPinned] = useState<PinnedKpiCard[]>([]);
   const [pinnedLoading, setPinnedLoading] = useState(false);
   const [reordering, setReordering] = useState(false);
+  const workspaceCardRef = useRef<HTMLDivElement | null>(null);
+  const modulesGridRef = useRef<HTMLDivElement | null>(null);
+
+  const scrollTo = (ref: React.RefObject<HTMLElement>) => {
+    ref.current?.scrollIntoView({ behavior: "smooth", block: "start" });
+  };
 
   useEffect(() => {
     if (!activeProfitCenter || !session?.user?.id) {
