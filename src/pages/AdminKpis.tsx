@@ -40,7 +40,7 @@ interface FormState {
 const empty: FormState = { profitCenterId: "", key: "", displayName: "", unit: "", formula: "{\n  \"source\": \"heat_logs\",\n  \"agg\": \"count\"\n}", sortOrder: "100", isActive: true };
 
 export default function AdminKpis() {
-  const { activeProfitCenter, isAdmin, isSuperAdmin, assignments } = useWorkspace();
+  const { activeProfitCenter, isAdmin, isSuperAdmin, assignments, selectProfitCenter } = useWorkspace();
   const { session } = useAuth();
   const { toast } = useToast();
   const [defs, setDefs] = useState<KpiDefinition[]>([]);
