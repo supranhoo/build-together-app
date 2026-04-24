@@ -1,17 +1,19 @@
 import { useEffect, useMemo, useState } from "react";
 import { CartesianGrid, Line, LineChart, ResponsiveContainer, Tooltip, XAxis, YAxis } from "recharts";
-import { Download, Pin, PinOff } from "lucide-react";
+import { Download, Pin, PinOff, Share2, Users } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Badge } from "@/components/ui/badge";
 import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group";
+import { Tooltip as UITooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 import { useToast } from "@/hooks/use-toast";
 import { useWorkspace } from "@/hooks/use-workspace";
 import { useAuth } from "@/hooks/use-auth";
 import { KpiDetailDrawer } from "@/components/KpiDetailDrawer";
 import {
   buildDateRange,
+  canShareKpiPin,
   computeKpi,
   computeKpiConsolidated,
   downloadCsv,
@@ -22,7 +24,10 @@ import {
   fetchMySubscriptions,
   KPI_PIN_CAP,
   pinKpi,
+  shareKpiPin,
+  splitPinsByScope,
   unpinKpi,
+  unshareKpiPin,
   unsubscribeFromKpi,
   type KpiConsolidatedResult,
   type KpiDefinition,
