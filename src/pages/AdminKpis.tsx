@@ -22,11 +22,13 @@ import {
 } from "@/lib/reporting";
 import { createAuditLog, fetchProfitCenterSettings, upsertProfitCenterSetting } from "@/lib/workspace";
 import { SharedPinBulkDialog } from "@/components/SharedPinBulkDialog";
+import { ProfitCenterSelectField } from "@/components/ProfitCenterSelectField";
 
 const SHARED_PIN_DEFAULTS_KEY = "shared_pin_defaults";
 
 interface FormState {
   id?: string;
+  profitCenterId: string;
   key: string;
   displayName: string;
   unit: string;
@@ -35,7 +37,7 @@ interface FormState {
   isActive: boolean;
 }
 
-const empty: FormState = { key: "", displayName: "", unit: "", formula: "{\n  \"source\": \"heat_logs\",\n  \"agg\": \"count\"\n}", sortOrder: "100", isActive: true };
+const empty: FormState = { profitCenterId: "", key: "", displayName: "", unit: "", formula: "{\n  \"source\": \"heat_logs\",\n  \"agg\": \"count\"\n}", sortOrder: "100", isActive: true };
 
 export default function AdminKpis() {
   const { activeProfitCenter, isAdmin, isSuperAdmin, assignments } = useWorkspace();
@@ -142,10 +144,11 @@ export default function AdminKpis() {
 
   useEffect(() => { void load(); /* eslint-disable-next-line */ }, [activeProfitCenter?.id]);
 
-  const openNew = () => { setForm(empty); setPreview(null); setOpen(true); };
+  const openNew = () => { setForm({ ...empty, profitCenterId: activeProfitCenter?.id ?? "" }); setPreview(null); setOpen(true); };
   const openEdit = (d: KpiDefinition) => {
     setForm({
       id: d.profitCenterId === activeProfitCenter?.id ? d.id : undefined,
+      profitCenterId: d.profitCenterId ?? activeProfitCenter?.id ?? "",
       key: d.key,
       displayName: d.displayName,
       unit: d.unit,
@@ -183,6 +186,10 @@ export default function AdminKpis() {
 
   const handleSave = async () => {
     if (!activeProfitCenter || !session?.user) return;
+    if (!form.profitCenterId) {
+      toast({ title: "Profit Center mapping is mandatory", variant: "destructive" });
+      return;
+    }
     if (!form.key.trim() || !form.displayName.trim()) {
       toast({ title: "Key and display name are required", variant: "destructive" });
       return;
@@ -196,7 +203,7 @@ export default function AdminKpis() {
     try {
       await upsertKpiDefinition({
         id: form.id,
-        profitCenterId: activeProfitCenter.id,
+        profitCenterId: form.profitCenterId,
         key: form.key.trim(),
         displayName: form.displayName.trim(),
         unit: form.unit.trim(),
@@ -206,10 +213,10 @@ export default function AdminKpis() {
       });
       await createAuditLog({
         actorUserId: session.user.id,
-        profitCenterId: activeProfitCenter.id,
+        profitCenterId: form.profitCenterId,
         entityType: "kpi_definition",
         action: form.id ? "kpi.updated" : "kpi.created",
-        changeSummary: { key: form.key, displayName: form.displayName },
+        changeSummary: { key: form.key, displayName: form.displayName, profit_center_id: form.profitCenterId },
       });
       toast({ title: "KPI saved" });
       setOpen(false);
