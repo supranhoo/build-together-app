@@ -6,6 +6,7 @@ import ProfitCenterSelector from "@/pages/ProfitCenterSelector";
 import { RequireAdmin } from "@/components/RequireAdmin";
 import { PortalShell } from "@/components/PortalShell";
 import AdminAudit from "@/pages/AdminAudit";
+import { canEditHeatLogClient, describeRule, userRoleAllows, type PermissionGrant } from "@/lib/permissions";
 
 const navigateMock = vi.fn();
 const logoutMock = vi.fn();
@@ -140,6 +141,7 @@ vi.mock("@/hooks/use-toast", () => ({
 vi.mock("@/lib/auth-storage", () => ({
   getRememberPreference: () => false,
   setRememberPreference: vi.fn(),
+  authStorage: { getItem: vi.fn(), setItem: vi.fn(), removeItem: vi.fn() },
 }));
 
 vi.mock("@/lib/auth", () => ({
@@ -297,5 +299,51 @@ describe("Login page", () => {
 
     expect(screen.getByText(/no audit records are visible for the current scope yet/i)).toBeInTheDocument();
     expect(screen.queryByRole("button", { name: /load more/i })).not.toBeInTheDocument();
+  });
+});
+
+describe("Permission rule helpers (Phase 3)", () => {
+  const grants: PermissionGrant[] = [
+    { id: "g1", role: "operator", resource: "heat_log", action: "create", rule: { type: "always" }, isActive: true },
+    { id: "g2", role: "operator", resource: "heat_log", action: "update", rule: { type: "within_minutes", minutes: 60 }, isActive: true },
+    { id: "g3", role: "user", resource: "heat_log", action: "update", rule: { type: "never" }, isActive: true },
+    { id: "g4", role: "admin", resource: "heat_log", action: "update", rule: { type: "always" }, isActive: true },
+    { id: "g5", role: "manager", resource: "heat_log", action: "update", rule: { type: "same_shift" }, isActive: true },
+  ];
+
+  it("describes each rule type for the admin UI", () => {
+    expect(describeRule({ type: "always" })).toMatch(/always/i);
+    expect(describeRule({ type: "never" })).toMatch(/never/i);
+    expect(describeRule({ type: "within_minutes", minutes: 30 })).toMatch(/30/);
+    expect(describeRule({ type: "same_shift" })).toMatch(/shift/i);
+  });
+
+  it("allows operators to create heat logs and denies users", () => {
+    expect(userRoleAllows(grants, "operator", "heat_log", "create")).toBe(true);
+    expect(userRoleAllows(grants, "user", "heat_log", "create")).toBe(false);
+  });
+
+  it("respects the within_minutes window for operators", () => {
+    const fresh = { createdAt: new Date(Date.now() - 10 * 60_000).toISOString(), tapTime: new Date().toISOString() };
+    const stale = { createdAt: new Date(Date.now() - 120 * 60_000).toISOString(), tapTime: new Date().toISOString() };
+    expect(canEditHeatLogClient(grants, "operator", fresh)).toBe(true);
+    expect(canEditHeatLogClient(grants, "operator", stale)).toBe(false);
+  });
+
+  it("blocks edit for never-grant roles regardless of timing", () => {
+    const fresh = { createdAt: new Date().toISOString(), tapTime: new Date().toISOString() };
+    expect(canEditHeatLogClient(grants, "user", fresh)).toBe(false);
+  });
+
+  it("allows always-grant roles to edit anytime", () => {
+    const old = { createdAt: new Date(Date.now() - 30 * 24 * 60 * 60_000).toISOString(), tapTime: new Date(Date.now() - 30 * 24 * 60 * 60_000).toISOString() };
+    expect(canEditHeatLogClient(grants, "admin", old)).toBe(true);
+  });
+
+  it("allows manager same-shift edits when tap time is today", () => {
+    const today = { createdAt: new Date().toISOString(), tapTime: new Date().toISOString() };
+    const yesterday = { createdAt: new Date(Date.now() - 48 * 60 * 60_000).toISOString(), tapTime: new Date(Date.now() - 48 * 60 * 60_000).toISOString() };
+    expect(canEditHeatLogClient(grants, "manager", today)).toBe(true);
+    expect(canEditHeatLogClient(grants, "manager", yesterday)).toBe(false);
   });
 });

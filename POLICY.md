@@ -29,9 +29,17 @@
 - Workspace creation, workspace updates, module configuration changes, setting changes, and assignment changes must be captured in audit records.
 - Audit history may be browsed through paged read access, but pagination must not weaken audit immutability or authorization boundaries.
 
+## Production Data Governance
+- Furnaces and shifts are workspace-scoped master data. Only workspace admins or super admins may create or modify them.
+- Heat logs are workspace-scoped operational records. Operators may create them only when an active permission grant allows it. Heat log edits are governed by configurable role-based rules in `permission_grants` — edit windows must never be hardcoded in the UI or in code.
+- Every heat log create and update appends an immutable record to `heat_log_events`. This trail is independent of the configuration audit log and must not be deletable through standard application flows.
+- Only super admins may modify `permission_grants`. All authenticated users may read them so the UI can correctly gate actions.
+- Heat log deletion is restricted to super admins; the UI does not currently expose deletion.
+
 ## Policy Change Log
 - 2026-04-23: Enforced admin-only account creation on the public login experience.
 - 2026-04-23: Added configuration-first workspace isolation, admin governance, and immutable audit requirements for multi-plant scale.
 - 2026-04-23: Restricted workspace creation to super admins and enabled audited admin configuration flows.
 - 2026-04-23: Added paged admin audit browsing while preserving immutable audit history.
 - 2026-04-24: Reconciled external architecture documentation with implemented model; no policy rules changed.
+- 2026-04-24: Added Production Data Governance — furnace/shift master data ownership, configurable RBAC for heat log edits via `permission_grants`, and immutable `heat_log_events` audit trail.

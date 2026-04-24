@@ -100,6 +100,192 @@ export type Database = {
           },
         ]
       }
+      furnaces: {
+        Row: {
+          capacity_mt: number | null
+          code: string
+          created_at: string
+          id: string
+          is_active: boolean
+          name: string
+          profit_center_id: string
+          updated_at: string
+        }
+        Insert: {
+          capacity_mt?: number | null
+          code: string
+          created_at?: string
+          id?: string
+          is_active?: boolean
+          name: string
+          profit_center_id: string
+          updated_at?: string
+        }
+        Update: {
+          capacity_mt?: number | null
+          code?: string
+          created_at?: string
+          id?: string
+          is_active?: boolean
+          name?: string
+          profit_center_id?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "furnaces_profit_center_id_fkey"
+            columns: ["profit_center_id"]
+            isOneToOne: false
+            referencedRelation: "profit_centers"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      heat_log_events: {
+        Row: {
+          action: string
+          actor_user_id: string
+          change_summary: Json
+          created_at: string
+          heat_log_id: string
+          id: string
+          profit_center_id: string
+        }
+        Insert: {
+          action: string
+          actor_user_id: string
+          change_summary?: Json
+          created_at?: string
+          heat_log_id: string
+          id?: string
+          profit_center_id: string
+        }
+        Update: {
+          action?: string
+          actor_user_id?: string
+          change_summary?: Json
+          created_at?: string
+          heat_log_id?: string
+          id?: string
+          profit_center_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "heat_log_events_heat_log_id_fkey"
+            columns: ["heat_log_id"]
+            isOneToOne: false
+            referencedRelation: "heat_logs"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "heat_log_events_profit_center_id_fkey"
+            columns: ["profit_center_id"]
+            isOneToOne: false
+            referencedRelation: "profit_centers"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      heat_logs: {
+        Row: {
+          created_at: string
+          created_by: string
+          furnace_id: string
+          heat_number: string
+          id: string
+          notes: string | null
+          power_mwh: number | null
+          profit_center_id: string
+          shift_id: string
+          tap_time: string
+          updated_at: string
+          weight_mt: number | null
+        }
+        Insert: {
+          created_at?: string
+          created_by: string
+          furnace_id: string
+          heat_number: string
+          id?: string
+          notes?: string | null
+          power_mwh?: number | null
+          profit_center_id: string
+          shift_id: string
+          tap_time: string
+          updated_at?: string
+          weight_mt?: number | null
+        }
+        Update: {
+          created_at?: string
+          created_by?: string
+          furnace_id?: string
+          heat_number?: string
+          id?: string
+          notes?: string | null
+          power_mwh?: number | null
+          profit_center_id?: string
+          shift_id?: string
+          tap_time?: string
+          updated_at?: string
+          weight_mt?: number | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "heat_logs_furnace_id_fkey"
+            columns: ["furnace_id"]
+            isOneToOne: false
+            referencedRelation: "furnaces"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "heat_logs_profit_center_id_fkey"
+            columns: ["profit_center_id"]
+            isOneToOne: false
+            referencedRelation: "profit_centers"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "heat_logs_shift_id_fkey"
+            columns: ["shift_id"]
+            isOneToOne: false
+            referencedRelation: "shifts"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      permission_grants: {
+        Row: {
+          action: string
+          created_at: string
+          id: string
+          is_active: boolean
+          resource: string
+          role: Database["public"]["Enums"]["app_role"]
+          rule: Json
+          updated_at: string
+        }
+        Insert: {
+          action: string
+          created_at?: string
+          id?: string
+          is_active?: boolean
+          resource: string
+          role: Database["public"]["Enums"]["app_role"]
+          rule?: Json
+          updated_at?: string
+        }
+        Update: {
+          action?: string
+          created_at?: string
+          id?: string
+          is_active?: boolean
+          resource?: string
+          role?: Database["public"]["Enums"]["app_role"]
+          rule?: Json
+          updated_at?: string
+        }
+        Relationships: []
+      }
       profiles: {
         Row: {
           avatar_url: string | null
@@ -267,6 +453,53 @@ export type Database = {
         }
         Relationships: []
       }
+      shifts: {
+        Row: {
+          code: string
+          created_at: string
+          end_time: string
+          id: string
+          is_active: boolean
+          name: string
+          profit_center_id: string
+          sort_order: number
+          start_time: string
+          updated_at: string
+        }
+        Insert: {
+          code: string
+          created_at?: string
+          end_time: string
+          id?: string
+          is_active?: boolean
+          name: string
+          profit_center_id: string
+          sort_order?: number
+          start_time: string
+          updated_at?: string
+        }
+        Update: {
+          code?: string
+          created_at?: string
+          end_time?: string
+          id?: string
+          is_active?: boolean
+          name?: string
+          profit_center_id?: string
+          sort_order?: number
+          start_time?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "shifts_profit_center_id_fkey"
+            columns: ["profit_center_id"]
+            isOneToOne: false
+            referencedRelation: "profit_centers"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       user_profit_centers: {
         Row: {
           assigned_by: string | null
@@ -331,6 +564,10 @@ export type Database = {
       [_ in never]: never
     }
     Functions: {
+      can_edit_heat_log: {
+        Args: { _heat_log_id: string; _user_id: string }
+        Returns: boolean
+      }
       can_manage_profit_center: {
         Args: { _profit_center_id: string; _user_id: string }
         Returns: boolean
@@ -349,6 +586,18 @@ export type Database = {
           _role: Database["public"]["Enums"]["app_role"]
           _user_id: string
         }
+        Returns: boolean
+      }
+      permission_allows: {
+        Args: {
+          _action: string
+          _resource: string
+          _role: Database["public"]["Enums"]["app_role"]
+        }
+        Returns: boolean
+      }
+      user_can_act: {
+        Args: { _action: string; _resource: string; _user_id: string }
         Returns: boolean
       }
     }

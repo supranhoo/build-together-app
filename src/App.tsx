@@ -21,7 +21,11 @@ import AdminModules from "./pages/AdminModules";
 import AdminAccess from "./pages/AdminAccess";
 import AdminSettings from "./pages/AdminSettings";
 import AdminAudit from "./pages/AdminAudit";
+import AdminFurnaces from "./pages/AdminFurnaces";
+import AdminShifts from "./pages/AdminShifts";
+import AdminRoles from "./pages/AdminRoles";
 import ModulePlaceholder from "./pages/ModulePlaceholder";
+import PortalProduction from "./pages/PortalProduction";
 import NotFound from "./pages/NotFound";
 
 const queryClient = new QueryClient();
@@ -43,6 +47,7 @@ const App = () => (
                 <Route element={<RequireWorkspace />}>
                   <Route path="/portal" element={<PortalShell />}>
                     <Route index element={<PortalOverview />} />
+                    <Route path="production" element={<PortalProduction />} />
                     <Route path=":module" element={<ModulePlaceholder />} />
                   </Route>
                 </Route>
@@ -54,6 +59,9 @@ const App = () => (
                     <Route path="access" element={<AdminAccess />} />
                     <Route path="settings" element={<AdminSettings />} />
                     <Route path="audit" element={<AdminAudit />} />
+                    <Route path="furnaces" element={<AdminFurnaces />} />
+                    <Route path="shifts" element={<AdminShifts />} />
+                    <Route path="roles" element={<AdminRoles />} />
                   </Route>
                 </Route>
               </Route>

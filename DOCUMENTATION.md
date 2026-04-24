@@ -65,11 +65,21 @@ SteelFlow ERP now uses a configuration-first workspace foundation for steel and 
 ## Implementation Status
 - Phase 1 — Configurable multi-workspace foundation: complete.
 - Phase 2 — Live admin management (workspaces, modules, access, settings, audit + pagination): complete.
-- Phase 3 — Production foundation (`furnaces`, `heat_logs`, shift context): not started.
+- Phase 3 — Production foundation (furnaces, shifts, heat logs, configurable RBAC): complete.
 - Phase 4 — Inventory and material flows: not started.
 - Phase 5 — Reporting and KPI aggregation: not started.
 - Phase 6 — Finance and costing engine: not started.
 - Phase 7 — Advanced admin and process workflow builder: not started.
+
+## Phase 3 — Production Foundation
+- New tables: `furnaces`, `shifts`, `heat_logs`, `heat_log_events`, `permission_grants`. All workspace-scoped (except `permission_grants` which is global) and RLS-protected.
+- `furnaces` and `shifts` are admin-managed per workspace; uniqueness enforced on `(profit_center_id, code)`.
+- `heat_logs` are operator-entered with `heat_number` unique per `(profit_center_id, furnace_id)`. Tap time, weight (MT), power (MWh), and notes are captured.
+- `heat_log_events` is an immutable audit trail written by trigger on every create/update of a heat log.
+- `permission_grants` is the configurable RBAC layer mapping `(role, resource, action)` to a JSON `rule` (`always` / `never` / `within_minutes:N` / `same_shift`). Edit-window behavior for heat logs is sourced from this table — never hardcoded.
+- DB function `can_edit_heat_log(_user_id, _heat_log_id)` is the single source of truth for heat log edit eligibility, used by both RLS UPDATE policy and the React UI.
+- Seeded defaults: operators may always create heat logs and edit within 60 minutes; managers may edit within the same shift; admins and super admins may always edit. Users and analysts have no production permissions by default.
+- New `production` entry in `app_modules` (disabled per workspace until enabled in `/admin/modules`).
 
 ## Route Map
 - `/` — entry redirect
@@ -77,12 +87,16 @@ SteelFlow ERP now uses a configuration-first workspace foundation for steel and 
 - `/reset-password` — password reset completion
 - `/profit-centers` — workspace selector
 - `/portal` — portal overview (requires assigned workspace)
-- `/portal/:moduleSlug` — configured module entry
+- `/portal/production` — heat log list and entry (gated by workspace + `permission_grants`)
+- `/portal/:moduleSlug` — configured module entry (production routes redirect to `/portal/production`)
 - `/admin` — admin overview
 - `/admin/workspaces` — workspace management (super-admin can create)
 - `/admin/modules` — per-workspace module configuration
 - `/admin/access` — user-to-workspace assignments
 - `/admin/settings` — workspace-scoped settings
+- `/admin/furnaces` — per-workspace furnace catalog
+- `/admin/shifts` — per-workspace shift catalog
+- `/admin/roles` — configurable role/permission matrix (super-admin only)
 - `/admin/audit` — paginated audit log viewer
 
 ## Version History
@@ -91,3 +105,4 @@ SteelFlow ERP now uses a configuration-first workspace foundation for steel and 
 - 2026-04-23: Enabled live admin management for workspaces, module configuration, workspace settings, access assignments, and audit review.
 - 2026-04-23: Added incremental audit log browsing with 20-row paging and load-more support in the admin audit area.
 - 2026-04-24: Reconciled the external SteelFlow ERP Architecture Document with the implemented model and added Implementation Status plus Route Map sections.
+- 2026-04-24: Implemented Phase 3 production foundation — furnaces, shifts, heat logs with immutable event trail, and a configurable role/permission grants system with admin UI.
