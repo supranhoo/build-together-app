@@ -482,6 +482,8 @@ describe("Pinned KPI helpers (Phase 8)", () => {
     profitCenterId: "pc-1",
     kpiDefinitionId: `def-${id}`,
     sortOrder,
+    scope: "personal",
+    createdBy: null,
   });
 
   it("enforces the pin cap at exactly KPI_PIN_CAP", () => {
@@ -524,6 +526,92 @@ describe("Pinned KPI helpers (Phase 8)", () => {
     expect(byId.get("d")).toBe(3);
     expect(byId.get("c")).toBe(1);
     expect(byId.get("b")).toBe(2);
+  });
+});
+
+describe("Shared pin helpers (Phase 10)", () => {
+  const personalPin = (id: string): KpiPin => ({
+    id,
+    userId: "u1",
+    profitCenterId: "pc-1",
+    kpiDefinitionId: `def-${id}`,
+    sortOrder: 0,
+    scope: "personal",
+    createdBy: null,
+  });
+  const sharedPin = (id: string, createdBy = "admin-1"): KpiPin => ({
+    id,
+    userId: null,
+    profitCenterId: "pc-1",
+    kpiDefinitionId: `def-${id}`,
+    sortOrder: 0,
+    scope: "shared",
+    createdBy,
+  });
+
+  it("splitPinsByScope partitions personal and shared pins", () => {
+    const pins = [personalPin("a"), sharedPin("b"), personalPin("c"), sharedPin("d")];
+    const { personal, shared } = splitPinsByScope(pins);
+    expect(personal.map((p) => p.id)).toEqual(["a", "c"]);
+    expect(shared.map((p) => p.id)).toEqual(["b", "d"]);
+  });
+
+  it("splitPinsByScope handles empty, all-personal, and all-shared inputs", () => {
+    expect(splitPinsByScope([])).toEqual({ personal: [], shared: [] });
+    expect(splitPinsByScope([personalPin("a"), personalPin("b")]).shared).toEqual([]);
+    expect(splitPinsByScope([sharedPin("a"), sharedPin("b")]).personal).toEqual([]);
+  });
+
+  it("canShareKpiPin allows super_admin unconditionally", () => {
+    expect(
+      canShareKpiPin({
+        isSuperAdmin: true,
+        isAdmin: false,
+        profitCenterId: "pc-1",
+        managedProfitCenterIds: [],
+      }),
+    ).toBe(true);
+  });
+
+  it("canShareKpiPin allows workspace admin only for their managed workspaces", () => {
+    expect(
+      canShareKpiPin({
+        isSuperAdmin: false,
+        isAdmin: true,
+        profitCenterId: "pc-1",
+        managedProfitCenterIds: ["pc-1", "pc-2"],
+      }),
+    ).toBe(true);
+    expect(
+      canShareKpiPin({
+        isSuperAdmin: false,
+        isAdmin: true,
+        profitCenterId: "pc-3",
+        managedProfitCenterIds: ["pc-1", "pc-2"],
+      }),
+    ).toBe(false);
+  });
+
+  it("canShareKpiPin denies non-admin users", () => {
+    expect(
+      canShareKpiPin({
+        isSuperAdmin: false,
+        isAdmin: false,
+        profitCenterId: "pc-1",
+        managedProfitCenterIds: ["pc-1"],
+      }),
+    ).toBe(false);
+  });
+
+  it("reorderPins on a personal-only subset leaves shared pins untouched in the parent flow", () => {
+    // Simulate the Overview flow: split, reorder personal only, leave shared as-is.
+    const pins = [personalPin("a"), personalPin("b"), sharedPin("s1"), personalPin("c")];
+    const { personal, shared } = splitPinsByScope(pins);
+    const reordered = reorderPins(personal, "c", 0);
+    expect(reordered.map((p) => p.id)).toEqual(["c", "a", "b"]);
+    // Shared list is the same reference returned by splitPinsByScope: untouched.
+    expect(shared.map((p) => p.id)).toEqual(["s1"]);
+    expect(shared[0].scope).toBe("shared");
   });
 });
 
