@@ -11,9 +11,10 @@ import { useAuth } from "@/hooks/use-auth";
 import { useToast } from "@/hooks/use-toast";
 import { fetchShifts, upsertShift, type Shift } from "@/lib/production";
 import { createAuditLog } from "@/lib/workspace";
+import { ProfitCenterSelectField } from "@/components/ProfitCenterSelectField";
 
-interface FormState { id?: string; code: string; name: string; startTime: string; endTime: string; sortOrder: string; isActive: boolean; }
-const empty: FormState = { code: "", name: "", startTime: "06:00", endTime: "14:00", sortOrder: "0", isActive: true };
+interface FormState { id?: string; profitCenterId: string; code: string; name: string; startTime: string; endTime: string; sortOrder: string; isActive: boolean; }
+const empty: FormState = { profitCenterId: "", code: "", name: "", startTime: "06:00", endTime: "14:00", sortOrder: "0", isActive: true };
 
 export default function AdminShifts() {
   const { activeProfitCenter } = useWorkspace();
@@ -31,14 +32,18 @@ export default function AdminShifts() {
 
   useEffect(() => { void load(); /* eslint-disable-next-line */ }, [activeProfitCenter?.id]);
 
-  const openNew = () => { setForm(empty); setOpen(true); };
+  const openNew = () => { setForm({ ...empty, profitCenterId: activeProfitCenter?.id ?? "" }); setOpen(true); };
   const openEdit = (s: Shift) => {
-    setForm({ id: s.id, code: s.code, name: s.name, startTime: s.startTime.slice(0, 5), endTime: s.endTime.slice(0, 5), sortOrder: s.sortOrder.toString(), isActive: s.isActive });
+    setForm({ id: s.id, profitCenterId: s.profitCenterId ?? activeProfitCenter?.id ?? "", code: s.code, name: s.name, startTime: s.startTime.slice(0, 5), endTime: s.endTime.slice(0, 5), sortOrder: s.sortOrder.toString(), isActive: s.isActive });
     setOpen(true);
   };
 
   const handleSave = async () => {
     if (!activeProfitCenter || !session?.user) return;
+    if (!form.profitCenterId) {
+      toast({ title: "Profit Center mapping is mandatory", variant: "destructive" });
+      return;
+    }
     if (!form.code.trim() || !form.name.trim()) {
       toast({ title: "Code and name are required", variant: "destructive" });
       return;
@@ -47,7 +52,7 @@ export default function AdminShifts() {
     try {
       await upsertShift({
         id: form.id,
-        profitCenterId: activeProfitCenter.id,
+        profitCenterId: form.profitCenterId,
         code: form.code,
         name: form.name,
         startTime: form.startTime,
@@ -57,10 +62,10 @@ export default function AdminShifts() {
       });
       await createAuditLog({
         actorUserId: session.user.id,
-        profitCenterId: activeProfitCenter.id,
+        profitCenterId: form.profitCenterId,
         entityType: "shift",
         action: form.id ? "shift.updated" : "shift.created",
-        changeSummary: { code: form.code, name: form.name },
+        changeSummary: { code: form.code, name: form.name, profit_center_id: form.profitCenterId },
       });
       toast({ title: "Shift saved" });
       setOpen(false);
@@ -85,6 +90,13 @@ export default function AdminShifts() {
           <DialogContent>
             <DialogHeader><DialogTitle>{form.id ? "Edit shift" : "New shift"}</DialogTitle></DialogHeader>
             <div className="grid gap-3 sm:grid-cols-2">
+              <div className="sm:col-span-2">
+                <ProfitCenterSelectField
+                  value={form.profitCenterId}
+                  onChange={(v) => setForm({ ...form, profitCenterId: v })}
+                  disabled={Boolean(form.id)}
+                />
+              </div>
               <div><Label>Code</Label><Input value={form.code} onChange={(e) => setForm({ ...form, code: e.target.value })} /></div>
               <div><Label>Name</Label><Input value={form.name} onChange={(e) => setForm({ ...form, name: e.target.value })} /></div>
               <div><Label>Start time</Label><Input type="time" value={form.startTime} onChange={(e) => setForm({ ...form, startTime: e.target.value })} /></div>
