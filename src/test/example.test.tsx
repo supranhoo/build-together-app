@@ -8,7 +8,7 @@ import { PortalShell } from "@/components/PortalShell";
 import AdminAudit from "@/pages/AdminAudit";
 import { canEditHeatLogClient, describeRule, userRoleAllows, type PermissionGrant } from "@/lib/permissions";
 import { computeStockBalances, type InventoryLedgerEntry } from "@/lib/inventory";
-import { buildDateRange, backtestForecast, canShareKpiPin, enforceMaxPins, exportKpiCsv, exportDrilldownCsv, filterDeliveriesByStatus, forecastLinear, forecastSeasonal, KPI_PIN_CAP, reorderPins, splitPinsByScope, sumPerWorkspace, type KpiPerWorkspace, type KpiPin, type KpiSeriesPoint, type ReportDelivery } from "@/lib/reporting";
+import { buildDateRange, backtestForecast, canShareKpiPin, diffSharedPinSelection, enforceMaxPins, exportKpiCsv, exportDrilldownCsv, filterDeliveriesByStatus, forecastLinear, forecastSeasonal, KPI_PIN_CAP, reorderPins, splitPinsByScope, sumPerWorkspace, type KpiPerWorkspace, type KpiPin, type KpiSeriesPoint, type ReportDelivery } from "@/lib/reporting";
 
 const navigateMock = vi.fn();
 const logoutMock = vi.fn();
@@ -779,5 +779,31 @@ describe("Backtest helper (Phase 11)", () => {
     expect(r.holdoutCount).toBeGreaterThan(0);
     expect(r.mape).toBeNull();
     expect(r.mae).not.toBeNull();
+  });
+});
+
+describe("Shared pin bulk helpers (Phase 12)", () => {
+  it("diffSharedPinSelection: empty current + non-empty desired yields all toShare", () => {
+    const { toShare, toUnshare } = diffSharedPinSelection([], ["a", "b", "c"]);
+    expect(toShare).toEqual(["a", "b", "c"]);
+    expect(toUnshare).toEqual([]);
+  });
+
+  it("diffSharedPinSelection: identical sets yield empty diff", () => {
+    const { toShare, toUnshare } = diffSharedPinSelection(["a", "b"], ["b", "a"]);
+    expect(toShare).toEqual([]);
+    expect(toUnshare).toEqual([]);
+  });
+
+  it("diffSharedPinSelection: partial overlap partitions correctly", () => {
+    // current = [A, B], desired = [B, C] → toShare=[C], toUnshare=[A]
+    const { toShare, toUnshare } = diffSharedPinSelection(["A", "B"], ["B", "C"]);
+    expect(toShare).toEqual(["C"]);
+    expect(toUnshare).toEqual(["A"]);
+  });
+
+  it("diffSharedPinSelection: preserves order of desiredKpiIds for toShare", () => {
+    const { toShare } = diffSharedPinSelection([], ["z", "a", "m"]);
+    expect(toShare).toEqual(["z", "a", "m"]);
   });
 });
