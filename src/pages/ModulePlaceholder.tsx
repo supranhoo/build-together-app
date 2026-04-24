@@ -41,6 +41,10 @@ export default function ModulePlaceholder() {
     return <Navigate to="/portal/production" replace />;
   }
 
+  if (configuredModule?.moduleKey === "inventory" || routeModule === "inventory") {
+    return <Navigate to="/portal/inventory" replace />;
+  }
+
   const fallback = fallbackMap[(configuredModule?.moduleKey || routeModule || "reports") as keyof typeof fallbackMap] || fallbackMap.reports;
   const Icon = fallback.icon;
 
