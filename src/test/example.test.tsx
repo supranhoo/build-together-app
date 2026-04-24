@@ -9,7 +9,7 @@ import AdminAudit from "@/pages/AdminAudit";
 import { canEditHeatLogClient, describeRule, userRoleAllows, type PermissionGrant } from "@/lib/permissions";
 import { computeStockBalances, type InventoryLedgerEntry } from "@/lib/inventory";
 import { buildBreadcrumbs } from "@/components/Breadcrumbs";
-import { deriveSlug } from "@/pages/AdminWorkspaces";
+import { canCreateWorkspace, deriveSlug } from "@/pages/AdminWorkspaces";
 import { buildDateRange, backtestForecast, canShareKpiPin, diffSharedPinSelection, enforceMaxPins, exportKpiCsv, exportDrilldownCsv, filterDeliveriesByStatus, forecastLinear, forecastSeasonal, KPI_PIN_CAP, reorderPins, splitPinsByScope, sumPerWorkspace, type KpiPerWorkspace, type KpiPin, type KpiSeriesPoint, type ReportDelivery } from "@/lib/reporting";
 
 const navigateMock = vi.fn();
@@ -1008,6 +1008,25 @@ describe("deriveSlug (workspace name → slug)", () => {
 
   it("passes an already-slug value through unchanged", () => {
     expect(deriveSlug("ferro-alloys")).toBe("ferro-alloys");
+  });
+});
+
+describe("canCreateWorkspace (UI gate mirrors RLS INSERT policy)", () => {
+  it("allows admin and super_admin", () => {
+    expect(canCreateWorkspace("admin")).toBe(true);
+    expect(canCreateWorkspace("super_admin")).toBe(true);
+  });
+
+  it("denies operational and unknown roles", () => {
+    expect(canCreateWorkspace("manager")).toBe(false);
+    expect(canCreateWorkspace("operator")).toBe(false);
+    expect(canCreateWorkspace("user")).toBe(false);
+  });
+
+  it("denies missing/empty role inputs", () => {
+    expect(canCreateWorkspace(null)).toBe(false);
+    expect(canCreateWorkspace(undefined)).toBe(false);
+    expect(canCreateWorkspace("")).toBe(false);
   });
 });
 
