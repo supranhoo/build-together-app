@@ -130,12 +130,26 @@ export default function PortalReports() {
           <h2 className="text-2xl font-semibold tracking-tight">Operational KPIs</h2>
           <p className="text-sm text-muted-foreground">Aggregations driven by workspace formulas. Configure under Admin → KPIs.</p>
         </div>
-        <Select value={preset} onValueChange={(v) => setPreset(v as KpiPreset)}>
-          <SelectTrigger className="w-44"><SelectValue /></SelectTrigger>
-          <SelectContent>
-            {presets.map((p) => <SelectItem key={p.value} value={p.value}>{p.label}</SelectItem>)}
-          </SelectContent>
-        </Select>
+        <div className="flex items-center gap-3">
+          {canConsolidate && (
+            <ToggleGroup
+              type="single"
+              value={view}
+              onValueChange={(v) => { if (v === "workspace" || v === "consolidated") setView(v); }}
+              variant="outline"
+              size="sm"
+            >
+              <ToggleGroupItem value="workspace">Workspace</ToggleGroupItem>
+              <ToggleGroupItem value="consolidated">Consolidated</ToggleGroupItem>
+            </ToggleGroup>
+          )}
+          <Select value={preset} onValueChange={(v) => setPreset(v as KpiPreset)}>
+            <SelectTrigger className="w-44"><SelectValue /></SelectTrigger>
+            <SelectContent>
+              {presets.map((p) => <SelectItem key={p.value} value={p.value}>{p.label}</SelectItem>)}
+            </SelectContent>
+          </Select>
+        </div>
       </div>
 
       {definitions.length === 0 && !loading ? (
@@ -147,9 +161,12 @@ export default function PortalReports() {
       ) : (
         <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
           {definitions.map((def) => {
-            const r = results[def.key];
+            const ws = results[def.key];
+            const cons = consolidated[def.key];
+            const value = view === "workspace" ? ws?.value : cons?.value;
             const isSelected = selectedKey === def.key;
             const subCount = subscriptions.filter((s) => s.kpiDefinitionId === def.id).length;
+            const wsCount = view === "consolidated" ? (cons?.perWorkspace.length ?? 0) : 0;
             return (
               <button
                 key={def.id}
@@ -164,9 +181,12 @@ export default function PortalReports() {
                       {subCount > 0 ? <Badge variant="secondary" className="text-[10px]">subscribed</Badge> : null}
                     </div>
                     <CardTitle className="text-3xl">
-                      {r?.value == null ? "—" : Number(r.value).toLocaleString(undefined, { maximumFractionDigits: 2 })}
+                      {value == null ? "—" : Number(value).toLocaleString(undefined, { maximumFractionDigits: 2 })}
                       {def.unit ? <span className="ml-1 text-sm font-normal text-muted-foreground">{def.unit}</span> : null}
                     </CardTitle>
+                    {view === "consolidated" && wsCount > 0 ? (
+                      <p className="text-xs text-muted-foreground">across {wsCount} workspace{wsCount === 1 ? "" : "s"}</p>
+                    ) : null}
                   </CardHeader>
                 </Card>
               </button>
@@ -235,6 +255,7 @@ export default function PortalReports() {
         range={range}
         subscriptions={subscriptions}
         onSubscriptionsChanged={refreshSubs}
+        perWorkspace={drawerConsolidated?.perWorkspace}
       />
     </div>
   );
