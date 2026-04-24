@@ -1,109 +1,76 @@
+## Phase 10 — Pin Sharing & Admin Overrides
 
-## Phase 9 — Closing the Phase 8 Gaps + Light Forecasting
+Defaults applied for all 4 decisions. Confirm to proceed.
 
-Phase 8 shipped, but three deferred items from its plan and one from earlier phases remain. Phase 9 closes those, plus introduces minimal forecasting groundwork explicitly mentioned in the Phase 7 "out of scope" list.
+### Decisions (defaults)
 
-### What's Still Open from Prior Phases
+1. **Scope model**: Workspace-scoped only (`scope='shared'` belongs to a `profit_center_id`, no role targeting).
+2. **Cap interaction**: Shared pins do **not** count against the 12-pin personal cap. Rendered in a separate section.
+3. **Who can publish**: `super_admin` + workspace admin (via existing `can_manage_profit_center`). No new `permission_grants` rows.
+4. **User hide**: Not allowed. Shared pins are mandatory; one source of truth.
 
-From Phase 8 closeout:
-1. **Bulk-select inside `KpiDetailDrawer` rows table** — single-row void/reverse works; multi-select inside the drawer was deferred.
-2. **Drag-and-drop reordering UI for pinned KPIs** — `reorderPins` helper exists in `src/lib/reporting.ts`, but no UI consumes it.
-3. **Pin sharing between users** — explicitly deferred to Phase 9.
+### Schema Changes (`supabase/migrations/<phase10>.sql`)
 
-From Phase 7 out-of-scope list:
-4. **Forecasting / anomaly detection** — listed as Phase 9 work.
+- `kpi_pins.scope text NOT NULL DEFAULT 'personal'` with CHECK `scope IN ('personal','shared')`.
+- `kpi_pins.created_by uuid` (records the admin who shared).
+- `kpi_pins.user_id` becomes nullable; CHECK: `(scope='personal' AND user_id IS NOT NULL) OR (scope='shared' AND user_id IS NULL)`.
+- Drop existing unique on `(user_id, profit_center_id, kpi_definition_id)` if present; replace with two partial uniques:
+  - `UNIQUE (user_id, profit_center_id, kpi_definition_id) WHERE scope='personal'`
+  - `UNIQUE (profit_center_id, kpi_definition_id) WHERE scope='shared'`
+- Backfill: existing rows get `scope='personal'` (the DEFAULT covers it).
+- Revise `enforce_kpi_pin_cap()` trigger to skip when `NEW.scope='shared'` and to count only `scope='personal'` rows.
+- Revise RLS policies on `kpi_pins`:
+  - SELECT: `(scope='personal' AND user_id=auth.uid() AND has_profit_center_access(...)) OR (scope='shared' AND has_profit_center_access(...))`
+  - INSERT/UPDATE/DELETE for `scope='personal'`: existing `user_id=auth.uid()` rules.
+  - INSERT/UPDATE/DELETE for `scope='shared'`: `has_role(super_admin) OR can_manage_profit_center(auth.uid(), profit_center_id)`.
 
-### Decisions Needed Before Build
+### Code Changes
 
-1. **Drawer bulk-select** — add the same checkbox + bulk-action-bar pattern (matching `PortalInventoryLedger` / `PortalProduction`), or skip and rely on the outer pages?
-   - **(a)** Add bulk-select inside the drawer (consistent UX everywhere drilldown rows appear).
-   - **(b)** Skip — outer pages already cover bulk; drawer stays single-row.
-   - **Default: (a)** — UX consistency outweighs the small implementation cost; the drawer is the only place where you can act on rows filtered by a KPI's exact source query.
+**`src/lib/reporting.ts`** — add helpers:
+- `shareKpiPin({ profitCenterId, kpiDefinitionId })` — inserts `scope='shared'`, `user_id=null`, `created_by=auth.uid()`; writes `audit_logs` entry (`entity_type='kpi_pin'`, `action='share'`).
+- `unshareKpiPin({ profitCenterId, kpiDefinitionId })` — deletes the shared row; writes audit `action='unshare'`.
+- `canShareKpiPin(roles, profitCenterId, managedProfitCenterIds)` — pure helper for UI gating.
+- `splitPinsByScope(pins)` — returns `{ personal, shared }`.
+- `pinKpi`/`unpinKpi`/`reorderPins` unchanged externally; internally scoped to `scope='personal'`.
 
-2. **Pin reorder UX** — drag-and-drop, or up/down arrows on each pin?
-   - **(a)** Drag-and-drop using `@dnd-kit/core` (a new dependency, ~30KB).
-   - **(b)** Up/down arrow buttons on each pinned card (zero new deps, fully accessible without keyboard tricks).
-   - **Default: (b)** — accessibility-first, no new dep, the helper `reorderPins(pins, pinId, targetIndex)` already supports both. (a) can be added later if users ask.
+**`src/pages/PortalReports.tsx`**:
+- KPI card menu gains "Share with workspace" / "Unshare" entries, visible only when `canShareKpiPin` returns true.
+- Cap indicator counts personal pins only; tooltip notes team pins are separate.
 
-3. **Pin sharing scope** — what does "shared pin" mean?
-   - **(a)** Workspace admins can publish a "shared pin set" that all workspace users see on their overview, in addition to their personal pins.
-   - **(b)** Any user can mark one of their pins as "share with workspace" so others can subscribe.
-   - **(c)** Skip pin sharing in Phase 9 — defer until users ask. Personal pins are already useful.
-   - **Default: (c)** — skipping reduces scope and avoids governance ambiguity (whose pin set wins on conflicts? what's the cap when shared+personal combine?). Can revisit when there's user demand.
+**`src/pages/PortalOverview.tsx`**:
+- Two sections: **Pinned by your team** (read-only, subtle "Team" badge) and **Your pins** (existing reorder + unpin controls).
+- Team section omitted entirely when empty.
 
-4. **Forecasting scope** — what's the minimum viable forecast?
-   - **(a)** Simple linear trend on the last N days of a KPI's series, displayed as a dashed projection line on the existing chart in `KpiDetailDrawer`. No new tables, computed client-side.
-   - **(b)** Server-side moving average + standard-deviation band, with anomaly badges on KPI cards when latest value is >2σ outside the rolling mean.
-   - **(c)** Skip forecasting in Phase 9 — defer to a dedicated analytics phase with proper model evaluation.
-   - **Default: (a)** — smallest possible vertical slice, zero schema changes, demonstrates value without committing to a model. (b) requires deciding window sizes, dealing with sparse data, and surfacing tunables to admins — all worth a dedicated phase.
+### Documentation & Policy (same response as code, per SSOT)
 
-Default recommendation if you say "use defaults": **1a, 2b, 3c, 4a**.
+- `DOCUMENTATION.md`: new `kpi_pins.scope` + `created_by` semantics, partial unique indexes, share/unshare contracts, audit entry shapes, revised cap-trigger behavior. Bump Version History.
+- `POLICY.md`: new **Shared Pin Governance** section covering: who can share (admin only), workspace scope, separate cap (shared pins not counted), no per-user hide, mandatory audit trail on share/unshare.
 
-### Pre-Implementation Risk & Impact Report
+### Tests (`src/test/example.test.tsx`) — 5–7 new
 
-Assuming defaults (1a, 2b, 3c, 4a):
+- `canShareKpiPin` returns true for super_admin and workspace admin, false otherwise.
+- `splitPinsByScope` partitions correctly (mixed, all-personal, all-shared, empty).
+- `enforceMaxPins` ignores `scope='shared'` rows when counting against the 12 cap.
+- `reorderPins` operates only on personal pins (shared pins untouched in result).
+- Audit payload shape for `share` / `unshare` matches contract.
 
-- **Data Impact**: **None.** No schema changes, no new tables, no migrations. Reorder uses existing `kpi_pins.sort_order`. Forecast is client-side from existing series data.
-- **Workflow Impact**:
-  - Drawer rows table gains the same checkbox + bulk-action-bar pattern users already know from ledger/production pages.
-  - Overview's pinned section gains up/down arrow buttons; reorder writes to existing `kpi_pins.sort_order`.
-  - Drilldown chart gains an optional dashed projection line.
-- **UI/UX Impact**:
-  - `KpiDetailDrawer.tsx`: row checkboxes, bulk-action bar with shared-reason `AlertDialog`, and a "Show forecast" toggle on the chart panel.
-  - `PortalOverview.tsx`: each pinned card gets two small icon buttons (↑, ↓), disabled at list boundaries.
-- **Regression Risk**:
-  - **Low** for drawer bulk-select — reuses existing `bulkVoidHeatLogs` / `bulkReverseInventoryLedger` RPCs. Permission gating reuses `userCanAct`.
-  - **Low** for reorder — `reorderPins` is already unit-tested; only need to wire the optimistic update + persist call.
-  - **Low** for forecast — pure client-side math on already-fetched series. If projection math fails, we hide the line instead of crashing the chart.
-- **Mitigation**:
-  - Tests for: drawer-bulk dispatch matches source type (heat_logs vs inventory_ledger), reorder persists correct `sort_order` for affected pins only, linear-trend helper returns `null` on series with <2 points.
-  - Forecast disabled by default; user opts in via the toggle. No automatic visual change to existing charts.
+### Pre-Implementation Risk Recap
 
-### Implementation Steps → Verification
+- **Highest risk**: rewritten `kpi_pins` SELECT policy. Mitigation = explicit policy tests via `read_query` post-migration plus unit tests on the helper-side split logic.
+- **Second risk**: cap trigger silently changing semantics. Mitigation = trigger short-circuits on `scope='shared'`; `scope='personal'` path is identical to today.
+- **Additive migration only** — no destructive ops; existing rows backfill to `'personal'`.
 
-1. **`src/components/KpiDetailDrawer.tsx`**
-   - Add row checkbox column (matches ledger/production pattern).
-   - Add bulk-action bar above the table when ≥1 row selected: "Void N selected" or "Reverse N selected" depending on `drill.source`.
-   - Reuse the existing `pending` / `reason` / `confirmAction` state machine; extend `PendingAction` with `bulk_void_heat_log` and `bulk_reverse_inventory` variants.
-   → Tests: bulk dispatch picks the correct RPC per source; bar hidden when no permission.
+### Out of Scope (deferred)
 
-2. **`src/lib/reporting.ts`**
-   - Add `forecastLinear(series: KpiSeriesPoint[], horizonDays: number): KpiSeriesPoint[]` — pure helper, returns projected points or `[]` if series too short.
-   → Tests: returns `[]` for empty/single-point series; correct slope on a known linear series; never produces NaN.
+- Per-user hide of shared pins.
+- Role-targeted shared pins.
+- Drag-and-drop reorder UI.
+- Forecast hardening.
+- Cross-workspace pin sharing.
 
-3. **`KpiDetailDrawer.tsx` chart panel**
-   - Add a "Show forecast" toggle. When on, render projection points as a dashed line continuing the existing chart.
-   - Use a 7-day horizon by default (matches the most common `7d` preset).
-   → Tests: toggle off by default; toggled on, chart receives extra series with `dashed` style flag.
+### Files Touched
 
-4. **`src/pages/PortalOverview.tsx`**
-   - Each pinned card gains ↑/↓ icon buttons (disabled at boundaries).
-   - On click: optimistically reorder local state via `reorderPins`, then persist new `sort_order` for the two swapped pins (single Supabase upsert with both rows).
-   - On error: revert local state and show a toast.
-   → Tests: optimistic state matches `reorderPins` output; revert on simulated failure.
+- New: `supabase/migrations/<phase10>.sql`
+- Modified: `src/lib/reporting.ts`, `src/pages/PortalReports.tsx`, `src/pages/PortalOverview.tsx`, `DOCUMENTATION.md`, `POLICY.md`, `src/test/example.test.tsx`
 
-5. **Docs + Policy + Tests** (SSOT lockstep — non-negotiable per project rules):
-   - `DOCUMENTATION.md`: add Phase 9 section covering drawer bulk-select, pin reorder UX, client-side forecast helper. Note explicitly that forecast is **display-only** and **not persisted**.
-   - `POLICY.md`: extend Pinned KPIs Governance with reorder semantics (personal preference, no admin override, no audit log — order is UX state, not regulated data). Add a Forecast Display Policy: forecasts are advisory, never used in compliance reporting, never written back to `kpi_definitions` or audited.
-   - `src/test/example.test.tsx`: tests for `forecastLinear` (empty, single-point, linear, sparse), drawer bulk dispatch shape, and `reorderPins` persist ordering for adjacent swap.
-   → Run full test suite to green.
-
-### Out of Scope (deferred to future phases)
-
-- **Pin sharing** (Phase 8 deferral; user can request a dedicated phase if needed — see decision 3c above).
-- **Drag-and-drop reorder** (decision 2b chooses arrows; can be revisited).
-- **Server-side anomaly detection** (decision 4b deferred to a dedicated analytics phase with proper model evaluation).
-- **Configurable forecast horizon / model selection** — Phase 10 if forecasting proves valuable.
-- **Forecast accuracy tracking** — would require persistence; deferred.
-
-### Files to be Created/Modified
-
-- **New**: none.
-- **Modified**: `src/lib/reporting.ts`, `src/components/KpiDetailDrawer.tsx`, `src/pages/PortalOverview.tsx`, `DOCUMENTATION.md`, `POLICY.md`, `src/test/example.test.tsx`.
-
-### Pushback / Watch-Outs
-
-- **Forecast is a slippery slope.** A dashed line is harmless, but the moment users start making decisions on it, they'll ask for confidence intervals, model selection, and accuracy reports. The Phase 9 forecast is intentionally minimal and labeled as advisory. If you want anything more, we should plan a proper analytics phase rather than incrementally bolting features onto a linear-trend toy.
-- **Pin sharing was deliberately skipped** (decision 3c). If you'd rather ship sharing now and skip forecasting, swap the scope: pick **3a or 3b** and **4c**. Don't try to do both in one phase — the governance work for shared pins (admin overrides, conflict resolution, cap interactions) is meaningful and shouldn't be rushed alongside forecasting.
-
-**Please confirm the 4 decisions above (or say "use defaults") before I proceed.**
+**Approve to proceed?**
