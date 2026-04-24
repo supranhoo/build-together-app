@@ -22,6 +22,32 @@ const emptyForm = {
   isActive: true,
 };
 
+/**
+ * Derive a URL-safe slug from a workspace name.
+ * Lowercased, alphanumerics joined by single hyphens, no leading/trailing hyphen.
+ * Pure helper — exported for unit tests.
+ */
+export function deriveSlug(name: string): string {
+  if (!name) return "";
+  return name
+    .toLowerCase()
+    .trim()
+    .replace(/[^a-z0-9]+/g, "-")
+    .replace(/^-+|-+$/g, "");
+}
+
+/** Detect a Postgres / PostgREST RLS rejection so we can show a friendly message. */
+function isRlsError(err: unknown): boolean {
+  if (!(err instanceof Error)) return false;
+  const msg = err.message.toLowerCase();
+  return (
+    msg.includes("row-level security") ||
+    msg.includes("violates row-level security") ||
+    msg.includes("permission denied") ||
+    msg.includes("forbidden")
+  );
+}
+
 export default function AdminWorkspaces() {
   const { session } = useAuth();
   const { toast } = useToast();
@@ -30,11 +56,17 @@ export default function AdminWorkspaces() {
   const [form, setForm] = useState(emptyForm);
   const [saving, setSaving] = useState(false);
   const [copyDefaults, setCopyDefaults] = useState(false);
+  const [slugTouched, setSlugTouched] = useState(false);
 
   const selectedWorkspace = useMemo(
     () => allProfitCenters.find((workspace) => workspace.id === selectedId) ?? null,
     [allProfitCenters, selectedId],
   );
+
+  const isCreating = !selectedWorkspace;
+  const canCreate = isSuperAdmin;
+  // Hide the create form entirely for non-super-admins to avoid a dead form.
+  const showForm = !isCreating || canCreate;
 
   useEffect(() => {
     if (selectedWorkspace) {
@@ -47,6 +79,7 @@ export default function AdminWorkspaces() {
         processProfile: selectedWorkspace.processProfile || "",
         isActive: selectedWorkspace.isActive,
       });
+      setSlugTouched(true); // existing slug — never auto-overwrite on edit
       return;
     }
 
@@ -57,8 +90,23 @@ export default function AdminWorkspaces() {
 
     if (!selectedId) {
       setForm(emptyForm);
+      setSlugTouched(false);
     }
   }, [activeProfitCenter, selectedId, selectedWorkspace]);
+
+  const handleNameChange = (nextName: string) => {
+    setForm((current) => ({
+      ...current,
+      name: nextName,
+      // Auto-derive slug only while creating and the user hasn't manually edited it.
+      slug: !selectedWorkspace && !slugTouched ? deriveSlug(nextName) : current.slug,
+    }));
+  };
+
+  const handleSlugChange = (nextSlug: string) => {
+    setSlugTouched(true);
+    setForm((current) => ({ ...current, slug: nextSlug.toLowerCase() }));
+  };
 
   const handleSubmit = async () => {
     if (!session?.user) return;
@@ -111,15 +159,23 @@ export default function AdminWorkspaces() {
       await refreshWorkspace();
       toast({ title: "Workspace saved", description: "Configuration changes were saved successfully." });
     } catch (error) {
+      const friendly = isRlsError(error)
+        ? "You don't have permission to save this workspace. Contact a super admin."
+        : error instanceof Error
+          ? error.message
+          : "Please try again.";
       toast({
         title: "Workspace save failed",
-        description: error instanceof Error ? error.message : "Please try again.",
+        description: friendly,
         variant: "destructive",
       });
     } finally {
       setSaving(false);
     }
   };
+
+  const isSubmitDisabled = saving || !form.name || !form.code || !form.slug;
+  const requiredHint = !form.name || !form.code || !form.slug;
 
   return (
     <div className="grid gap-6 xl:grid-cols-[1.1fr_0.9fr]">
@@ -148,7 +204,13 @@ export default function AdminWorkspaces() {
               ))}
             </TableBody>
           </Table>
-          <Button variant="outline" className="mt-4" onClick={() => { setSelectedId(null); setForm(emptyForm); }} disabled={!isSuperAdmin}>
+          <Button
+            variant="outline"
+            className="mt-4"
+            onClick={() => { setSelectedId(null); setForm(emptyForm); setSlugTouched(false); }}
+            disabled={!isSuperAdmin}
+            title={!isSuperAdmin ? "Only super admins can create workspaces" : undefined}
+          >
             New workspace
           </Button>
         </CardContent>
@@ -159,33 +221,70 @@ export default function AdminWorkspaces() {
           <CardTitle>{selectedWorkspace ? "Edit workspace" : "Create workspace"}</CardTitle>
         </CardHeader>
         <CardContent className="space-y-4">
-          <div className="grid gap-4 sm:grid-cols-2">
-            <div className="space-y-2"><Label htmlFor="workspace-name">Name</Label><Input id="workspace-name" value={form.name} onChange={(e) => setForm((current) => ({ ...current, name: e.target.value }))} /></div>
-            <div className="space-y-2"><Label htmlFor="workspace-code">Code</Label><Input id="workspace-code" value={form.code} onChange={(e) => setForm((current) => ({ ...current, code: e.target.value.toUpperCase() }))} /></div>
-            <div className="space-y-2"><Label htmlFor="workspace-slug">Slug</Label><Input id="workspace-slug" value={form.slug} onChange={(e) => setForm((current) => ({ ...current, slug: e.target.value.toLowerCase() }))} /></div>
-            <div className="space-y-2"><Label htmlFor="workspace-location">Location</Label><Input id="workspace-location" value={form.locationName} onChange={(e) => setForm((current) => ({ ...current, locationName: e.target.value }))} /></div>
-          </div>
-          <div className="space-y-2"><Label htmlFor="workspace-process">Process profile</Label><Input id="workspace-process" value={form.processProfile} onChange={(e) => setForm((current) => ({ ...current, processProfile: e.target.value }))} /></div>
-          <div className="space-y-2"><Label htmlFor="workspace-description">Description</Label><Textarea id="workspace-description" value={form.description} onChange={(e) => setForm((current) => ({ ...current, description: e.target.value }))} /></div>
-          <div className="flex items-center justify-between rounded-md border border-border bg-panel px-4 py-3">
-            <div>
-              <p className="font-medium text-foreground">Active workspace</p>
-              <p className="text-sm text-muted-foreground">Inactive workspaces remain configured but should not be selectable.</p>
-            </div>
-            <Switch checked={form.isActive} onCheckedChange={(checked) => setForm((current) => ({ ...current, isActive: checked }))} />
-          </div>
-          {!selectedWorkspace && activeProfitCenter && (
-            <div className="flex items-center justify-between rounded-md border border-border bg-panel px-4 py-3">
-              <div>
-                <p className="font-medium text-foreground">Copy shared-pin defaults</p>
-                <p className="text-sm text-muted-foreground">Apply the shared-pin defaults from <strong>{activeProfitCenter.name}</strong> to the new workspace after creation.</p>
-              </div>
-              <Switch checked={copyDefaults} onCheckedChange={setCopyDefaults} />
+          {!showForm && (
+            <div className="rounded-md border border-border bg-panel px-4 py-3 text-sm text-muted-foreground">
+              <p className="font-medium text-foreground">Creation restricted</p>
+              <p className="mt-1">
+                Only super admins can create new workspaces. Select an existing workspace from the catalog on the left to edit its details.
+              </p>
             </div>
           )}
-          <Button className="w-full" onClick={() => void handleSubmit()} disabled={saving || !form.name || !form.code || !form.slug}>
-            {saving ? "Saving…" : selectedWorkspace ? "Save workspace" : "Create workspace"}
-          </Button>
+
+          {showForm && (
+            <>
+              <div className="grid gap-4 sm:grid-cols-2">
+                <div className="space-y-2">
+                  <Label htmlFor="workspace-name">
+                    Name <span className="text-destructive">*</span>
+                  </Label>
+                  <Input id="workspace-name" value={form.name} onChange={(e) => handleNameChange(e.target.value)} />
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="workspace-code">
+                    Code <span className="text-destructive">*</span>
+                  </Label>
+                  <Input id="workspace-code" value={form.code} onChange={(e) => setForm((current) => ({ ...current, code: e.target.value.toUpperCase() }))} />
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="workspace-slug">
+                    Slug <span className="text-destructive">*</span>
+                  </Label>
+                  <Input id="workspace-slug" value={form.slug} onChange={(e) => handleSlugChange(e.target.value)} />
+                  {isCreating && !slugTouched && (
+                    <p className="text-xs text-muted-foreground">Auto-derived from Name. Edit to override.</p>
+                  )}
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="workspace-location">Location</Label>
+                  <Input id="workspace-location" value={form.locationName} onChange={(e) => setForm((current) => ({ ...current, locationName: e.target.value }))} />
+                </div>
+              </div>
+              <div className="space-y-2"><Label htmlFor="workspace-process">Process profile</Label><Input id="workspace-process" value={form.processProfile} onChange={(e) => setForm((current) => ({ ...current, processProfile: e.target.value }))} /></div>
+              <div className="space-y-2"><Label htmlFor="workspace-description">Description</Label><Textarea id="workspace-description" value={form.description} onChange={(e) => setForm((current) => ({ ...current, description: e.target.value }))} /></div>
+              <div className="flex items-center justify-between rounded-md border border-border bg-panel px-4 py-3">
+                <div>
+                  <p className="font-medium text-foreground">Active workspace</p>
+                  <p className="text-sm text-muted-foreground">Inactive workspaces remain configured but should not be selectable.</p>
+                </div>
+                <Switch checked={form.isActive} onCheckedChange={(checked) => setForm((current) => ({ ...current, isActive: checked }))} />
+              </div>
+              {!selectedWorkspace && activeProfitCenter && (
+                <div className="flex items-center justify-between rounded-md border border-border bg-panel px-4 py-3">
+                  <div>
+                    <p className="font-medium text-foreground">Copy shared-pin defaults</p>
+                    <p className="text-sm text-muted-foreground">Apply the shared-pin defaults from <strong>{activeProfitCenter.name}</strong> to the new workspace after creation.</p>
+                  </div>
+                  <Switch checked={copyDefaults} onCheckedChange={setCopyDefaults} />
+                </div>
+              )}
+              {requiredHint && (
+                <p className="text-xs text-muted-foreground">Name, Code and Slug are required to save.</p>
+              )}
+              <Button className="w-full" onClick={() => void handleSubmit()} disabled={isSubmitDisabled}>
+                {saving ? "Saving…" : selectedWorkspace ? "Save workspace" : "Create workspace"}
+              </Button>
+            </>
+          )}
         </CardContent>
       </Card>
     </div>

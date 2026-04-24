@@ -9,6 +9,7 @@ import AdminAudit from "@/pages/AdminAudit";
 import { canEditHeatLogClient, describeRule, userRoleAllows, type PermissionGrant } from "@/lib/permissions";
 import { computeStockBalances, type InventoryLedgerEntry } from "@/lib/inventory";
 import { buildBreadcrumbs } from "@/components/Breadcrumbs";
+import { deriveSlug } from "@/pages/AdminWorkspaces";
 import { buildDateRange, backtestForecast, canShareKpiPin, diffSharedPinSelection, enforceMaxPins, exportKpiCsv, exportDrilldownCsv, filterDeliveriesByStatus, forecastLinear, forecastSeasonal, KPI_PIN_CAP, reorderPins, splitPinsByScope, sumPerWorkspace, type KpiPerWorkspace, type KpiPin, type KpiSeriesPoint, type ReportDelivery } from "@/lib/reporting";
 
 const navigateMock = vi.fn();
@@ -988,6 +989,25 @@ describe("route audit", () => {
     // From src/pages/PortalInventory.tsx
     expect(matchRoute("/portal/inventory/receipts", ROUTE_CATALOG)).toBe("/portal/inventory/receipts");
     expect(matchRoute("/portal/inventory/ledger", ROUTE_CATALOG)).toBe("/portal/inventory/ledger");
+  });
+});
+
+describe("deriveSlug (workspace name → slug)", () => {
+  it("converts a simple name to a hyphenated lowercase slug", () => {
+    expect(deriveSlug("Ferro Alloys")).toBe("ferro-alloys");
+  });
+
+  it("trims whitespace and collapses non-alphanumerics, including symbols", () => {
+    expect(deriveSlug("  Hot Strip Mill #2  ")).toBe("hot-strip-mill-2");
+  });
+
+  it("returns empty string for empty or whitespace-only input", () => {
+    expect(deriveSlug("")).toBe("");
+    expect(deriveSlug("    ")).toBe("");
+  });
+
+  it("passes an already-slug value through unchanged", () => {
+    expect(deriveSlug("ferro-alloys")).toBe("ferro-alloys");
   });
 });
 

@@ -138,6 +138,8 @@ SteelFlow ERP now uses a configuration-first workspace foundation for steel and 
 - 2026-04-24: Implemented Phase 5 reporting — `kpi_definitions` table with global defaults plus workspace overrides, `compute_kpi` SQL function, portal KPI dashboard with CSV export, and admin KPI editor.
 - 2026-04-24: Implemented Phase 6 — KPI drill-down drawer with row-level CSV export, self-managed subscriptions (`kpi_subscriptions`), immutable `report_deliveries` log, `compute_kpi_drilldown` SQL function, scheduled `scheduled-report-digest` edge function (Resend), and admin delivery viewer.
 - 2026-04-24: Implemented Phase 7 — cross-workspace KPI consolidation (`compute_kpi_consolidated`), heat log soft-void (`is_voided` + `void_reason`, excluded from KPIs, audited), inventory ledger reversal (`reverse_inventory_ledger`, additive entry preserving immutability), and `permission_grants` resources `heat_log/void` + `inventory/void`.
+- 2026-04-24: Workspace create form (`/admin/workspaces`) — Slug auto-derived from Name (overridable), required-field markers + helper text, RLS error messages humanized, and the create form is hidden for non–super-admins so the policy is visible instead of presenting a dead button. Pure helper `deriveSlug` covered by 4 unit tests.
+
 
 ## Phase 6 — Drill-down, Subscriptions, Scheduled Digests
 - New tables: `kpi_subscriptions` (self-managed, unique on `(user_id, kpi_definition_id, cadence)`) and `report_deliveries` (immutable, append-only log).
