@@ -832,5 +832,66 @@ describe("Breadcrumbs helper", () => {
   it("returns an empty array for the root path", () => {
     expect(buildBreadcrumbs("/")).toEqual([]);
   });
+
+  it("builds crumbs for a deeply nested path with mixed known and unknown segments", () => {
+    const crumbs = buildBreadcrumbs("/admin/workspaces/pc-42/stock-locations/loc-7/edit");
+    expect(crumbs).toEqual([
+      { label: "Admin", href: "/admin" },
+      { label: "Workspaces", href: "/admin/workspaces" },
+      { label: "Pc 42", href: "/admin/workspaces/pc-42" },
+      { label: "Stock Locations", href: "/admin/workspaces/pc-42/stock-locations" },
+      { label: "Loc 7", href: "/admin/workspaces/pc-42/stock-locations/loc-7" },
+      { label: "Edit" },
+    ]);
+  });
+
+  it("only the final crumb is unlinked, regardless of depth", () => {
+    const crumbs = buildBreadcrumbs("/a/b/c/d/e/f/g");
+    const linked = crumbs.slice(0, -1);
+    const last = crumbs.at(-1)!;
+    expect(linked.every((c) => typeof c.href === "string" && c.href.startsWith("/"))).toBe(true);
+    expect(last.href).toBeUndefined();
+    expect(last.label).toBe("G");
+  });
+
+  it("ignores leading, trailing and duplicate slashes", () => {
+    const expected = buildBreadcrumbs("/portal/inventory/ledger");
+    expect(buildBreadcrumbs("///portal//inventory///ledger//")).toEqual(expected);
+  });
+
+  it("uses overrides for any matching segment, not only the leaf", () => {
+    const crumbs = buildBreadcrumbs("/portal/reports/daily", {
+      reports: "Management Reports",
+      daily: "Daily Pack",
+    });
+    expect(crumbs).toEqual([
+      { label: "Portal", href: "/portal" },
+      { label: "Management Reports", href: "/portal/reports" },
+      { label: "Daily Pack" },
+    ]);
+  });
+
+  it("override for a known segment wins over the default label", () => {
+    const crumbs = buildBreadcrumbs("/admin/audit", { audit: "Security Audit Log" });
+    expect(crumbs.at(-1)?.label).toBe("Security Audit Log");
+  });
+
+  it("override is segment-keyed, not applied to a different segment with a similar name", () => {
+    const crumbs = buildBreadcrumbs("/portal/inventory", { receipts: "Goods Receipts" });
+    expect(crumbs.at(-1)?.label).toBe("Inventory");
+  });
+
+  it("cumulative hrefs match the path prefixes exactly, leaf has no href", () => {
+    const crumbs = buildBreadcrumbs("/portal/inventory/ledger");
+    expect(crumbs.map((c) => c.href)).toEqual(["/portal", "/portal/inventory", undefined]);
+  });
+
+  it("single-segment path returns one unlinked crumb", () => {
+    expect(buildBreadcrumbs("/portal")).toEqual([{ label: "Portal" }]);
+  });
+
+  it("empty pathname returns an empty array (defensive)", () => {
+    expect(buildBreadcrumbs("")).toEqual([]);
+  });
 });
 });
