@@ -52,6 +52,7 @@ export default function PortalReports() {
   const [selectedKey, setSelectedKey] = useState<string | null>(null);
   const [drawerKey, setDrawerKey] = useState<string | null>(null);
   const [subscriptions, setSubscriptions] = useState<KpiSubscription[]>([]);
+  const [pins, setPins] = useState<KpiPin[]>([]);
   const [loading, setLoading] = useState(false);
 
   const range = useMemo(() => buildDateRange(preset), [preset]);
