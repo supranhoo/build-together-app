@@ -157,13 +157,15 @@ export function KpiDetailDrawer({
       if (!id) return null;
       return { kind: "void_heat_log", id, label: String(row.heat_number ?? id) };
     }
-    if (drill?.source === "material_consumption" && canReverseInv) {
-      // material_consumption rows do not directly reverse — only inventory_ledger does.
-      // We surface no action here to avoid confusion. Reversal is exposed elsewhere.
-      return null;
+    if (drill?.source === "inventory_ledger" && canReverseInv) {
+      const id = String(row.id ?? "");
+      if (!id) return null;
+      return { kind: "reverse_inventory", id, label: String(row.movement_type ?? id) };
     }
     return null;
   };
+
+  const hasRowActions = (drill?.source === "heat_logs" && canVoidHeat) || (drill?.source === "inventory_ledger" && canReverseInv);
 
   const refreshDrill = async () => {
     if (!definition) return;
@@ -269,7 +271,7 @@ export function KpiDetailDrawer({
                 <TableHeader>
                   <TableRow>
                     {headers.map((h) => <TableHead key={h} className="whitespace-nowrap text-xs">{h}</TableHead>)}
-                    {(canVoidHeat && drill?.source === "heat_logs") ? <TableHead className="w-10" /> : null}
+                    {hasRowActions ? <TableHead className="w-10" /> : null}
                   </TableRow>
                 </TableHeader>
                 <TableBody>
@@ -278,7 +280,7 @@ export function KpiDetailDrawer({
                     return (
                       <TableRow key={i}>
                         {headers.map((h) => <TableCell key={h} className="whitespace-nowrap text-xs">{String(r[h] ?? "")}</TableCell>)}
-                        {(canVoidHeat && drill?.source === "heat_logs") ? (
+                        {hasRowActions ? (
                           <TableCell className="w-10">
                             {action ? (
                               <DropdownMenu>
@@ -289,7 +291,7 @@ export function KpiDetailDrawer({
                                 </DropdownMenuTrigger>
                                 <DropdownMenuContent align="end">
                                   <DropdownMenuItem onSelect={(e) => { e.preventDefault(); setPending(action); }}>
-                                    Void heat log
+                                    {action.kind === "void_heat_log" ? "Void heat log" : "Reverse entry"}
                                   </DropdownMenuItem>
                                 </DropdownMenuContent>
                               </DropdownMenu>

@@ -1,12 +1,67 @@
-import { BarChart3, Factory, Gauge, MapPin, Warehouse } from "lucide-react";
+import { useEffect, useState } from "react";
+import { BarChart3, Factory, Gauge, MapPin, Pin, Warehouse } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { useAuth } from "@/hooks/use-auth";
 import { useWorkspace } from "@/hooks/use-workspace";
+import {
+  buildDateRange,
+  computeKpi,
+  fetchKpiDefinitions,
+  fetchKpiPins,
+  type KpiDefinition,
+  type KpiPin,
+} from "@/lib/reporting";
+
+interface PinnedKpiCard {
+  pin: KpiPin;
+  definition: KpiDefinition;
+  value: number | null;
+}
 
 export default function PortalOverview() {
-  const { profile } = useAuth();
+  const { profile, session } = useAuth();
   const { activeProfitCenter, modules, settings, assignments } = useWorkspace();
+  const [pinned, setPinned] = useState<PinnedKpiCard[]>([]);
+  const [pinnedLoading, setPinnedLoading] = useState(false);
+
+  useEffect(() => {
+    if (!activeProfitCenter || !session?.user?.id) {
+      setPinned([]);
+      return;
+    }
+    let cancelled = false;
+    (async () => {
+      setPinnedLoading(true);
+      try {
+        const [pins, defs] = await Promise.all([
+          fetchKpiPins(session.user.id, activeProfitCenter.id),
+          fetchKpiDefinitions(activeProfitCenter.id),
+        ]);
+        if (cancelled) return;
+        const range = buildDateRange("today");
+        const cards = await Promise.all(
+          pins.map(async (pin) => {
+            const def = defs.find((d) => d.id === pin.kpiDefinitionId);
+            if (!def) return null;
+            try {
+              const result = await computeKpi(activeProfitCenter.id, def.key, range);
+              return { pin, definition: def, value: result.value } satisfies PinnedKpiCard;
+            } catch {
+              return { pin, definition: def, value: null } satisfies PinnedKpiCard;
+            }
+          }),
+        );
+        if (cancelled) return;
+        setPinned(cards.filter((c): c is PinnedKpiCard => c !== null));
+      } catch {
+        if (!cancelled) setPinned([]);
+      } finally {
+        if (!cancelled) setPinnedLoading(false);
+      }
+    })();
+    return () => { cancelled = true; };
+  }, [activeProfitCenter, session?.user?.id]);
 
   const metrics = [
     { label: "Assigned workspaces", value: String(assignments.length), detail: "Access scope in current session", icon: Gauge },
@@ -17,6 +72,39 @@ export default function PortalOverview() {
 
   return (
     <div className="space-y-6">
+      {activeProfitCenter && (
+        <section>
+          <div className="mb-3 flex items-center gap-2">
+            <Pin className="h-4 w-4 text-primary" />
+            <h2 className="text-sm font-semibold uppercase tracking-[0.18em] text-muted-foreground">Pinned KPIs</h2>
+          </div>
+          {pinnedLoading ? (
+            <p className="text-sm text-muted-foreground">Loading pinned KPIs…</p>
+          ) : pinned.length === 0 ? (
+            <Card className="border-dashed border-border bg-card">
+              <CardContent className="py-6 text-center text-sm text-muted-foreground">
+                Pin KPIs from the Reports page to see them here.
+              </CardContent>
+            </Card>
+          ) : (
+            <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
+              {pinned.map((card) => (
+                <Card key={card.pin.id} className="border-border bg-card">
+                  <CardHeader className="pb-3">
+                    <p className="text-xs text-muted-foreground">{card.definition.displayName}</p>
+                    <CardTitle className="text-2xl">
+                      {card.value == null ? "—" : Number(card.value).toLocaleString(undefined, { maximumFractionDigits: 2 })}
+                      {card.definition.unit ? <span className="ml-1 text-sm font-normal text-muted-foreground">{card.definition.unit}</span> : null}
+                    </CardTitle>
+                    <p className="text-[11px] text-muted-foreground">Today</p>
+                  </CardHeader>
+                </Card>
+              ))}
+            </div>
+          )}
+        </section>
+      )}
+
       <section className="grid gap-4 xl:grid-cols-[1.6fr_1fr]">
         <Card className="border-border bg-panel-gradient shadow-panel">
           <CardHeader className="space-y-3">

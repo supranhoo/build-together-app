@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState } from "react";
 import { CartesianGrid, Line, LineChart, ResponsiveContainer, Tooltip, XAxis, YAxis } from "recharts";
-import { Download } from "lucide-react";
+import { Download, Pin, PinOff } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
@@ -15,12 +15,18 @@ import {
   computeKpi,
   computeKpiConsolidated,
   downloadCsv,
+  enforceMaxPins,
   exportKpiCsv,
   fetchKpiDefinitions,
+  fetchKpiPins,
   fetchMySubscriptions,
+  KPI_PIN_CAP,
+  pinKpi,
+  unpinKpi,
   unsubscribeFromKpi,
   type KpiConsolidatedResult,
   type KpiDefinition,
+  type KpiPin,
   type KpiPreset,
   type KpiResult,
   type KpiSubscription,
@@ -46,6 +52,7 @@ export default function PortalReports() {
   const [selectedKey, setSelectedKey] = useState<string | null>(null);
   const [drawerKey, setDrawerKey] = useState<string | null>(null);
   const [subscriptions, setSubscriptions] = useState<KpiSubscription[]>([]);
+  const [pins, setPins] = useState<KpiPin[]>([]);
   const [loading, setLoading] = useState(false);
 
   const range = useMemo(() => buildDateRange(preset), [preset]);
@@ -96,7 +103,17 @@ export default function PortalReports() {
     }
   };
 
-  useEffect(() => { void refreshSubs(); /* eslint-disable-next-line */ }, [activeProfitCenter?.id, session?.user?.id]);
+  const refreshPins = async () => {
+    if (!activeProfitCenter || !session?.user?.id) return;
+    try {
+      const list = await fetchKpiPins(session.user.id, activeProfitCenter.id);
+      setPins(list);
+    } catch {
+      // non-fatal
+    }
+  };
+
+  useEffect(() => { void refreshSubs(); void refreshPins(); /* eslint-disable-next-line */ }, [activeProfitCenter?.id, session?.user?.id]);
 
   const selected = view === "workspace" && selectedKey ? results[selectedKey] : null;
   const selectedDef = selectedKey ? definitions.find((d) => d.key === selectedKey) : null;
@@ -116,6 +133,35 @@ export default function PortalReports() {
       toast({ title: "Unsubscribed" });
     } catch (err) {
       toast({ title: "Unsubscribe failed", description: err instanceof Error ? err.message : "", variant: "destructive" });
+    }
+  };
+
+  const handleTogglePin = async (def: KpiDefinition) => {
+    if (!activeProfitCenter || !session?.user?.id) return;
+    const existing = pins.find((p) => p.kpiDefinitionId === def.id);
+    try {
+      if (existing) {
+        await unpinKpi(existing.id);
+        await refreshPins();
+        toast({ title: "Unpinned from overview" });
+        return;
+      }
+      if (enforceMaxPins(pins.length)) {
+        toast({ title: `Pin limit reached`, description: `Maximum ${KPI_PIN_CAP} pins per workspace.`, variant: "destructive" });
+        return;
+      }
+      await pinKpi({
+        userId: session.user.id,
+        profitCenterId: activeProfitCenter.id,
+        kpiDefinitionId: def.id,
+        sortOrder: pins.length,
+      });
+      await refreshPins();
+      toast({ title: "Pinned to overview" });
+    } catch (err) {
+      const msg = err instanceof Error ? err.message : "";
+      const friendly = msg.includes("pin_cap_exceeded") ? `Maximum ${KPI_PIN_CAP} pins per workspace.` : msg;
+      toast({ title: "Pin update failed", description: friendly, variant: "destructive" });
     }
   };
 
@@ -167,29 +213,36 @@ export default function PortalReports() {
             const isSelected = selectedKey === def.key;
             const subCount = subscriptions.filter((s) => s.kpiDefinitionId === def.id).length;
             const wsCount = view === "consolidated" ? (cons?.perWorkspace.length ?? 0) : 0;
+            const isPinned = pins.some((p) => p.kpiDefinitionId === def.id);
             return (
-              <button
+              <Card
                 key={def.id}
-                type="button"
+                className={`relative cursor-pointer transition-colors ${isSelected ? "border-primary" : ""}`}
                 onClick={() => { setSelectedKey(def.key); setDrawerKey(def.key); }}
-                className="text-left"
               >
-                <Card className={isSelected ? "border-primary" : ""}>
-                  <CardHeader className="pb-2">
-                    <div className="flex items-center justify-between">
-                      <CardDescription>{def.displayName}</CardDescription>
-                      {subCount > 0 ? <Badge variant="secondary" className="text-[10px]">subscribed</Badge> : null}
-                    </div>
-                    <CardTitle className="text-3xl">
-                      {value == null ? "—" : Number(value).toLocaleString(undefined, { maximumFractionDigits: 2 })}
-                      {def.unit ? <span className="ml-1 text-sm font-normal text-muted-foreground">{def.unit}</span> : null}
-                    </CardTitle>
-                    {view === "consolidated" && wsCount > 0 ? (
-                      <p className="text-xs text-muted-foreground">across {wsCount} workspace{wsCount === 1 ? "" : "s"}</p>
-                    ) : null}
-                  </CardHeader>
-                </Card>
-              </button>
+                <Button
+                  size="icon"
+                  variant="ghost"
+                  className="absolute right-2 top-2 h-7 w-7"
+                  aria-label={isPinned ? "Unpin from overview" : "Pin to overview"}
+                  onClick={(e) => { e.stopPropagation(); void handleTogglePin(def); }}
+                >
+                  {isPinned ? <PinOff className="h-4 w-4 text-primary" /> : <Pin className="h-4 w-4 text-muted-foreground" />}
+                </Button>
+                <CardHeader className="pb-2">
+                  <div className="flex items-center justify-between pr-8">
+                    <CardDescription>{def.displayName}</CardDescription>
+                    {subCount > 0 ? <Badge variant="secondary" className="text-[10px]">subscribed</Badge> : null}
+                  </div>
+                  <CardTitle className="text-3xl">
+                    {value == null ? "—" : Number(value).toLocaleString(undefined, { maximumFractionDigits: 2 })}
+                    {def.unit ? <span className="ml-1 text-sm font-normal text-muted-foreground">{def.unit}</span> : null}
+                  </CardTitle>
+                  {view === "consolidated" && wsCount > 0 ? (
+                    <p className="text-xs text-muted-foreground">across {wsCount} workspace{wsCount === 1 ? "" : "s"}</p>
+                  ) : null}
+                </CardHeader>
+              </Card>
             );
           })}
         </div>
