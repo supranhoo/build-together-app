@@ -1,7 +1,8 @@
 import { useEffect, useState } from "react";
-import { BarChart3, Factory, Gauge, MapPin, Pin, Warehouse } from "lucide-react";
+import { ArrowDown, ArrowUp, BarChart3, Factory, Gauge, MapPin, Pin, Warehouse } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
+import { useToast } from "@/hooks/use-toast";
 import { useAuth } from "@/hooks/use-auth";
 import { useWorkspace } from "@/hooks/use-workspace";
 import {
@@ -9,6 +10,8 @@ import {
   computeKpi,
   fetchKpiDefinitions,
   fetchKpiPins,
+  persistPinOrder,
+  reorderPins,
   type KpiDefinition,
   type KpiPin,
 } from "@/lib/reporting";
