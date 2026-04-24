@@ -11,9 +11,10 @@ import { useAuth } from "@/hooks/use-auth";
 import { useToast } from "@/hooks/use-toast";
 import { fetchFurnaces, upsertFurnace, type Furnace } from "@/lib/production";
 import { createAuditLog } from "@/lib/workspace";
+import { ProfitCenterSelectField } from "@/components/ProfitCenterSelectField";
 
-interface FormState { id?: string; code: string; name: string; capacityMt: string; isActive: boolean; }
-const empty: FormState = { code: "", name: "", capacityMt: "", isActive: true };
+interface FormState { id?: string; profitCenterId: string; code: string; name: string; capacityMt: string; isActive: boolean; }
+const empty: FormState = { profitCenterId: "", code: "", name: "", capacityMt: "", isActive: true };
 
 export default function AdminFurnaces() {
   const { activeProfitCenter } = useWorkspace();
@@ -31,14 +32,18 @@ export default function AdminFurnaces() {
 
   useEffect(() => { void load(); /* eslint-disable-next-line */ }, [activeProfitCenter?.id]);
 
-  const openNew = () => { setForm(empty); setOpen(true); };
+  const openNew = () => { setForm({ ...empty, profitCenterId: activeProfitCenter?.id ?? "" }); setOpen(true); };
   const openEdit = (f: Furnace) => {
-    setForm({ id: f.id, code: f.code, name: f.name, capacityMt: f.capacityMt?.toString() ?? "", isActive: f.isActive });
+    setForm({ id: f.id, profitCenterId: f.profitCenterId ?? activeProfitCenter?.id ?? "", code: f.code, name: f.name, capacityMt: f.capacityMt?.toString() ?? "", isActive: f.isActive });
     setOpen(true);
   };
 
   const handleSave = async () => {
     if (!activeProfitCenter || !session?.user) return;
+    if (!form.profitCenterId) {
+      toast({ title: "Profit Center mapping is mandatory", variant: "destructive" });
+      return;
+    }
     if (!form.code.trim() || !form.name.trim()) {
       toast({ title: "Code and name are required", variant: "destructive" });
       return;
@@ -47,7 +52,7 @@ export default function AdminFurnaces() {
     try {
       await upsertFurnace({
         id: form.id,
-        profitCenterId: activeProfitCenter.id,
+        profitCenterId: form.profitCenterId,
         code: form.code,
         name: form.name,
         capacityMt: form.capacityMt ? Number(form.capacityMt) : null,
@@ -55,10 +60,10 @@ export default function AdminFurnaces() {
       });
       await createAuditLog({
         actorUserId: session.user.id,
-        profitCenterId: activeProfitCenter.id,
+        profitCenterId: form.profitCenterId,
         entityType: "furnace",
         action: form.id ? "furnace.updated" : "furnace.created",
-        changeSummary: { code: form.code, name: form.name },
+        changeSummary: { code: form.code, name: form.name, profit_center_id: form.profitCenterId },
       });
       toast({ title: "Furnace saved" });
       setOpen(false);
@@ -83,6 +88,11 @@ export default function AdminFurnaces() {
           <DialogContent>
             <DialogHeader><DialogTitle>{form.id ? "Edit furnace" : "New furnace"}</DialogTitle></DialogHeader>
             <div className="space-y-3">
+              <ProfitCenterSelectField
+                value={form.profitCenterId}
+                onChange={(v) => setForm({ ...form, profitCenterId: v })}
+                disabled={Boolean(form.id)}
+              />
               <div><Label>Code</Label><Input value={form.code} onChange={(e) => setForm({ ...form, code: e.target.value })} /></div>
               <div><Label>Name</Label><Input value={form.name} onChange={(e) => setForm({ ...form, name: e.target.value })} /></div>
               <div><Label>Capacity (MT)</Label><Input type="number" step="0.001" value={form.capacityMt} onChange={(e) => setForm({ ...form, capacityMt: e.target.value })} /></div>

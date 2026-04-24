@@ -1092,3 +1092,54 @@ describe("resolveAdminSettingsTab", () => {
     expect(resolveAdminSettingsTab("does-not-exist")).toBe(fallback);
   });
 });
+
+import { getManageableProfitCenters } from "@/lib/manageable-profit-centers";
+import type { ProfitCenter, ProfitCenterAssignment } from "@/lib/workspace";
+
+describe("getManageableProfitCenters", () => {
+  const pc = (id: string, name: string, isActive = true): ProfitCenter => ({
+    id, code: id.toUpperCase(), slug: id, name, description: null,
+    locationName: null, processProfile: null, isActive,
+  });
+
+  const assign = (pcRef: ProfitCenter, isActive = true): ProfitCenterAssignment => ({
+    id: `a-${pcRef.id}`, userId: "u1", profitCenterId: pcRef.id,
+    isDefault: false, isActive, profitCenter: pcRef,
+  });
+
+  const a = pc("a", "Alpha");
+  const b = pc("b", "Bravo");
+  const c = pc("c", "Charlie", false);
+
+  it("super_admin sees all active profit centers, sorted by name", () => {
+    const result = getManageableProfitCenters({
+      isSuperAdmin: true, isAdmin: false, assignments: [], allProfitCenters: [b, a, c],
+    });
+    expect(result.map((p) => p.id)).toEqual(["a", "b"]);
+  });
+
+  it("admin sees only active assigned profit centers", () => {
+    const result = getManageableProfitCenters({
+      isSuperAdmin: false, isAdmin: true,
+      assignments: [assign(a), assign(b, false), assign(c)],
+      allProfitCenters: [a, b, c],
+    });
+    expect(result.map((p) => p.id)).toEqual(["a"]);
+  });
+
+  it("non-admins get an empty list", () => {
+    const result = getManageableProfitCenters({
+      isSuperAdmin: false, isAdmin: false,
+      assignments: [assign(a)], allProfitCenters: [a, b],
+    });
+    expect(result).toEqual([]);
+  });
+
+  it("de-duplicates repeated assignments", () => {
+    const result = getManageableProfitCenters({
+      isSuperAdmin: false, isAdmin: true,
+      assignments: [assign(a), assign(a)], allProfitCenters: [a],
+    });
+    expect(result).toHaveLength(1);
+  });
+});

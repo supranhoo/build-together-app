@@ -12,9 +12,10 @@ import { useAuth } from "@/hooks/use-auth";
 import { useToast } from "@/hooks/use-toast";
 import { fetchMaterials, upsertMaterial, type Material } from "@/lib/inventory";
 import { createAuditLog } from "@/lib/workspace";
+import { ProfitCenterSelectField } from "@/components/ProfitCenterSelectField";
 
-interface FormState { id?: string; code: string; name: string; category: string; uom: string; isActive: boolean; }
-const empty: FormState = { code: "", name: "", category: "raw", uom: "kg", isActive: true };
+interface FormState { id?: string; profitCenterId: string; code: string; name: string; category: string; uom: string; isActive: boolean; }
+const empty: FormState = { profitCenterId: "", code: "", name: "", category: "raw", uom: "kg", isActive: true };
 
 const CATEGORIES = ["raw", "consumable", "finished"];
 const UOMS = ["kg", "MT", "litre", "piece"];
@@ -35,14 +36,18 @@ export default function AdminMaterials() {
 
   useEffect(() => { void load(); /* eslint-disable-next-line */ }, [activeProfitCenter?.id]);
 
-  const openNew = () => { setForm(empty); setOpen(true); };
+  const openNew = () => { setForm({ ...empty, profitCenterId: activeProfitCenter?.id ?? "" }); setOpen(true); };
   const openEdit = (m: Material) => {
-    setForm({ id: m.id, code: m.code, name: m.name, category: m.category, uom: m.uom, isActive: m.isActive });
+    setForm({ id: m.id, profitCenterId: m.profitCenterId ?? activeProfitCenter?.id ?? "", code: m.code, name: m.name, category: m.category, uom: m.uom, isActive: m.isActive });
     setOpen(true);
   };
 
   const handleSave = async () => {
     if (!activeProfitCenter || !session?.user) return;
+    if (!form.profitCenterId) {
+      toast({ title: "Profit Center mapping is mandatory", variant: "destructive" });
+      return;
+    }
     if (!form.code.trim() || !form.name.trim()) {
       toast({ title: "Code and name are required", variant: "destructive" });
       return;
@@ -51,7 +56,7 @@ export default function AdminMaterials() {
     try {
       await upsertMaterial({
         id: form.id,
-        profitCenterId: activeProfitCenter.id,
+        profitCenterId: form.profitCenterId,
         code: form.code,
         name: form.name,
         category: form.category,
@@ -60,10 +65,10 @@ export default function AdminMaterials() {
       });
       await createAuditLog({
         actorUserId: session.user.id,
-        profitCenterId: activeProfitCenter.id,
+        profitCenterId: form.profitCenterId,
         entityType: "material",
         action: form.id ? "material.updated" : "material.created",
-        changeSummary: { code: form.code, name: form.name, category: form.category, uom: form.uom },
+        changeSummary: { code: form.code, name: form.name, category: form.category, uom: form.uom, profit_center_id: form.profitCenterId },
       });
       toast({ title: "Material saved" });
       setOpen(false);
@@ -88,6 +93,13 @@ export default function AdminMaterials() {
           <DialogContent>
             <DialogHeader><DialogTitle>{form.id ? "Edit material" : "New material"}</DialogTitle></DialogHeader>
             <div className="grid gap-3 sm:grid-cols-2">
+              <div className="sm:col-span-2">
+                <ProfitCenterSelectField
+                  value={form.profitCenterId}
+                  onChange={(v) => setForm({ ...form, profitCenterId: v })}
+                  disabled={Boolean(form.id)}
+                />
+              </div>
               <div><Label>Code</Label><Input value={form.code} onChange={(e) => setForm({ ...form, code: e.target.value })} /></div>
               <div><Label>Name</Label><Input value={form.name} onChange={(e) => setForm({ ...form, name: e.target.value })} /></div>
               <div>

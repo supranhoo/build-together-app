@@ -11,9 +11,10 @@ import { useAuth } from "@/hooks/use-auth";
 import { useToast } from "@/hooks/use-toast";
 import { fetchStockLocations, upsertStockLocation, type StockLocation } from "@/lib/inventory";
 import { createAuditLog } from "@/lib/workspace";
+import { ProfitCenterSelectField } from "@/components/ProfitCenterSelectField";
 
-interface FormState { id?: string; code: string; name: string; isActive: boolean; }
-const empty: FormState = { code: "", name: "", isActive: true };
+interface FormState { id?: string; profitCenterId: string; code: string; name: string; isActive: boolean; }
+const empty: FormState = { profitCenterId: "", code: "", name: "", isActive: true };
 
 export default function AdminStockLocations() {
   const { activeProfitCenter } = useWorkspace();
@@ -31,14 +32,18 @@ export default function AdminStockLocations() {
 
   useEffect(() => { void load(); /* eslint-disable-next-line */ }, [activeProfitCenter?.id]);
 
-  const openNew = () => { setForm(empty); setOpen(true); };
+  const openNew = () => { setForm({ ...empty, profitCenterId: activeProfitCenter?.id ?? "" }); setOpen(true); };
   const openEdit = (l: StockLocation) => {
-    setForm({ id: l.id, code: l.code, name: l.name, isActive: l.isActive });
+    setForm({ id: l.id, profitCenterId: l.profitCenterId ?? activeProfitCenter?.id ?? "", code: l.code, name: l.name, isActive: l.isActive });
     setOpen(true);
   };
 
   const handleSave = async () => {
     if (!activeProfitCenter || !session?.user) return;
+    if (!form.profitCenterId) {
+      toast({ title: "Profit Center mapping is mandatory", variant: "destructive" });
+      return;
+    }
     if (!form.code.trim() || !form.name.trim()) {
       toast({ title: "Code and name are required", variant: "destructive" });
       return;
@@ -47,17 +52,17 @@ export default function AdminStockLocations() {
     try {
       await upsertStockLocation({
         id: form.id,
-        profitCenterId: activeProfitCenter.id,
+        profitCenterId: form.profitCenterId,
         code: form.code,
         name: form.name,
         isActive: form.isActive,
       });
       await createAuditLog({
         actorUserId: session.user.id,
-        profitCenterId: activeProfitCenter.id,
+        profitCenterId: form.profitCenterId,
         entityType: "stock_location",
         action: form.id ? "stock_location.updated" : "stock_location.created",
-        changeSummary: { code: form.code, name: form.name },
+        changeSummary: { code: form.code, name: form.name, profit_center_id: form.profitCenterId },
       });
       toast({ title: "Stock location saved" });
       setOpen(false);
@@ -82,6 +87,11 @@ export default function AdminStockLocations() {
           <DialogContent>
             <DialogHeader><DialogTitle>{form.id ? "Edit location" : "New location"}</DialogTitle></DialogHeader>
             <div className="space-y-3">
+              <ProfitCenterSelectField
+                value={form.profitCenterId}
+                onChange={(v) => setForm({ ...form, profitCenterId: v })}
+                disabled={Boolean(form.id)}
+              />
               <div><Label>Code</Label><Input value={form.code} onChange={(e) => setForm({ ...form, code: e.target.value })} /></div>
               <div><Label>Name</Label><Input value={form.name} onChange={(e) => setForm({ ...form, name: e.target.value })} /></div>
               <div className="flex items-center justify-between rounded-md border border-border bg-panel px-4 py-3">

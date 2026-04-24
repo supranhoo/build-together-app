@@ -268,3 +268,14 @@ SteelFlow ERP now uses a configuration-first workspace foundation for steel and 
 - **Route audit invariant**: every navigation link surfaced by the shells must resolve to a route declared in `src/App.tsx`. Enforced by the `route audit` describe block in `src/test/example.test.tsx`, which validates `adminNavItems` (exported from `AdminShell.tsx`), `portalStaticNavItems` (exported from `PortalShell.tsx`), the dynamic `/portal/:module` pattern, the cross-shell jump links, and the inventory CTA links against a static `ROUTE_CATALOG` that mirrors `App.tsx`. When you add or rename a route in `App.tsx`, update both the nav array and `ROUTE_CATALOG`.
 
 
+
+## Profit Center mapping in admin create dialogs (Phase 13)
+- Each admin Create/Edit dialog (`AdminFurnaces`, `AdminShifts`, `AdminMaterials`, `AdminStockLocations`, `AdminKpis`) now renders a mandatory **Profit Center** dropdown via `src/components/ProfitCenterSelectField.tsx`.
+- Defaults to `activeProfitCenter.id` from `useWorkspace()`. Editable on **create**; **disabled on edit** to prevent silently moving a record across workspaces (out of scope; would also break heat_log/inventory_ledger references).
+- Options are produced by `getManageableProfitCenters({ isSuperAdmin, isAdmin, assignments, allProfitCenters })` in `src/lib/manageable-profit-centers.ts`:
+  - super_admin → all `is_active = true` profit centers
+  - admin → assigned + active profit centers (matches `can_manage_profit_center` RLS)
+  - others → `[]` (admin pages are gated upstream by `RequireAdmin`)
+- Save logic now sends `form.profitCenterId` to both the upsert and `createAuditLog`. Validation order: PC required first, then code/name. The audit log `change_summary` includes `profit_center_id` so cross-workspace creations are auditable.
+- The dialog shows a hint when the chosen PC differs from the active workspace: "Saving into a different workspace than the one currently selected. The new record will appear after switching workspaces." We intentionally do **not** auto-switch workspace, do **not** add a "Profit Center" column to admin tables (every visible row already belongs to the active PC by construction — the table header reflects this), and do **not** change `fetch*` filters (data isolation continues to come from `.eq('profit_center_id', activeProfitCenter.id)` + RLS).
+- Tests added in `src/test/example.test.tsx` ("getManageableProfitCenters" describe block): super_admin returns all active sorted, admin returns only active assigned, non-admin returns empty, duplicates de-duplicated.
