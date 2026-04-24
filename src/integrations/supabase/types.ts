@@ -320,6 +320,53 @@ export type Database = {
           },
         ]
       }
+      kpi_definitions: {
+        Row: {
+          created_at: string
+          display_name: string
+          formula: Json
+          id: string
+          is_active: boolean
+          key: string
+          profit_center_id: string | null
+          sort_order: number
+          unit: string
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          display_name: string
+          formula?: Json
+          id?: string
+          is_active?: boolean
+          key: string
+          profit_center_id?: string | null
+          sort_order?: number
+          unit?: string
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          display_name?: string
+          formula?: Json
+          id?: string
+          is_active?: boolean
+          key?: string
+          profit_center_id?: string | null
+          sort_order?: number
+          unit?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "kpi_definitions_profit_center_id_fkey"
+            columns: ["profit_center_id"]
+            isOneToOne: false
+            referencedRelation: "profit_centers"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       material_consumption: {
         Row: {
           created_at: string
@@ -785,6 +832,33 @@ export type Database = {
       [_ in never]: never
     }
     Functions: {
+      _compute_kpi_aggregate: {
+        Args: {
+          _from: string
+          _profit_center_id: string
+          _spec: Json
+          _to: string
+        }
+        Returns: number
+      }
+      _compute_kpi_ratio_series: {
+        Args: {
+          _formula: Json
+          _from: string
+          _profit_center_id: string
+          _to: string
+        }
+        Returns: Json
+      }
+      _compute_kpi_series: {
+        Args: {
+          _from: string
+          _profit_center_id: string
+          _spec: Json
+          _to: string
+        }
+        Returns: Json
+      }
       can_edit_heat_log: {
         Args: { _heat_log_id: string; _user_id: string }
         Returns: boolean
@@ -796,6 +870,15 @@ export type Database = {
       can_view_profile: {
         Args: { _target_user_id: string; _viewer_user_id: string }
         Returns: boolean
+      }
+      compute_kpi: {
+        Args: {
+          _from: string
+          _key: string
+          _profit_center_id: string
+          _to: string
+        }
+        Returns: Json
       }
       current_stock: {
         Args: {

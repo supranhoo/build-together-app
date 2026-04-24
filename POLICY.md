@@ -44,6 +44,14 @@
 - Material consumption tied to a heat log is recorded only through the consumption flow, which automatically generates a matching ledger entry by trigger; consumption rows themselves are immutable to preserve heat-to-material traceability.
 - Negative stock is permitted operationally (real-world plants back-date receipts) but every negative balance is fully traceable through the ledger; reporting must surface negative balances for reconciliation.
 
+## KPI Reporting Governance
+- KPI formulas are configuration, not code. They live in `kpi_definitions` and must never be hardcoded in the UI or in business logic.
+- Global default KPIs (`profit_center_id IS NULL`) may be created or modified only by super admins. Workspace overrides may be created or modified by workspace admins (or super admins) for their own workspace.
+- KPI definitions are visible to all workspace members so they can interpret the values they see; only managers of the scope may modify them.
+- KPI evaluation must use the `compute_kpi` SQL function as the single source of truth for both the portal dashboard and any admin preview, so values rendered always match the persisted formula.
+- Division-by-zero in any KPI formula must return `null`, never an error or an arbitrary placeholder value.
+- CSV exports must be generated from the same `series` payload returned by `compute_kpi`; on-screen and exported values must always agree.
+
 ## Policy Change Log
 - 2026-04-23: Enforced admin-only account creation on the public login experience.
 - 2026-04-23: Added configuration-first workspace isolation, admin governance, and immutable audit requirements for multi-plant scale.
@@ -52,3 +60,4 @@
 - 2026-04-24: Reconciled external architecture documentation with implemented model; no policy rules changed.
 - 2026-04-24: Added Production Data Governance — furnace/shift master data ownership, configurable RBAC for heat log edits via `permission_grants`, and immutable `heat_log_events` audit trail.
 - 2026-04-24: Added Inventory Data Governance — material/location master data ownership, immutable inventory ledger, configurable RBAC for inventory actions via `permission_grants`, and heat-linked consumption traceability.
+- 2026-04-24: Added KPI Reporting Governance — global vs workspace KPI scope, super-admin ownership of global defaults, and `compute_kpi` as the single source of truth for KPI values.

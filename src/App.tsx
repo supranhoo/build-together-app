@@ -26,11 +26,13 @@ import AdminShifts from "./pages/AdminShifts";
 import AdminRoles from "./pages/AdminRoles";
 import AdminMaterials from "./pages/AdminMaterials";
 import AdminStockLocations from "./pages/AdminStockLocations";
+import AdminKpis from "./pages/AdminKpis";
 import ModulePlaceholder from "./pages/ModulePlaceholder";
 import PortalProduction from "./pages/PortalProduction";
 import PortalInventory from "./pages/PortalInventory";
 import PortalInventoryReceipts from "./pages/PortalInventoryReceipts";
 import PortalInventoryLedger from "./pages/PortalInventoryLedger";
+import PortalReports from "./pages/PortalReports";
 import NotFound from "./pages/NotFound";
 
 const queryClient = new QueryClient();
@@ -57,6 +59,7 @@ const App = () => (
                       <Route path="receipts" element={<PortalInventoryReceipts />} />
                       <Route path="ledger" element={<PortalInventoryLedger />} />
                     </Route>
+                    <Route path="reports" element={<PortalReports />} />
                     <Route path=":module" element={<ModulePlaceholder />} />
                   </Route>
                 </Route>
@@ -72,6 +75,7 @@ const App = () => (
                     <Route path="shifts" element={<AdminShifts />} />
                     <Route path="materials" element={<AdminMaterials />} />
                     <Route path="stock-locations" element={<AdminStockLocations />} />
+                    <Route path="kpis" element={<AdminKpis />} />
                     <Route path="roles" element={<AdminRoles />} />
                   </Route>
                 </Route>

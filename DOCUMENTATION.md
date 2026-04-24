@@ -67,7 +67,7 @@ SteelFlow ERP now uses a configuration-first workspace foundation for steel and 
 - Phase 2 — Live admin management (workspaces, modules, access, settings, audit + pagination): complete.
 - Phase 3 — Production foundation (furnaces, shifts, heat logs, configurable RBAC): complete.
 - Phase 4 — Inventory and material flows: complete.
-- Phase 5 — Reporting and KPI aggregation: not started.
+- Phase 5 — Reporting and KPI aggregation: complete.
 - Phase 6 — Finance and costing engine: not started.
 - Phase 7 — Advanced admin and process workflow builder: not started.
 
@@ -103,6 +103,8 @@ SteelFlow ERP now uses a configuration-first workspace foundation for steel and 
 - `/portal/inventory` — current stock view
 - `/portal/inventory/receipts` — manual material receipt entry (manager+)
 - `/portal/inventory/ledger` — read-only inventory ledger viewer
+- `/portal/reports` — KPI cards plus daily time-series chart with CSV export
+- `/admin/kpis` — KPI definition management (workspace overrides plus inherited global defaults)
 
 ## Phase 4 — Inventory & Material Flows
 - New tables: `materials`, `stock_locations`, `inventory_ledger`, `material_consumption`. All workspace-scoped, RLS-protected.
@@ -114,6 +116,14 @@ SteelFlow ERP now uses a configuration-first workspace foundation for steel and 
 - Heat log entry form (operator side) gains an optional consumption section that posts material_consumption rows on save. Edit dialog does not allow consumption changes — adjustments must go through the ledger.
 - New `inventory` entry in `app_modules` (disabled per workspace until enabled in `/admin/modules`).
 
+## Phase 5 — Reporting & KPI Aggregation
+- New table: `kpi_definitions`. `profit_center_id` is nullable — `NULL` rows are global defaults inherited by every workspace; non-null rows are workspace overrides. Uniqueness enforced separately for global keys and per-workspace keys.
+- Seeded global defaults: `heats_per_day`, `avg_tap_weight_mt`, `specific_power_kwh_per_mt`, `material_yield_pct`. Workspace admins may override any of these without touching code.
+- DB function `compute_kpi(_profit_center_id, _key, _from, _to)` is the single source of truth for KPI evaluation. It returns `{ value, series, unit, display_name }` and guards division-by-zero by returning `null`. Workspace overrides win over global defaults at evaluation time.
+- Formula schema (JSONB): single-source `{ source, agg, field?, scale? }` or ratio `{ numerator: <single-source>, denominator: <single-source>, scale? }`. Supported sources: `heat_logs` (fields `weight_mt`, `power_mwh`; aggs `count`/`sum`/`avg`) and `material_consumption` (field `quantity`; agg `sum`). Adding a new source is a SQL-only change in `_compute_kpi_aggregate` / `_compute_kpi_series`.
+- New `reports` entry in `app_modules` (disabled per workspace until enabled in `/admin/modules`). Portal page lives at `/portal/reports`; admin definition editor lives at `/admin/kpis`.
+- CSV export is generated client-side from the same `series` payload returned by `compute_kpi`, ensuring the chart and export always match.
+
 ## Version History
 - 2026-04-23: Removed self-service signup from the public login page and retained sign-in plus password reset only.
 - 2026-04-23: Added configurable workspace foundation with workspace-aware routing, admin configuration shell, backend-managed module navigation, and signup-disabled authentication.
@@ -122,3 +132,4 @@ SteelFlow ERP now uses a configuration-first workspace foundation for steel and 
 - 2026-04-24: Reconciled the external SteelFlow ERP Architecture Document with the implemented model and added Implementation Status plus Route Map sections.
 - 2026-04-24: Implemented Phase 3 production foundation — furnaces, shifts, heat logs with immutable event trail, and a configurable role/permission grants system with admin UI.
 - 2026-04-24: Implemented Phase 4 inventory and material flows — materials, stock locations, immutable inventory ledger, heat-linked material consumption, and admin/portal UI for stock management.
+- 2026-04-24: Implemented Phase 5 reporting — `kpi_definitions` table with global defaults plus workspace overrides, `compute_kpi` SQL function, portal KPI dashboard with CSV export, and admin KPI editor.
