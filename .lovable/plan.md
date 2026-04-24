@@ -1,126 +1,99 @@
 
-## Phase 3 — Production Foundation Plan
+## Phase 4 — Inventory & Material Flows
 
-Based on your answers, this plan adds furnaces, shifts, and heat logs as configurable, workspace-scoped entities, plus a foundational role/permission configuration surface so future RBAC stays admin-driven, not hardcoded.
+Build the inventory foundation that links raw materials to heat production, enabling material consumption tracking per heat and triple-entry inventory ledger.
 
-### Decisions Locked In
-1. **Furnace** — workspace-scoped (FK to `profit_centers`).
-2. **Shifts** — fixed shifts configured per workspace (A/B/C by default, but admin-editable name + start/end).
-3. **Heat number** — manually entered by operator, uniqueness enforced per workspace + furnace.
-4. **Edit window** — governed by configurable RBAC rules in a new admin "Roles & Permissions" surface.
-5. **Offline** — online-only for v1.
+### Decisions Needed Before Build
 
----
+I need 4 quick answers before locking the plan:
+
+1. **Material catalog scope** — global (shared across all workspaces) or workspace-scoped (each PC defines its own materials)?
+2. **Unit of measure** — fixed list (kg, MT, litre, piece) or admin-configurable per material?
+3. **Stock locations** — single stock per workspace, or multiple bins/yards per workspace (e.g. "Raw Yard A", "Furnace Bay")?
+4. **Negative stock** — block consumption that would drive stock negative, or allow with warning (real-world plants often back-date receipts)?
+
+Default recommendations if you say "just pick sensible defaults":
+- Workspace-scoped materials (matches existing PC isolation)
+- Fixed UOM list seeded as configurable `profit_center_settings` (so admins can extend without code)
+- Multiple stock locations per workspace (real plants need this; cost is one extra table)
+- Allow negative stock with warning + audit flag (operational reality)
 
 ### Pre-Implementation Risk & Impact Report
-- **Data Impact**: 5 new tables (`furnaces`, `shifts`, `heat_logs`, `heat_log_events`, `permission_grants`). All workspace-scoped with RLS. No changes to existing tables.
-- **Workflow Impact**: Operators get a new entry surface. Admins gain a new "Roles & Permissions" admin page. Existing admin pages unchanged.
-- **UI/UX Impact**: New portal module "Production" with Heat Log entry + list. New admin pages "Furnaces", "Shifts", "Roles & Permissions". Sidebar continues to be config-driven via `app_modules`.
-- **Regression Risk**: Low. All additive. No existing route, table, or RLS policy is modified.
-- **Mitigation**: Seed `app_modules` with `production` only — existing workspaces won't see it until admin enables it via `/admin/modules`. Tests cover RLS isolation and edit-window enforcement.
+- **Data Impact**: 4 new tables (`materials`, `stock_locations`, `inventory_ledger`, `material_consumption`). Workspace-scoped, RLS-enabled. No changes to Phase 3 tables.
+- **Workflow Impact**: Operators get a "Consumption" step on the heat log entry form. Admins gain Materials + Stock Locations admin pages.
+- **UI/UX Impact**: New admin pages `/admin/materials`, `/admin/stock-locations`. Heat log entry form gains optional consumption rows. New portal page `/portal/inventory` for stock view + receipts.
+- **Regression Risk**: Low. All additive. Heat log entry form gets new optional section; existing heat logs stay valid.
+- **Mitigation**: Consumption is optional on heat log v1 (so existing operators aren't blocked). RLS tested for cross-workspace isolation. Negative-stock guard is a configurable rule via `permission_grants` (`inventory`/`consume_negative`).
 
----
+### Schema (workspace-scoped, RLS-enabled)
 
-### Architectural Pushback / Simplicity Choice
-
-You asked for "a detailed Role Configuration window" where user types are created and edit rights flow from that. That is the right long-term direction, but building a full visual permission matrix now is overscoped for Phase 3.
-
-**Recommended minimal slice that scales:**
-- Keep the existing `app_role` enum (`super_admin`, `admin`, `manager`, `operator`, `analyst`, `user`) as the role identity layer — do not invent a parallel role system.
-- Add a new `permission_grants` table that maps `(role, resource, action)` → `allowed/window`. This is the configurable layer.
-- Build a single admin page `/admin/roles` that reads/writes `permission_grants` for known resources (starting with `heat_log`).
-- Heat log edit eligibility is then computed as: `permission_grants.lookup(role, 'heat_log', 'update')` returning either `never`, `within_minutes:N`, `same_shift`, or `always`.
-
-This gives you fully configurable RBAC without a half-built role builder, and avoids hardcoding edit windows in React.
-
----
-
-### Schema (new tables, all workspace-scoped, all RLS-enabled)
-
-**`furnaces`**
-- `id`, `profit_center_id` (FK), `code`, `name`, `capacity_mt`, `is_active`, timestamps
+**`materials`** — catalog of raw materials per workspace
+- `id`, `profit_center_id` (FK), `code`, `name`, `category` (raw/consumable/finished), `uom`, `is_active`, timestamps
 - Unique: `(profit_center_id, code)`
-- RLS: view if `has_profit_center_access`; manage if `can_manage_profit_center`
 
-**`shifts`**
-- `id`, `profit_center_id` (FK), `code` (A/B/C/custom), `name`, `start_time`, `end_time`, `sort_order`, `is_active`, timestamps
+**`stock_locations`** — physical/logical bins per workspace
+- `id`, `profit_center_id` (FK), `code`, `name`, `is_active`, timestamps
 - Unique: `(profit_center_id, code)`
-- RLS: same as furnaces
 
-**`heat_logs`**
-- `id`, `profit_center_id` (FK), `furnace_id` (FK), `shift_id` (FK), `heat_number` (text, operator-entered), `tap_time`, `weight_mt`, `power_mwh`, `notes`, `created_by`, `created_at`, `updated_at`
-- Unique: `(profit_center_id, furnace_id, heat_number)`
-- RLS:
-  - SELECT: `has_profit_center_access`
-  - INSERT: `has_profit_center_access` AND `permission_grants.allows(role, 'heat_log', 'create')`
-  - UPDATE: enforced by trigger that consults `permission_grants` for the actor's role
-  - DELETE: super_admin only
+**`inventory_ledger`** — immutable triple-entry style movements
+- `id`, `profit_center_id`, `material_id`, `stock_location_id`, `movement_type` (`receipt`/`consumption`/`adjustment`/`transfer_in`/`transfer_out`), `quantity` (signed), `unit_cost` (nullable), `reference_type` (e.g. `heat_log`/`manual`), `reference_id` (nullable), `notes`, `created_by`, `created_at`
+- Insert-only (no update/delete); reversals are new rows
 
-**`heat_log_events`** (immutable audit trail of every edit)
-- `id`, `heat_log_id` (FK), `actor_user_id`, `action` (`create`/`update`), `change_summary` (jsonb), `created_at`
-- RLS: insert via trigger; select by anyone with workspace access
+**`material_consumption`** — link table between heat logs and ledger
+- `id`, `heat_log_id` (FK), `material_id`, `stock_location_id`, `quantity`, `inventory_ledger_id` (FK to the consumption row), `created_at`
+- Trigger creates the matching `inventory_ledger` row on insert
 
-**`permission_grants`** (the configurable RBAC layer)
-- `id`, `role` (`app_role`), `resource` (text, e.g. `heat_log`), `action` (text, e.g. `update`), `rule` (jsonb, e.g. `{"type":"within_minutes","minutes":120}`), `is_active`, timestamps
-- Seeded defaults:
-  - `operator` + `heat_log` + `create` → `{"type":"always"}`
-  - `operator` + `heat_log` + `update` → `{"type":"within_minutes","minutes":60}`
-  - `manager` + `heat_log` + `update` → `{"type":"same_shift"}`
-  - `admin`/`super_admin` + `heat_log` + `update` → `{"type":"always"}`
-- RLS: super_admin manages; everyone authenticated reads (needed client-side to gate UI)
+**DB function** `current_stock(_profit_center_id, _material_id, _stock_location_id) returns numeric` — sums `inventory_ledger.quantity`. Single source of truth for "what's in stock right now".
 
-**DB function** `can_edit_heat_log(_user_id, _heat_log_id) returns boolean` — single source of truth used by both RLS UPDATE policy and the React UI to enable/disable the edit button.
-
----
+**Permission grants seeded** for resource `inventory`:
+- `operator` + `consume` → `{"type":"always"}`
+- `operator` + `receipt` → `{"type":"never"}`
+- `manager` + `receipt` → `{"type":"always"}`
+- `admin`/`super_admin` + `adjustment` → `{"type":"always"}`
 
 ### UI Slice
 
-**Portal — new module `production`**
-- `/portal/production` — heat log list for active workspace, filterable by furnace + shift + date.
-- `/portal/production/new` — heat log entry form: furnace, shift, heat number, tap time, weight, power, notes.
-- Edit button on each row gated by `can_edit_heat_log` (server-truth) — UI hides/disables when not allowed.
+**Admin (new pages, registered in AdminShell nav)**
+- `/admin/materials` — CRUD materials for active workspace
+- `/admin/stock-locations` — CRUD stock locations
 
-**Admin — three new pages under `/admin`**
-- `/admin/furnaces` — list/create/edit furnaces for active workspace.
-- `/admin/shifts` — list/create/edit shifts for active workspace (defaults A/B/C seeded on workspace creation? No — admin chooses, no hardcoding).
-- `/admin/roles` — table of `permission_grants`. Admin picks role + resource + action and sets the rule. Starts with `heat_log` resource only; resource list grows in later phases.
+**Portal (new module `inventory`, seeded in `app_modules`, hidden until enabled per workspace)**
+- `/portal/inventory` — current stock table (material × location), filterable
+- `/portal/inventory/receipts` — receipt entry form (manager+)
+- `/portal/inventory/ledger` — read-only ledger view, filterable by material/date/type
 
-All four new pages register themselves via `app_modules` (production) or directly in the admin shell nav (furnaces/shifts/roles).
-
----
+**Portal Production (extension, not new page)**
+- Heat log entry form gains an optional "Consumption" section: add rows of `(material, location, quantity)`. On save, creates `material_consumption` rows which trigger ledger entries.
 
 ### Implementation Steps → Verification
 
-1. **Migration**: create 5 tables, RLS policies, `can_edit_heat_log` function, audit trigger, seed `app_modules` row for `production`, seed default `permission_grants`.
-   → Verify: linter clean, RLS blocks cross-workspace reads in test.
+1. **Migration** — create 4 tables, RLS, `current_stock` function, consumption→ledger trigger, seed `app_modules.inventory` row, seed inventory `permission_grants`.
+   → Linter clean; cross-workspace RLS test passes.
+2. **`src/lib/inventory.ts`** — typed fetchers/mutations for materials, stock locations, ledger, consumption, current stock.
+   → Unit tests for each helper.
+3. **Admin pages** — `AdminMaterials.tsx`, `AdminStockLocations.tsx`. Each save writes `audit_logs`.
+   → Tests for save + audit write.
+4. **Portal Inventory module** — list, receipts form, ledger view.
+   → Tests for stock calculation + receipt flow.
+5. **Heat log entry extension** — optional consumption rows in `PortalProduction.tsx`.
+   → Tests: heat log saves with 0/1/many consumption rows; ledger gets corresponding rows.
+6. **Wire navigation** — Materials + Stock Locations in `AdminShell` nav (admin-only); Inventory module in portal sidebar via existing `/admin/modules` enablement.
+   → Nav renders only for permitted roles.
+7. **Docs + Policy + Tests**:
+   - `DOCUMENTATION.md`: Phase 4 section, new tables, new routes.
+   - `POLICY.md`: inventory governance — receipts require manager+, adjustments require admin+, ledger immutable, negative stock allowed with audit flag.
+   - `src/test/example.test.tsx`: extend with inventory + consumption tests.
+   → SSOT lockstep, all tests pass.
 
-2. **`src/lib/production.ts`**: typed fetchers/mutations for furnaces, shifts, heat logs; `src/lib/permissions.ts`: fetchers + `canEditHeatLog(heatLog)` helper.
-   → Verify: unit tests for each helper with mocked Supabase.
-
-3. **Portal Production module**: list page + entry form + edit dialog.
-   → Verify: tests for entry validation, edit-gating, and list filtering.
-
-4. **Admin Furnaces / Shifts / Roles pages**: CRUD UIs, each writing `audit_logs` on save.
-   → Verify: tests for each save path including audit write.
-
-5. **Wire navigation**: register Furnaces/Shifts/Roles in `AdminShell` nav; production module appears in portal sidebar once enabled per workspace via existing `/admin/modules`.
-   → Verify: nav renders only for permitted roles; production module hidden until admin enables it.
-
-6. **Docs + Policy + Tests**:
-   - `DOCUMENTATION.md`: add Phase 3 section, route map updates, new tables.
-   - `POLICY.md`: document configurable RBAC model, edit-window rules sourced from `permission_grants`.
-   - `src/test/example.test.tsx`: extend with production + permission-grant tests.
-   → Verify: SSOT lockstep, tests pass.
-
----
-
-### Out of Scope (deferred to later phases)
-- Material consumption per heat (Phase 4).
-- Mn recovery / slag loss formulas (Phase 5 — formulas live in `profit_center_settings`).
-- Visual workflow builder (Phase 7).
-- Custom user-defined roles beyond the `app_role` enum (Phase 7 — would extend `permission_grants` to use a separate `custom_roles` table).
-- Bulk import / CSV upload of heat logs.
+### Out of Scope (deferred)
+- Material valuation methods (FIFO/weighted-avg) — Phase 5/6.
+- Mn recovery / yield formulas computed from consumption — Phase 5.
+- Vendor/supplier master + purchase orders — Phase 6.
+- Multi-workspace transfers — Phase 7.
+- CSV bulk import.
 
 ### Files to be Created/Modified
-- **New**: `supabase/migrations/<phase3>.sql`, `src/lib/production.ts`, `src/lib/permissions.ts`, `src/pages/PortalProduction.tsx`, `src/pages/PortalProductionEntry.tsx`, `src/pages/AdminFurnaces.tsx`, `src/pages/AdminShifts.tsx`, `src/pages/AdminRoles.tsx`
-- **Modified**: `src/App.tsx` (routes), `src/components/AdminShell.tsx` (nav), `src/hooks/use-workspace.tsx` (load furnaces/shifts/permission grants), `DOCUMENTATION.md`, `POLICY.md`, `src/test/example.test.tsx`
+- **New**: `supabase/migrations/<phase4>.sql`, `src/lib/inventory.ts`, `src/pages/AdminMaterials.tsx`, `src/pages/AdminStockLocations.tsx`, `src/pages/PortalInventory.tsx`, `src/pages/PortalInventoryReceipts.tsx`, `src/pages/PortalInventoryLedger.tsx`
+- **Modified**: `src/App.tsx` (routes), `src/components/AdminShell.tsx` (nav), `src/pages/PortalProduction.tsx` (consumption section), `src/pages/ModulePlaceholder.tsx` (inventory route), `DOCUMENTATION.md`, `POLICY.md`, `src/test/example.test.tsx`
+
+**Please confirm answers to the 4 questions above (or say "use defaults") before I proceed.**
