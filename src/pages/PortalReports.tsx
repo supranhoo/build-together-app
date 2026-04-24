@@ -13,9 +13,11 @@ import { useAuth } from "@/hooks/use-auth";
 import { KpiDetailDrawer } from "@/components/KpiDetailDrawer";
 import {
   buildDateRange,
+  bulkApplySharedPins,
   canShareKpiPin,
   computeKpi,
   computeKpiConsolidated,
+  diffSharedPinSelection,
   downloadCsv,
   enforceMaxPins,
   exportKpiCsv,
@@ -23,6 +25,7 @@ import {
   fetchKpiPins,
   fetchMySubscriptions,
   KPI_PIN_CAP,
+  persistPinOrder,
   pinKpi,
   shareKpiPin,
   splitPinsByScope,
@@ -36,6 +39,7 @@ import {
   type KpiResult,
   type KpiSubscription,
 } from "@/lib/reporting";
+import { SharedPinBulkDialog } from "@/components/SharedPinBulkDialog";
 
 const presets: { value: KpiPreset; label: string }[] = [
   { value: "today", label: "Today" },
@@ -59,6 +63,8 @@ export default function PortalReports() {
   const [subscriptions, setSubscriptions] = useState<KpiSubscription[]>([]);
   const [pins, setPins] = useState<KpiPin[]>([]);
   const [loading, setLoading] = useState(false);
+  const [bulkOpen, setBulkOpen] = useState(false);
+  const [bulkSaving, setBulkSaving] = useState(false);
 
   const range = useMemo(() => buildDateRange(preset), [preset]);
   const activeAssignmentCount = assignments.filter((a) => a.isActive).length;
