@@ -65,9 +65,18 @@ export default function AdminFurnaces() {
         action: form.id ? "furnace.updated" : "furnace.created",
         changeSummary: { code: form.code, name: form.name, profit_center_id: form.profitCenterId },
       });
-      toast({ title: "Furnace saved" });
+      const targetPcId = form.profitCenterId;
+      const isCrossWorkspace = targetPcId !== activeProfitCenter.id;
+      toast({
+        title: "Furnace saved",
+        description: isCrossWorkspace ? "Switched workspace to show the new record." : undefined,
+      });
       setOpen(false);
-      await load();
+      if (isCrossWorkspace) {
+        selectProfitCenter(targetPcId); // triggers re-fetch via activeProfitCenter?.id effect
+      } else {
+        await load();
+      }
     } catch (error) {
       toast({ title: "Save failed", description: error instanceof Error ? error.message : "", variant: "destructive" });
     } finally {
