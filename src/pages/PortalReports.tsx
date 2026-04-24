@@ -4,17 +4,23 @@ import { Download } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Badge } from "@/components/ui/badge";
 import { useToast } from "@/hooks/use-toast";
 import { useWorkspace } from "@/hooks/use-workspace";
+import { useAuth } from "@/hooks/use-auth";
+import { KpiDetailDrawer } from "@/components/KpiDetailDrawer";
 import {
   buildDateRange,
   computeKpi,
   downloadCsv,
   exportKpiCsv,
   fetchKpiDefinitions,
+  fetchMySubscriptions,
+  unsubscribeFromKpi,
   type KpiDefinition,
   type KpiPreset,
   type KpiResult,
+  type KpiSubscription,
 } from "@/lib/reporting";
 
 const presets: { value: KpiPreset; label: string }[] = [
@@ -25,11 +31,14 @@ const presets: { value: KpiPreset; label: string }[] = [
 
 export default function PortalReports() {
   const { activeProfitCenter } = useWorkspace();
+  const { session } = useAuth();
   const { toast } = useToast();
   const [definitions, setDefinitions] = useState<KpiDefinition[]>([]);
   const [results, setResults] = useState<Record<string, KpiResult>>({});
   const [preset, setPreset] = useState<KpiPreset>("7d");
   const [selectedKey, setSelectedKey] = useState<string | null>(null);
+  const [drawerKey, setDrawerKey] = useState<string | null>(null);
+  const [subscriptions, setSubscriptions] = useState<KpiSubscription[]>([]);
   const [loading, setLoading] = useState(false);
 
   const range = useMemo(() => buildDateRange(preset), [preset]);
