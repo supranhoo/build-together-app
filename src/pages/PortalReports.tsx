@@ -218,7 +218,58 @@ export default function PortalReports() {
     }
   };
 
-  if (!activeProfitCenter) {
+  const initialBulkSelection = useMemo(() => {
+    // Preserve current shared sort order (sharedPins is already sorted by sortOrder).
+    return sharedPins.map((p) => p.kpiDefinitionId);
+  }, [sharedPins]);
+
+  const handleBulkApply = async (orderedKpiIds: string[]) => {
+    if (!activeProfitCenter || !session?.user?.id || !canShare) return;
+    setBulkSaving(true);
+    try {
+      const currentIds = sharedPins.map((p) => p.kpiDefinitionId);
+      const { toShare, toUnshare } = diffSharedPinSelection(currentIds, orderedKpiIds);
+      const result = await bulkApplySharedPins({
+        actorUserId: session.user.id,
+        profitCenterId: activeProfitCenter.id,
+        toShare,
+        toUnshare,
+        baseSortOrder: currentIds.length,
+      });
+      // After share/unshare settles, persist the desired display order across ALL chosen pins
+      // (covers reorder of pre-existing shared rows too).
+      const fresh = await fetchKpiPins(session.user.id, activeProfitCenter.id);
+      const freshShared = fresh.filter((p) => p.scope === "shared");
+      const orderUpdates = orderedKpiIds
+        .map((kpiId, idx) => {
+          const row = freshShared.find((p) => p.kpiDefinitionId === kpiId);
+          if (!row) return null;
+          if (row.sortOrder === idx) return null;
+          return { id: row.id, sortOrder: idx };
+        })
+        .filter((x): x is { id: string; sortOrder: number } => x !== null);
+      if (orderUpdates.length > 0) await persistPinOrder(orderUpdates);
+      await refreshPins();
+
+      const desc = `${result.shared} shared · ${result.unshared} unshared${
+        orderUpdates.length > 0 ? ` · ${orderUpdates.length} reordered` : ""
+      }${result.errors.length > 0 ? ` · ${result.errors.length} failed` : ""}`;
+      toast({
+        title: "Bulk share applied",
+        description: desc,
+        variant: result.errors.length > 0 ? "destructive" : "default",
+      });
+      setBulkOpen(false);
+    } catch (err) {
+      toast({
+        title: "Bulk share failed",
+        description: err instanceof Error ? err.message : "",
+        variant: "destructive",
+      });
+    } finally {
+      setBulkSaving(false);
+    }
+  };
     return <p className="text-sm text-muted-foreground">Select a workspace to view reports.</p>;
   }
 
