@@ -46,7 +46,7 @@ const presets: { value: KpiPreset; label: string }[] = [
 type ViewMode = "workspace" | "consolidated";
 
 export default function PortalReports() {
-  const { activeProfitCenter, assignments } = useWorkspace();
+  const { activeProfitCenter, assignments, isAdmin, isSuperAdmin } = useWorkspace();
   const { session } = useAuth();
   const { toast } = useToast();
   const [definitions, setDefinitions] = useState<KpiDefinition[]>([]);
