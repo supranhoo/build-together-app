@@ -60,7 +60,7 @@ function isRlsError(err: unknown): boolean {
 export default function AdminWorkspaces() {
   const { session } = useAuth();
   const { toast } = useToast();
-  const { activeProfitCenter, allProfitCenters, isAdmin, isSuperAdmin, refreshWorkspace } = useWorkspace();
+  const { activeProfitCenter, allProfitCenters, isAdmin, refreshWorkspace } = useWorkspace();
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [form, setForm] = useState(emptyForm);
   const [saving, setSaving] = useState(false);
