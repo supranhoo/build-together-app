@@ -725,7 +725,10 @@ describe("Seasonal forecast helper (Phase 11)", () => {
     expect(forecastSeasonal([], 7)).toEqual([]);
     expect(forecastSeasonal([point("2026-04-23", 10)], 7)).toEqual([]);
     expect(forecastSeasonal([point("2026-04-22", null), point("2026-04-23", 10)], 7)).toEqual([]);
-    expect(forecastSeasonal(buildSeries(20, () => 5), 7).length).toBe(0);
+    // Flat series is valid (slope=0, constant projection), not degenerate.
+    const flat = forecastSeasonal(buildSeries(20, () => 5), 7);
+    expect(flat).toHaveLength(7);
+    flat.forEach((p) => expect(p.value).toBeCloseTo(5, 6));
   });
 });
 
