@@ -17,7 +17,7 @@ interface FormState { id?: string; profitCenterId: string; code: string; name: s
 const empty: FormState = { profitCenterId: "", code: "", name: "", startTime: "06:00", endTime: "14:00", sortOrder: "0", isActive: true };
 
 export default function AdminShifts() {
-  const { activeProfitCenter } = useWorkspace();
+  const { activeProfitCenter, selectProfitCenter } = useWorkspace();
   const { session } = useAuth();
   const { toast } = useToast();
   const [shifts, setShifts] = useState<Shift[]>([]);
