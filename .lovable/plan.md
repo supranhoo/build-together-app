@@ -1,53 +1,126 @@
 
-## Reconcile Architecture Doc with Implemented Model
+## Phase 3 — Production Foundation Plan
 
-Doc-only change. No code, schema, or behavior changes. The goal is to make the SteelFlow ERP Architecture Document accurately describe what is actually built, so future phases plan against reality instead of drift.
+Based on your answers, this plan adds furnaces, shifts, and heat logs as configurable, workspace-scoped entities, plus a foundational role/permission configuration surface so future RBAC stays admin-driven, not hardcoded.
 
-### Scope
-- Update the architecture document to match the implemented model.
-- Update `DOCUMENTATION.md` and `POLICY.md` Version History entries to record this reconciliation.
-- No changes to `src/`, migrations, or tests.
+### Decisions Locked In
+1. **Furnace** — workspace-scoped (FK to `profit_centers`).
+2. **Shifts** — fixed shifts configured per workspace (A/B/C by default, but admin-editable name + start/end).
+3. **Heat number** — manually entered by operator, uniqueness enforced per workspace + furnace.
+4. **Edit window** — governed by configurable RBAC rules in a new admin "Roles & Permissions" surface.
+5. **Offline** — online-only for v1.
 
-### Files Touched
-- `DOCUMENTATION.md` — add a "Architecture Reconciliation" section + version history entry.
-- `POLICY.md` — add a policy log entry confirming the doc reconciliation (no rule changes).
-- The architecture document itself (the one shared in chat) — provide a corrected version inline in the response so you can replace your source-of-truth copy.
+---
 
-> Note: the architecture document is not currently a file in the repo. I will deliver the reconciled version in the response. If you want it committed as `ARCHITECTURE.md`, say so and I will add that file in the same change.
+### Pre-Implementation Risk & Impact Report
+- **Data Impact**: 5 new tables (`furnaces`, `shifts`, `heat_logs`, `heat_log_events`, `permission_grants`). All workspace-scoped with RLS. No changes to existing tables.
+- **Workflow Impact**: Operators get a new entry surface. Admins gain a new "Roles & Permissions" admin page. Existing admin pages unchanged.
+- **UI/UX Impact**: New portal module "Production" with Heat Log entry + list. New admin pages "Furnaces", "Shifts", "Roles & Permissions". Sidebar continues to be config-driven via `app_modules`.
+- **Regression Risk**: Low. All additive. No existing route, table, or RLS policy is modified.
+- **Mitigation**: Seed `app_modules` with `production` only — existing workspaces won't see it until admin enables it via `/admin/modules`. Tests cover RLS isolation and edit-window enforcement.
 
-### Reconciliations to Apply
+---
 
-| # | Section in Doc | Current (Incorrect) | Replace With (Implemented) |
-|---|---|---|---|
-| 1 | 3.1 RBAC | `roles` table with IDs r0–r3 | `user_roles` table with `app_role` enum: `super_admin`, `admin`, `manager`, `operator`, `analyst`, `user` |
-| 2 | 3.2 ABAC | Generic RLS reference | Name the actual helpers: `has_profit_center_access`, `can_manage_profit_center`, `has_role`, `has_elevated_role`, `can_view_profile` |
-| 3 | 4.1 Schema — `module_mappings` | Single table | Split into `app_modules` (catalog) + `profit_center_modules` (per-workspace overrides) |
-| 4 | 4.1 Schema — `system_settings` | Global JSONB | `profit_center_settings` (workspace-scoped, JSONB `setting_value`) |
-| 5 | 4.1 Schema — additions | Missing | Add `user_profit_centers` (assignments) and `audit_logs` (immutable) |
-| 6 | 4.1 Schema — not yet built | Listed as live | Mark `heat_logs`, `material_consumption`, `inventory_ledger`, `furnaces` as **planned (Phase 3+)**, not implemented |
-| 7 | 5.2 Module Onboarding | "Sync Modules" button via `pcMappingService` | Replace with the real flow: per-workspace module overrides edited in `/admin/modules`, falling back to active configurable `app_modules` when no override exists |
-| 8 | 6 API & Integration | Lists Realtime + Storage as in use | Mark Supabase Realtime and Storage as **not currently wired** |
-| 9 | 7 NFR — `ON UPDATE CASCADE` | Stated as enforced | Correct: FKs exist on config tables (`profit_center_modules`, `profit_center_settings`, `user_profit_centers`, `audit_logs`) but no CASCADE on PC rename is declared. Integrity is enforced via RLS + app logic |
-| 10 | 7 NFR — case-insensitive module matching | Stated as enforced | Remove. Module keys are stored verbatim |
-| 11 | 8 Deployment | Cloud Run via AI Studio | Lovable Cloud (managed Supabase + auto-deploy). `.env` is auto-managed |
-| 12 | 9 Risks — `admin@steelflow.com` | Hardcoded primary architect | Remove. Super-admin is purely role-based via `user_roles` |
-| 13 | 9 Risks — audit logs are placeholder | Stated as gap | Resolved: real `audit_logs` table + paginated admin viewer (`/admin/audit`) with 20-row chunks and load-more |
-| 14 | 9 Risks — Delete PC confirmation | Listed | Keep as open item; PC delete is not exposed in admin UI yet |
-| 15 | New section: **Implementation Status** | Missing | Add the phase status table (Phase 1 ✅, Phase 2 ✅, Phase 3–7 ❌) so the doc reflects build state |
-| 16 | New section: **Route Map** | Missing | Document actual routes: `/`, `/login`, `/reset-password`, `/profit-centers`, `/portal`, `/portal/:moduleSlug`, `/admin`, `/admin/workspaces`, `/admin/modules`, `/admin/access`, `/admin/settings`, `/admin/audit` |
+### Architectural Pushback / Simplicity Choice
 
-### What Stays Unchanged
-- Section 1 (System Overview vision), Section 2.1 (logical UI flow shape), Section 5.1 (Production Entry workflow as a *future* spec) — these remain as forward-looking design intent and will be marked as such, not as implemented behavior.
+You asked for "a detailed Role Configuration window" where user types are created and edit rights flow from that. That is the right long-term direction, but building a full visual permission matrix now is overscoped for Phase 3.
 
-### Verification
-- Every claim in the reconciled doc maps to either:
-  - an implemented file/table/route that exists today, or
-  - an explicit "Planned (Phase N)" marker.
-- `DOCUMENTATION.md` and `POLICY.md` version history entries dated 2026-04-24 record the reconciliation.
-- No source files under `src/`, no migrations, no tests change.
+**Recommended minimal slice that scales:**
+- Keep the existing `app_role` enum (`super_admin`, `admin`, `manager`, `operator`, `analyst`, `user`) as the role identity layer — do not invent a parallel role system.
+- Add a new `permission_grants` table that maps `(role, resource, action)` → `allowed/window`. This is the configurable layer.
+- Build a single admin page `/admin/roles` that reads/writes `permission_grants` for known resources (starting with `heat_log`).
+- Heat log edit eligibility is then computed as: `permission_grants.lookup(role, 'heat_log', 'update')` returning either `never`, `within_minutes:N`, `same_shift`, or `always`.
 
-### Out of Scope
-- No new tables, no FK additions, no CASCADE migrations.
-- No Realtime/Storage wiring.
-- No PC delete UI.
-- No `ARCHITECTURE.md` file commit unless you confirm you want one.
+This gives you fully configurable RBAC without a half-built role builder, and avoids hardcoding edit windows in React.
+
+---
+
+### Schema (new tables, all workspace-scoped, all RLS-enabled)
+
+**`furnaces`**
+- `id`, `profit_center_id` (FK), `code`, `name`, `capacity_mt`, `is_active`, timestamps
+- Unique: `(profit_center_id, code)`
+- RLS: view if `has_profit_center_access`; manage if `can_manage_profit_center`
+
+**`shifts`**
+- `id`, `profit_center_id` (FK), `code` (A/B/C/custom), `name`, `start_time`, `end_time`, `sort_order`, `is_active`, timestamps
+- Unique: `(profit_center_id, code)`
+- RLS: same as furnaces
+
+**`heat_logs`**
+- `id`, `profit_center_id` (FK), `furnace_id` (FK), `shift_id` (FK), `heat_number` (text, operator-entered), `tap_time`, `weight_mt`, `power_mwh`, `notes`, `created_by`, `created_at`, `updated_at`
+- Unique: `(profit_center_id, furnace_id, heat_number)`
+- RLS:
+  - SELECT: `has_profit_center_access`
+  - INSERT: `has_profit_center_access` AND `permission_grants.allows(role, 'heat_log', 'create')`
+  - UPDATE: enforced by trigger that consults `permission_grants` for the actor's role
+  - DELETE: super_admin only
+
+**`heat_log_events`** (immutable audit trail of every edit)
+- `id`, `heat_log_id` (FK), `actor_user_id`, `action` (`create`/`update`), `change_summary` (jsonb), `created_at`
+- RLS: insert via trigger; select by anyone with workspace access
+
+**`permission_grants`** (the configurable RBAC layer)
+- `id`, `role` (`app_role`), `resource` (text, e.g. `heat_log`), `action` (text, e.g. `update`), `rule` (jsonb, e.g. `{"type":"within_minutes","minutes":120}`), `is_active`, timestamps
+- Seeded defaults:
+  - `operator` + `heat_log` + `create` → `{"type":"always"}`
+  - `operator` + `heat_log` + `update` → `{"type":"within_minutes","minutes":60}`
+  - `manager` + `heat_log` + `update` → `{"type":"same_shift"}`
+  - `admin`/`super_admin` + `heat_log` + `update` → `{"type":"always"}`
+- RLS: super_admin manages; everyone authenticated reads (needed client-side to gate UI)
+
+**DB function** `can_edit_heat_log(_user_id, _heat_log_id) returns boolean` — single source of truth used by both RLS UPDATE policy and the React UI to enable/disable the edit button.
+
+---
+
+### UI Slice
+
+**Portal — new module `production`**
+- `/portal/production` — heat log list for active workspace, filterable by furnace + shift + date.
+- `/portal/production/new` — heat log entry form: furnace, shift, heat number, tap time, weight, power, notes.
+- Edit button on each row gated by `can_edit_heat_log` (server-truth) — UI hides/disables when not allowed.
+
+**Admin — three new pages under `/admin`**
+- `/admin/furnaces` — list/create/edit furnaces for active workspace.
+- `/admin/shifts` — list/create/edit shifts for active workspace (defaults A/B/C seeded on workspace creation? No — admin chooses, no hardcoding).
+- `/admin/roles` — table of `permission_grants`. Admin picks role + resource + action and sets the rule. Starts with `heat_log` resource only; resource list grows in later phases.
+
+All four new pages register themselves via `app_modules` (production) or directly in the admin shell nav (furnaces/shifts/roles).
+
+---
+
+### Implementation Steps → Verification
+
+1. **Migration**: create 5 tables, RLS policies, `can_edit_heat_log` function, audit trigger, seed `app_modules` row for `production`, seed default `permission_grants`.
+   → Verify: linter clean, RLS blocks cross-workspace reads in test.
+
+2. **`src/lib/production.ts`**: typed fetchers/mutations for furnaces, shifts, heat logs; `src/lib/permissions.ts`: fetchers + `canEditHeatLog(heatLog)` helper.
+   → Verify: unit tests for each helper with mocked Supabase.
+
+3. **Portal Production module**: list page + entry form + edit dialog.
+   → Verify: tests for entry validation, edit-gating, and list filtering.
+
+4. **Admin Furnaces / Shifts / Roles pages**: CRUD UIs, each writing `audit_logs` on save.
+   → Verify: tests for each save path including audit write.
+
+5. **Wire navigation**: register Furnaces/Shifts/Roles in `AdminShell` nav; production module appears in portal sidebar once enabled per workspace via existing `/admin/modules`.
+   → Verify: nav renders only for permitted roles; production module hidden until admin enables it.
+
+6. **Docs + Policy + Tests**:
+   - `DOCUMENTATION.md`: add Phase 3 section, route map updates, new tables.
+   - `POLICY.md`: document configurable RBAC model, edit-window rules sourced from `permission_grants`.
+   - `src/test/example.test.tsx`: extend with production + permission-grant tests.
+   → Verify: SSOT lockstep, tests pass.
+
+---
+
+### Out of Scope (deferred to later phases)
+- Material consumption per heat (Phase 4).
+- Mn recovery / slag loss formulas (Phase 5 — formulas live in `profit_center_settings`).
+- Visual workflow builder (Phase 7).
+- Custom user-defined roles beyond the `app_role` enum (Phase 7 — would extend `permission_grants` to use a separate `custom_roles` table).
+- Bulk import / CSV upload of heat logs.
+
+### Files to be Created/Modified
+- **New**: `supabase/migrations/<phase3>.sql`, `src/lib/production.ts`, `src/lib/permissions.ts`, `src/pages/PortalProduction.tsx`, `src/pages/PortalProductionEntry.tsx`, `src/pages/AdminFurnaces.tsx`, `src/pages/AdminShifts.tsx`, `src/pages/AdminRoles.tsx`
+- **Modified**: `src/App.tsx` (routes), `src/components/AdminShell.tsx` (nav), `src/hooks/use-workspace.tsx` (load furnaces/shifts/permission grants), `DOCUMENTATION.md`, `POLICY.md`, `src/test/example.test.tsx`
