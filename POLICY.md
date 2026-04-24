@@ -34,3 +34,4 @@
 - 2026-04-23: Added configuration-first workspace isolation, admin governance, and immutable audit requirements for multi-plant scale.
 - 2026-04-23: Restricted workspace creation to super admins and enabled audited admin configuration flows.
 - 2026-04-23: Added paged admin audit browsing while preserving immutable audit history.
+- 2026-04-24: Reconciled external architecture documentation with implemented model; no policy rules changed.
