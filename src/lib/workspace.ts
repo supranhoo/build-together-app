@@ -261,7 +261,7 @@ export async function createProfitCenter(input: {
   locationName?: string;
   processProfile?: string;
 }) {
-  const { data, error } = await client
+  const { error } = await client
     .from("profit_centers")
     .insert({
       code: input.code,
@@ -270,13 +270,26 @@ export async function createProfitCenter(input: {
       description: input.description || null,
       location_name: input.locationName || null,
       process_profile: input.processProfile || null,
-    })
-    .select("id, code, slug, name, description, location_name, process_profile, is_active")
-    .single();
+    });
 
   if (error) throw error;
 
-  return toProfitCenter(data);
+  const reloadResult = await client
+    .from("profit_centers")
+    .select("id, code, slug, name, description, location_name, process_profile, is_active")
+    .eq("code", input.code)
+    .eq("slug", input.slug)
+    .order("created_at", { ascending: false })
+    .limit(1);
+
+  if (reloadResult.error) throw reloadResult.error;
+
+  const created = reloadResult.data?.[0];
+  if (!created) {
+    throw new Error("Workspace was created but could not be reloaded. Please refresh.");
+  }
+
+  return toProfitCenter(created);
 }
 
 export async function updateProfitCenter(profitCenterId: string, input: {

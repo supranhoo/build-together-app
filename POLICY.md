@@ -16,6 +16,7 @@
 - Hardcoded plant-specific workflow behavior is not allowed where backend configuration is expected.
 - Admin configuration may span multiple pages when separation improves scale, clarity, and security.
 - Workspace creation is open to admins and super admins. The creator of a new workspace is automatically assigned as a manager of that workspace so they can edit it; super admins continue to manage all workspaces globally.
+- Workspace creation UX must treat the persisted backend write as the source of truth and must not depend on inline visibility of the new workspace before creator assignment-based access has been applied.
 
 ## Administrative Control
 - Admins may manage configuration only within their approved workspace scope.
@@ -64,6 +65,7 @@
 - 2026-04-24: Added Scheduled Reports Governance.
 - 2026-04-24: Added Void & Reversal Governance and Cross-Workspace Consolidation rules (Phase 7).
 - 2026-04-24: Workspace creation widened from super-admin-only to admin and super-admin. Creator is auto-assigned as manager of the new workspace via DB trigger so they can edit it; edit/delete rules on existing workspaces unchanged.
+- 2026-04-24: Clarified workspace creation behavior — client flows must not rely on same-request readback of a newly created workspace before creator assignment visibility is established.
 
 ## Scheduled Reports Governance
 - KPI subscriptions are self-managed: a user may only create, read, update, or delete their own subscription, and only for workspaces they belong to.
@@ -124,5 +126,5 @@
 - 2026-04-24: Phase 10 — added Shared Pin Governance (admin-only publish via existing role helpers, workspace-scoped, no per-user hide, separate from personal cap, mandatory `share`/`unshare` audit trail, shared rows immutable in `scope`/`user_id`).
 - 2026-04-24: Phase 11 — extended Forecast Display Governance to cover seasonal forecasts and backtest metrics (MAPE/MAE are display-only, never persisted, never in CSV/digest payloads; backtest helper must fail closed and return `null` MAPE on zero actuals).
 - 2026-04-24: Phase 12 — extended Shared Pin Governance with two clauses: (1) bulk audit granularity — one `audit_logs` row per pin sharing a `batch_id` in `change_summary`; (2) defaults are admin intent — `shared_pin_defaults` in `profit_center_settings` are applied only on explicit admin action, never automatically or retroactively.
-- 2026-04-24: Reaffirmed Configuration Governance — workspace creation remains restricted to super admins. The `/admin/workspaces` UI now reflects this policy explicitly: non–super-admin admins see an in-page notice instead of a disabled form, removing the prior silent dead-end.
+- 2026-04-24: Fixed the admin workspace-create flow to align with current governance: admins and super admins may create workspaces, and client save logic must not depend on same-request visibility before creator assignment access is established.
 
