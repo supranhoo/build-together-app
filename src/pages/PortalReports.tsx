@@ -213,29 +213,36 @@ export default function PortalReports() {
             const isSelected = selectedKey === def.key;
             const subCount = subscriptions.filter((s) => s.kpiDefinitionId === def.id).length;
             const wsCount = view === "consolidated" ? (cons?.perWorkspace.length ?? 0) : 0;
+            const isPinned = pins.some((p) => p.kpiDefinitionId === def.id);
             return (
-              <button
+              <Card
                 key={def.id}
-                type="button"
+                className={`relative cursor-pointer transition-colors ${isSelected ? "border-primary" : ""}`}
                 onClick={() => { setSelectedKey(def.key); setDrawerKey(def.key); }}
-                className="text-left"
               >
-                <Card className={isSelected ? "border-primary" : ""}>
-                  <CardHeader className="pb-2">
-                    <div className="flex items-center justify-between">
-                      <CardDescription>{def.displayName}</CardDescription>
-                      {subCount > 0 ? <Badge variant="secondary" className="text-[10px]">subscribed</Badge> : null}
-                    </div>
-                    <CardTitle className="text-3xl">
-                      {value == null ? "—" : Number(value).toLocaleString(undefined, { maximumFractionDigits: 2 })}
-                      {def.unit ? <span className="ml-1 text-sm font-normal text-muted-foreground">{def.unit}</span> : null}
-                    </CardTitle>
-                    {view === "consolidated" && wsCount > 0 ? (
-                      <p className="text-xs text-muted-foreground">across {wsCount} workspace{wsCount === 1 ? "" : "s"}</p>
-                    ) : null}
-                  </CardHeader>
-                </Card>
-              </button>
+                <Button
+                  size="icon"
+                  variant="ghost"
+                  className="absolute right-2 top-2 h-7 w-7"
+                  aria-label={isPinned ? "Unpin from overview" : "Pin to overview"}
+                  onClick={(e) => { e.stopPropagation(); void handleTogglePin(def); }}
+                >
+                  {isPinned ? <PinOff className="h-4 w-4 text-primary" /> : <Pin className="h-4 w-4 text-muted-foreground" />}
+                </Button>
+                <CardHeader className="pb-2">
+                  <div className="flex items-center justify-between pr-8">
+                    <CardDescription>{def.displayName}</CardDescription>
+                    {subCount > 0 ? <Badge variant="secondary" className="text-[10px]">subscribed</Badge> : null}
+                  </div>
+                  <CardTitle className="text-3xl">
+                    {value == null ? "—" : Number(value).toLocaleString(undefined, { maximumFractionDigits: 2 })}
+                    {def.unit ? <span className="ml-1 text-sm font-normal text-muted-foreground">{def.unit}</span> : null}
+                  </CardTitle>
+                  {view === "consolidated" && wsCount > 0 ? (
+                    <p className="text-xs text-muted-foreground">across {wsCount} workspace{wsCount === 1 ? "" : "s"}</p>
+                  ) : null}
+                </CardHeader>
+              </Card>
             );
           })}
         </div>
