@@ -157,13 +157,15 @@ export function KpiDetailDrawer({
       if (!id) return null;
       return { kind: "void_heat_log", id, label: String(row.heat_number ?? id) };
     }
-    if (drill?.source === "material_consumption" && canReverseInv) {
-      // material_consumption rows do not directly reverse — only inventory_ledger does.
-      // We surface no action here to avoid confusion. Reversal is exposed elsewhere.
-      return null;
+    if (drill?.source === "inventory_ledger" && canReverseInv) {
+      const id = String(row.id ?? "");
+      if (!id) return null;
+      return { kind: "reverse_inventory", id, label: String(row.movement_type ?? id) };
     }
     return null;
   };
+
+  const hasRowActions = (drill?.source === "heat_logs" && canVoidHeat) || (drill?.source === "inventory_ledger" && canReverseInv);
 
   const refreshDrill = async () => {
     if (!definition) return;
