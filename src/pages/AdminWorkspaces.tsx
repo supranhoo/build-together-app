@@ -145,7 +145,7 @@ export default function AdminWorkspaces() {
         });
       } else {
         if (!canCreate) {
-          throw new Error("You don't have permission to create new workspaces.");
+          throw new Error("You don't have permission to create new Profit Centers.");
         }
         const created = await createProfitCenter(form);
         await createAuditLog({
@@ -177,15 +177,15 @@ export default function AdminWorkspaces() {
       }
 
       await refreshWorkspace();
-      toast({ title: "Workspace saved", description: "Configuration changes were saved successfully." });
+      toast({ title: "Profit Center saved", description: "Configuration changes were saved successfully." });
     } catch (error) {
       const friendly = isRlsError(error)
-        ? "You don't have permission to save this workspace. Contact a super admin."
+        ? "You don't have permission to save this Profit Center. Contact a super admin."
         : error instanceof Error
           ? error.message
           : "Please try again.";
       toast({
-        title: "Workspace save failed",
+        title: "Profit Center save failed",
         description: friendly,
         variant: "destructive",
       });
