@@ -387,36 +387,84 @@ export async function userCanAct(userId: string, resource: string, action: strin
 }
 
 // ===== Phase 8: KPI Pins + bulk void/reverse =====
+// ===== Phase 10 extends with shared (workspace-scoped) pins =====
 
 export const KPI_PIN_CAP = 12;
 
+export type KpiPinScope = "personal" | "shared";
+
 export interface KpiPin {
   id: string;
-  userId: string;
+  /** Null when scope === 'shared' (workspace-owned). */
+  userId: string | null;
   profitCenterId: string;
   kpiDefinitionId: string;
   sortOrder: number;
+  scope: KpiPinScope;
+  /** Admin who published a shared pin; null for personal. */
+  createdBy: string | null;
 }
 
 function toKpiPin(row: any): KpiPin {
   return {
     id: row.id,
-    userId: row.user_id,
+    userId: row.user_id ?? null,
     profitCenterId: row.profit_center_id,
     kpiDefinitionId: row.kpi_definition_id,
     sortOrder: row.sort_order ?? 0,
+    scope: (row.scope as KpiPinScope) ?? "personal",
+    createdBy: row.created_by ?? null,
   };
 }
 
+/**
+ * Fetch all pins visible to the user in a workspace: their own personal pins
+ * AND every shared pin published for that workspace. RLS enforces this; the
+ * client just orders the result.
+ */
 export async function fetchKpiPins(userId: string, profitCenterId: string): Promise<KpiPin[]> {
   const { data, error } = await (supabase as any)
     .from("kpi_pins")
     .select("*")
-    .eq("user_id", userId)
     .eq("profit_center_id", profitCenterId)
+    .or(`and(scope.eq.personal,user_id.eq.${userId}),scope.eq.shared`)
     .order("sort_order", { ascending: true });
   if (error) throw error;
   return (data ?? []).map(toKpiPin);
+}
+
+/**
+ * Pure helper: split a mixed list of pins into personal and shared buckets.
+ * Used by Overview to render two distinct sections.
+ */
+export function splitPinsByScope(pins: KpiPin[]): { personal: KpiPin[]; shared: KpiPin[] } {
+  const personal: KpiPin[] = [];
+  const shared: KpiPin[] = [];
+  for (const p of pins) {
+    if (p.scope === "shared") shared.push(p);
+    else personal.push(p);
+  }
+  return { personal, shared };
+}
+
+/**
+ * Pure helper: returns true when the current user can publish/unpublish
+ * shared pins for the given workspace. Mirrors the RLS rule:
+ *   super_admin OR workspace admin (admin role + active assignment).
+ *
+ * `managedProfitCenterIds` should be the IDs the user has an active
+ * assignment to AND can manage; UI typically uses the same set the
+ * workspace switcher exposes for admin assignments.
+ */
+export function canShareKpiPin(input: {
+  isSuperAdmin: boolean;
+  isAdmin: boolean;
+  profitCenterId: string;
+  managedProfitCenterIds: string[];
+}): boolean {
+  if (input.isSuperAdmin) return true;
+  if (!input.isAdmin) return false;
+  return input.managedProfitCenterIds.includes(input.profitCenterId);
 }
 
 export async function pinKpi(input: {
@@ -430,6 +478,7 @@ export async function pinKpi(input: {
     profit_center_id: input.profitCenterId,
     kpi_definition_id: input.kpiDefinitionId,
     sort_order: input.sortOrder,
+    scope: "personal",
   });
   if (error) {
     if (typeof error.message === "string" && error.message.includes("pin_cap_exceeded")) {
@@ -437,6 +486,75 @@ export async function pinKpi(input: {
     }
     throw error;
   }
+}
+
+/**
+ * Publish a workspace-shared KPI pin. Caller must hold admin rights for the
+ * workspace; RLS enforces the same. Writes an audit_logs entry on success.
+ */
+export async function shareKpiPin(input: {
+  actorUserId: string;
+  profitCenterId: string;
+  kpiDefinitionId: string;
+  sortOrder?: number;
+}): Promise<void> {
+  const { data, error } = await (supabase as any)
+    .from("kpi_pins")
+    .insert({
+      user_id: null,
+      profit_center_id: input.profitCenterId,
+      kpi_definition_id: input.kpiDefinitionId,
+      sort_order: input.sortOrder ?? 0,
+      scope: "shared",
+      created_by: input.actorUserId,
+    })
+    .select("id")
+    .single();
+  if (error) throw error;
+  await (supabase as any).from("audit_logs").insert({
+    actor_user_id: input.actorUserId,
+    profit_center_id: input.profitCenterId,
+    entity_type: "kpi_pin",
+    entity_id: data?.id ?? null,
+    action: "share",
+    change_summary: {
+      kpi_definition_id: input.kpiDefinitionId,
+      profit_center_id: input.profitCenterId,
+    },
+  });
+}
+
+/**
+ * Unpublish a workspace-shared pin by (profit_center_id, kpi_definition_id).
+ * Writes an audit_logs entry on success.
+ */
+export async function unshareKpiPin(input: {
+  actorUserId: string;
+  profitCenterId: string;
+  kpiDefinitionId: string;
+}): Promise<void> {
+  const { data: existing, error: findErr } = await (supabase as any)
+    .from("kpi_pins")
+    .select("id")
+    .eq("scope", "shared")
+    .eq("profit_center_id", input.profitCenterId)
+    .eq("kpi_definition_id", input.kpiDefinitionId)
+    .maybeSingle();
+  if (findErr) throw findErr;
+  if (!existing) return;
+  const { error: delErr } = await (supabase as any).from("kpi_pins").delete().eq("id", existing.id);
+  if (delErr) throw delErr;
+  await (supabase as any).from("audit_logs").insert({
+    actor_user_id: input.actorUserId,
+    profit_center_id: input.profitCenterId,
+    entity_type: "kpi_pin",
+    entity_id: existing.id,
+    action: "unshare",
+    change_summary: {
+      kpi_definition_id: input.kpiDefinitionId,
+      profit_center_id: input.profitCenterId,
+    },
+  });
 }
 
 export async function unpinKpi(pinId: string): Promise<void> {
