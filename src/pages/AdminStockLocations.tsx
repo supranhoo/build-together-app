@@ -17,7 +17,7 @@ interface FormState { id?: string; profitCenterId: string; code: string; name: s
 const empty: FormState = { profitCenterId: "", code: "", name: "", isActive: true };
 
 export default function AdminStockLocations() {
-  const { activeProfitCenter } = useWorkspace();
+  const { activeProfitCenter, selectProfitCenter } = useWorkspace();
   const { session } = useAuth();
   const { toast } = useToast();
   const [locations, setLocations] = useState<StockLocation[]>([]);
