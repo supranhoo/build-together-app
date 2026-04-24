@@ -1,5 +1,5 @@
 import { useMemo } from "react";
-import { useParams } from "react-router-dom";
+import { Navigate, useParams } from "react-router-dom";
 import { Factory, FileBarChart2, Warehouse } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { useWorkspace } from "@/hooks/use-workspace";
@@ -36,6 +36,10 @@ export default function ModulePlaceholder() {
     () => modules.find((item) => item.routeSegment === routeModule),
     [modules, routeModule],
   );
+
+  if (configuredModule?.moduleKey === "production" || routeModule === "production") {
+    return <Navigate to="/portal/production" replace />;
+  }
 
   const fallback = fallbackMap[(configuredModule?.moduleKey || routeModule || "reports") as keyof typeof fallbackMap] || fallbackMap.reports;
   const Icon = fallback.icon;
