@@ -474,3 +474,42 @@ describe("Reporting helpers (Phase 6)", () => {
     expect(filterDeliveriesByStatus(rows, "sent").map((r) => r.id)).toEqual(["1"]);
   });
 });
+
+describe("Pinned KPI helpers (Phase 8)", () => {
+  const buildPin = (id: string, sortOrder: number): KpiPin => ({
+    id,
+    userId: "u1",
+    profitCenterId: "pc-1",
+    kpiDefinitionId: `def-${id}`,
+    sortOrder,
+  });
+
+  it("enforces the pin cap at exactly KPI_PIN_CAP", () => {
+    expect(enforceMaxPins(0)).toBe(false);
+    expect(enforceMaxPins(KPI_PIN_CAP - 1)).toBe(false);
+    expect(enforceMaxPins(KPI_PIN_CAP)).toBe(true);
+    expect(enforceMaxPins(KPI_PIN_CAP + 5)).toBe(true);
+  });
+
+  it("KPI_PIN_CAP is 12 to keep the overview responsive", () => {
+    expect(KPI_PIN_CAP).toBe(12);
+  });
+
+  it("reorders pins by moving a pin to a new index and reassigns sort_order", () => {
+    const pins = [buildPin("a", 0), buildPin("b", 1), buildPin("c", 2), buildPin("d", 3)];
+    const moved = reorderPins(pins, "d", 1);
+    expect(moved.map((p) => p.id)).toEqual(["a", "d", "b", "c"]);
+    expect(moved.map((p) => p.sortOrder)).toEqual([0, 1, 2, 3]);
+  });
+
+  it("clamps target index when out of range", () => {
+    const pins = [buildPin("a", 0), buildPin("b", 1), buildPin("c", 2)];
+    expect(reorderPins(pins, "a", 99).map((p) => p.id)).toEqual(["b", "c", "a"]);
+    expect(reorderPins(pins, "c", -5).map((p) => p.id)).toEqual(["c", "a", "b"]);
+  });
+
+  it("returns the original list unchanged when pinId is unknown", () => {
+    const pins = [buildPin("a", 0), buildPin("b", 1)];
+    expect(reorderPins(pins, "missing", 0)).toBe(pins);
+  });
+});
