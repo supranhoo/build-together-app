@@ -1,90 +1,53 @@
 
-Assumptions:
-- “Implement pagination and a load-more button” applies only to the admin audit screen at `/admin/audit`.
-- The safest minimal change is to paginate audit logs in 20-row chunks and fetch additional chunks on demand, rather than redesigning the whole admin data-loading model.
-- The current audit table should remain immutable and read-only; this request is a browsing enhancement only.
+## Reconcile Architecture Doc with Implemented Model
 
-Pre-Implementation Risk & Impact Report:
-- Data Impact: No schema or RLS changes are required if the existing audit table and policies already support ordered reads. Only query shape and client state need to change.
-- Workflow Impact: Admins and super admins will be able to browse older audit records without changing how audit entries are created.
-- UI/UX Impact: The audit screen gains paging controls plus a “Load more” action. The table layout remains unchanged.
-- Regression Risk: Low to medium. Main risks are duplicate rows, skipped rows, broken state when switching workspaces, or stale pagination after refresh.
-- Mitigation Plan: Use deterministic ordering by `created_at desc`, fetch fixed-size slices, reset pagination when workspace scope changes, and add tests for initial page, next/previous page behavior, and load-more growth.
+Doc-only change. No code, schema, or behavior changes. The goal is to make the SteelFlow ERP Architecture Document accurately describe what is actually built, so future phases plan against reality instead of drift.
 
-Architectural Pushback / Simplicity Choice:
-- I do not recommend adding total-count-based numbered pagination for the full dataset right now. That would add avoidable query/count complexity for a read-only admin screen.
-- The simpler scalable solution is:
-  1. fetch audit logs in pages of 20
-  2. show pagination across the records already loaded
-  3. expose a “Load more” button to append the next 20 from the backend
-- This keeps the change surgical, avoids hardcoding totals, and still lets you browse beyond the initial set.
+### Scope
+- Update the architecture document to match the implemented model.
+- Update `DOCUMENTATION.md` and `POLICY.md` Version History entries to record this reconciliation.
+- No changes to `src/`, migrations, or tests.
 
-Implementation Plan:
+### Files Touched
+- `DOCUMENTATION.md` — add a "Architecture Reconciliation" section + version history entry.
+- `POLICY.md` — add a policy log entry confirming the doc reconciliation (no rule changes).
+- The architecture document itself (the one shared in chat) — provide a corrected version inline in the response so you can replace your source-of-truth copy.
 
-1. Update audit log querying to support chunked reads
-   - Extend `src/lib/workspace.ts` audit fetching with paged parameters such as `limit` and `offset` (or equivalent range-based slicing).
-   - Return enough metadata for the UI to know whether more rows are available.
-   - Keep ordering stable and descending by creation time.
-   - Verification: the query can fetch the first 20 rows, then the next 20 without overlap.
+> Note: the architecture document is not currently a file in the repo. I will deliver the reconciled version in the response. If you want it committed as `ARCHITECTURE.md`, say so and I will add that file in the same change.
 
-2. Keep workspace/admin architecture aligned with a minimal change
-   - Update `src/hooks/use-workspace.tsx` so the initial admin audit load uses 20 rows instead of the current larger slice.
-   - Avoid turning the global workspace context into a full audit pagination manager unless needed.
-   - Preserve the existing `auditLogs` context value as the first loaded page so other admin behavior does not change.
-   - Verification: current admin pages still load, and the audit page starts with only the first chunk.
+### Reconciliations to Apply
 
-3. Add local pagination state to the audit screen
-   - Update `src/pages/AdminAudit.tsx` to manage:
-     - currently loaded audit rows
-     - current visible page
-     - page size for display
-     - loading state for “Load more”
-     - has-more state
-   - Seed the page with `useWorkspace().auditLogs`, then append more rows on demand from the audit query helper.
-   - Reset local paging state whenever the active workspace changes.
-   - Verification: page state stays consistent when changing workspaces or re-entering the screen.
+| # | Section in Doc | Current (Incorrect) | Replace With (Implemented) |
+|---|---|---|---|
+| 1 | 3.1 RBAC | `roles` table with IDs r0–r3 | `user_roles` table with `app_role` enum: `super_admin`, `admin`, `manager`, `operator`, `analyst`, `user` |
+| 2 | 3.2 ABAC | Generic RLS reference | Name the actual helpers: `has_profit_center_access`, `can_manage_profit_center`, `has_role`, `has_elevated_role`, `can_view_profile` |
+| 3 | 4.1 Schema — `module_mappings` | Single table | Split into `app_modules` (catalog) + `profit_center_modules` (per-workspace overrides) |
+| 4 | 4.1 Schema — `system_settings` | Global JSONB | `profit_center_settings` (workspace-scoped, JSONB `setting_value`) |
+| 5 | 4.1 Schema — additions | Missing | Add `user_profit_centers` (assignments) and `audit_logs` (immutable) |
+| 6 | 4.1 Schema — not yet built | Listed as live | Mark `heat_logs`, `material_consumption`, `inventory_ledger`, `furnaces` as **planned (Phase 3+)**, not implemented |
+| 7 | 5.2 Module Onboarding | "Sync Modules" button via `pcMappingService` | Replace with the real flow: per-workspace module overrides edited in `/admin/modules`, falling back to active configurable `app_modules` when no override exists |
+| 8 | 6 API & Integration | Lists Realtime + Storage as in use | Mark Supabase Realtime and Storage as **not currently wired** |
+| 9 | 7 NFR — `ON UPDATE CASCADE` | Stated as enforced | Correct: FKs exist on config tables (`profit_center_modules`, `profit_center_settings`, `user_profit_centers`, `audit_logs`) but no CASCADE on PC rename is declared. Integrity is enforced via RLS + app logic |
+| 10 | 7 NFR — case-insensitive module matching | Stated as enforced | Remove. Module keys are stored verbatim |
+| 11 | 8 Deployment | Cloud Run via AI Studio | Lovable Cloud (managed Supabase + auto-deploy). `.env` is auto-managed |
+| 12 | 9 Risks — `admin@steelflow.com` | Hardcoded primary architect | Remove. Super-admin is purely role-based via `user_roles` |
+| 13 | 9 Risks — audit logs are placeholder | Stated as gap | Resolved: real `audit_logs` table + paginated admin viewer (`/admin/audit`) with 20-row chunks and load-more |
+| 14 | 9 Risks — Delete PC confirmation | Listed | Keep as open item; PC delete is not exposed in admin UI yet |
+| 15 | New section: **Implementation Status** | Missing | Add the phase status table (Phase 1 ✅, Phase 2 ✅, Phase 3–7 ❌) so the doc reflects build state |
+| 16 | New section: **Route Map** | Missing | Document actual routes: `/`, `/login`, `/reset-password`, `/profit-centers`, `/portal`, `/portal/:moduleSlug`, `/admin`, `/admin/workspaces`, `/admin/modules`, `/admin/access`, `/admin/settings`, `/admin/audit` |
 
-4. Add visible pagination controls plus load-more behavior
-   - Use the existing `src/components/ui/pagination.tsx` components for previous/next navigation.
-   - Show only the current page slice in the table.
-   - Add a “Load more” button below the table to fetch the next backend chunk when the user reaches the end of loaded data or wants more history.
-   - Disable controls appropriately during fetches and when no more rows exist.
-   - Verification:
-     - Previous/Next changes the visible page
-     - Load More appends older records
-     - No duplicate rows appear
-     - Empty state still renders correctly
+### What Stays Unchanged
+- Section 1 (System Overview vision), Section 2.1 (logical UI flow shape), Section 5.1 (Production Entry workflow as a *future* spec) — these remain as forward-looking design intent and will be marked as such, not as implemented behavior.
 
-5. Keep SSOT documents in lockstep
-   - Update `DOCUMENTATION.md` to state that admin audit review now loads records incrementally in 20-row chunks and supports pagination plus on-demand loading.
-   - Update `POLICY.md` to clarify that audit history remains immutable while admins can browse historical records through paged read access.
-   - Append version-history / policy-log entries for this change.
-   - Verification: code behavior, technical docs, and policy all describe the same audit browsing model.
+### Verification
+- Every claim in the reconciled doc maps to either:
+  - an implemented file/table/route that exists today, or
+  - an explicit "Planned (Phase N)" marker.
+- `DOCUMENTATION.md` and `POLICY.md` version history entries dated 2026-04-24 record the reconciliation.
+- No source files under `src/`, no migrations, no tests change.
 
-6. Add regression tests with realistic audit data
-   - Extend `src/test/example.test.tsx` with realistic multiple audit entries.
-   - Add tests for:
-     - initial audit page renders the first chunk only
-     - next/previous pagination changes what is visible
-     - load-more appends additional audit entries
-     - empty state still appears when no logs exist
-   - Keep test data policy-aligned and immutable.
-   - Verification: tests cover happy path and no-data path for the audit browser.
-
-Technical Details:
-- Preferred page size: 20 records per backend fetch and 20 per visible page.
-- Keep the change scoped to:
-  - `src/lib/workspace.ts`
-  - `src/hooks/use-workspace.tsx`
-  - `src/pages/AdminAudit.tsx`
-  - `src/test/example.test.tsx`
-  - `DOCUMENTATION.md`
-  - `POLICY.md`
-- No database migration is required unless the existing audit query proves insufficient, which it likely is not.
-
-Step → Verification:
-1. Paged audit query helper → fetches non-overlapping 20-row chunks
-2. Initial admin load updated → audit page starts at 20 rows
-3. Admin audit UI updated → prev/next and load-more behave correctly
-4. Docs/policy updated → SSOT stays aligned
-5. Tests updated → audit browsing regression coverage passes
+### Out of Scope
+- No new tables, no FK additions, no CASCADE migrations.
+- No Realtime/Storage wiring.
+- No PC delete UI.
+- No `ARCHITECTURE.md` file commit unless you confirm you want one.
