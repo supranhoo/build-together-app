@@ -24,8 +24,13 @@ import AdminAudit from "./pages/AdminAudit";
 import AdminFurnaces from "./pages/AdminFurnaces";
 import AdminShifts from "./pages/AdminShifts";
 import AdminRoles from "./pages/AdminRoles";
+import AdminMaterials from "./pages/AdminMaterials";
+import AdminStockLocations from "./pages/AdminStockLocations";
 import ModulePlaceholder from "./pages/ModulePlaceholder";
 import PortalProduction from "./pages/PortalProduction";
+import PortalInventory from "./pages/PortalInventory";
+import PortalInventoryReceipts from "./pages/PortalInventoryReceipts";
+import PortalInventoryLedger from "./pages/PortalInventoryLedger";
 import NotFound from "./pages/NotFound";
 
 const queryClient = new QueryClient();
@@ -48,6 +53,10 @@ const App = () => (
                   <Route path="/portal" element={<PortalShell />}>
                     <Route index element={<PortalOverview />} />
                     <Route path="production" element={<PortalProduction />} />
+                    <Route path="inventory" element={<PortalInventory />}>
+                      <Route path="receipts" element={<PortalInventoryReceipts />} />
+                      <Route path="ledger" element={<PortalInventoryLedger />} />
+                    </Route>
                     <Route path=":module" element={<ModulePlaceholder />} />
                   </Route>
                 </Route>
@@ -61,6 +70,8 @@ const App = () => (
                     <Route path="audit" element={<AdminAudit />} />
                     <Route path="furnaces" element={<AdminFurnaces />} />
                     <Route path="shifts" element={<AdminShifts />} />
+                    <Route path="materials" element={<AdminMaterials />} />
+                    <Route path="stock-locations" element={<AdminStockLocations />} />
                     <Route path="roles" element={<AdminRoles />} />
                   </Route>
                 </Route>

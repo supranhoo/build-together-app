@@ -36,6 +36,14 @@
 - Only super admins may modify `permission_grants`. All authenticated users may read them so the UI can correctly gate actions.
 - Heat log deletion is restricted to super admins; the UI does not currently expose deletion.
 
+## Inventory Data Governance
+- Materials and stock locations are workspace-scoped master data. Only workspace admins or super admins may create or modify them.
+- The inventory ledger is immutable and append-only. Corrections must be posted as new ledger rows (adjustments or reversals); existing rows must never be edited or deleted.
+- Inventory actions (`consume`, `receipt`, `adjustment`) are governed by configurable role rules in `permission_grants` and must never be hardcoded in the UI or in code.
+- Default policy: operators may post consumption only; managers may post receipts; admins and super admins may post adjustments and transfers. Operators cannot post receipts or adjustments.
+- Material consumption tied to a heat log is recorded only through the consumption flow, which automatically generates a matching ledger entry by trigger; consumption rows themselves are immutable to preserve heat-to-material traceability.
+- Negative stock is permitted operationally (real-world plants back-date receipts) but every negative balance is fully traceable through the ledger; reporting must surface negative balances for reconciliation.
+
 ## Policy Change Log
 - 2026-04-23: Enforced admin-only account creation on the public login experience.
 - 2026-04-23: Added configuration-first workspace isolation, admin governance, and immutable audit requirements for multi-plant scale.
@@ -43,3 +51,4 @@
 - 2026-04-23: Added paged admin audit browsing while preserving immutable audit history.
 - 2026-04-24: Reconciled external architecture documentation with implemented model; no policy rules changed.
 - 2026-04-24: Added Production Data Governance — furnace/shift master data ownership, configurable RBAC for heat log edits via `permission_grants`, and immutable `heat_log_events` audit trail.
+- 2026-04-24: Added Inventory Data Governance — material/location master data ownership, immutable inventory ledger, configurable RBAC for inventory actions via `permission_grants`, and heat-linked consumption traceability.

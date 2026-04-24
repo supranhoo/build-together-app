@@ -253,6 +253,189 @@ export type Database = {
           },
         ]
       }
+      inventory_ledger: {
+        Row: {
+          created_at: string
+          created_by: string
+          id: string
+          material_id: string
+          movement_type: string
+          notes: string | null
+          profit_center_id: string
+          quantity: number
+          reference_id: string | null
+          reference_type: string | null
+          stock_location_id: string
+          unit_cost: number | null
+        }
+        Insert: {
+          created_at?: string
+          created_by: string
+          id?: string
+          material_id: string
+          movement_type: string
+          notes?: string | null
+          profit_center_id: string
+          quantity: number
+          reference_id?: string | null
+          reference_type?: string | null
+          stock_location_id: string
+          unit_cost?: number | null
+        }
+        Update: {
+          created_at?: string
+          created_by?: string
+          id?: string
+          material_id?: string
+          movement_type?: string
+          notes?: string | null
+          profit_center_id?: string
+          quantity?: number
+          reference_id?: string | null
+          reference_type?: string | null
+          stock_location_id?: string
+          unit_cost?: number | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "inventory_ledger_material_id_fkey"
+            columns: ["material_id"]
+            isOneToOne: false
+            referencedRelation: "materials"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "inventory_ledger_profit_center_id_fkey"
+            columns: ["profit_center_id"]
+            isOneToOne: false
+            referencedRelation: "profit_centers"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "inventory_ledger_stock_location_id_fkey"
+            columns: ["stock_location_id"]
+            isOneToOne: false
+            referencedRelation: "stock_locations"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      material_consumption: {
+        Row: {
+          created_at: string
+          created_by: string
+          heat_log_id: string
+          id: string
+          inventory_ledger_id: string | null
+          material_id: string
+          profit_center_id: string
+          quantity: number
+          stock_location_id: string
+        }
+        Insert: {
+          created_at?: string
+          created_by: string
+          heat_log_id: string
+          id?: string
+          inventory_ledger_id?: string | null
+          material_id: string
+          profit_center_id: string
+          quantity: number
+          stock_location_id: string
+        }
+        Update: {
+          created_at?: string
+          created_by?: string
+          heat_log_id?: string
+          id?: string
+          inventory_ledger_id?: string | null
+          material_id?: string
+          profit_center_id?: string
+          quantity?: number
+          stock_location_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "material_consumption_heat_log_id_fkey"
+            columns: ["heat_log_id"]
+            isOneToOne: false
+            referencedRelation: "heat_logs"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "material_consumption_inventory_ledger_id_fkey"
+            columns: ["inventory_ledger_id"]
+            isOneToOne: false
+            referencedRelation: "inventory_ledger"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "material_consumption_material_id_fkey"
+            columns: ["material_id"]
+            isOneToOne: false
+            referencedRelation: "materials"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "material_consumption_profit_center_id_fkey"
+            columns: ["profit_center_id"]
+            isOneToOne: false
+            referencedRelation: "profit_centers"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "material_consumption_stock_location_id_fkey"
+            columns: ["stock_location_id"]
+            isOneToOne: false
+            referencedRelation: "stock_locations"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      materials: {
+        Row: {
+          category: string
+          code: string
+          created_at: string
+          id: string
+          is_active: boolean
+          name: string
+          profit_center_id: string
+          uom: string
+          updated_at: string
+        }
+        Insert: {
+          category?: string
+          code: string
+          created_at?: string
+          id?: string
+          is_active?: boolean
+          name: string
+          profit_center_id: string
+          uom?: string
+          updated_at?: string
+        }
+        Update: {
+          category?: string
+          code?: string
+          created_at?: string
+          id?: string
+          is_active?: boolean
+          name?: string
+          profit_center_id?: string
+          uom?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "materials_profit_center_id_fkey"
+            columns: ["profit_center_id"]
+            isOneToOne: false
+            referencedRelation: "profit_centers"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       permission_grants: {
         Row: {
           action: string
@@ -500,6 +683,44 @@ export type Database = {
           },
         ]
       }
+      stock_locations: {
+        Row: {
+          code: string
+          created_at: string
+          id: string
+          is_active: boolean
+          name: string
+          profit_center_id: string
+          updated_at: string
+        }
+        Insert: {
+          code: string
+          created_at?: string
+          id?: string
+          is_active?: boolean
+          name: string
+          profit_center_id: string
+          updated_at?: string
+        }
+        Update: {
+          code?: string
+          created_at?: string
+          id?: string
+          is_active?: boolean
+          name?: string
+          profit_center_id?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "stock_locations_profit_center_id_fkey"
+            columns: ["profit_center_id"]
+            isOneToOne: false
+            referencedRelation: "profit_centers"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       user_profit_centers: {
         Row: {
           assigned_by: string | null
@@ -575,6 +796,14 @@ export type Database = {
       can_view_profile: {
         Args: { _target_user_id: string; _viewer_user_id: string }
         Returns: boolean
+      }
+      current_stock: {
+        Args: {
+          _material_id: string
+          _profit_center_id: string
+          _stock_location_id: string
+        }
+        Returns: number
       }
       has_elevated_role: { Args: { _user_id: string }; Returns: boolean }
       has_profit_center_access: {

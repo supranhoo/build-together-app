@@ -7,6 +7,7 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
+import { Trash2 } from "lucide-react";
 import { useWorkspace } from "@/hooks/use-workspace";
 import { useAuth } from "@/hooks/use-auth";
 import { useToast } from "@/hooks/use-toast";
@@ -21,6 +22,15 @@ import {
   type Shift,
 } from "@/lib/production";
 import { canEditHeatLogClient, fetchPermissionGrants, userRoleAllows, type PermissionGrant } from "@/lib/permissions";
+import {
+  fetchMaterials,
+  fetchStockLocations,
+  recordHeatConsumption,
+  type ConsumptionInput,
+  type Material,
+  type StockLocation,
+} from "@/lib/inventory";
+
 
 interface FormState {
   furnaceId: string;
@@ -30,6 +40,10 @@ interface FormState {
   weightMt: string;
   powerMwh: string;
   notes: string;
+}
+
+interface ConsumptionRow extends ConsumptionInput {
+  key: string;
 }
 
 const emptyForm: FormState = { furnaceId: "", shiftId: "", heatNumber: "", tapTime: "", weightMt: "", powerMwh: "", notes: "" };
@@ -49,6 +63,8 @@ export default function PortalProduction() {
   const [shifts, setShifts] = useState<Shift[]>([]);
   const [logs, setLogs] = useState<HeatLog[]>([]);
   const [grants, setGrants] = useState<PermissionGrant[]>([]);
+  const [materials, setMaterials] = useState<Material[]>([]);
+  const [stockLocations, setStockLocations] = useState<StockLocation[]>([]);
   const [filterFurnace, setFilterFurnace] = useState<string>("all");
   const [filterShift, setFilterShift] = useState<string>("all");
   const [filterDate, setFilterDate] = useState<string>("");
@@ -56,6 +72,7 @@ export default function PortalProduction() {
   const [createOpen, setCreateOpen] = useState(false);
   const [editing, setEditing] = useState<HeatLog | null>(null);
   const [form, setForm] = useState<FormState>(emptyForm);
+  const [consumption, setConsumption] = useState<ConsumptionRow[]>([]);
   const [saving, setSaving] = useState(false);
   const [loading, setLoading] = useState(false);
 
@@ -63,7 +80,7 @@ export default function PortalProduction() {
     if (!activeProfitCenter) return;
     setLoading(true);
     try {
-      const [f, s, l, g] = await Promise.all([
+      const [f, s, l, g, m, sl] = await Promise.all([
         fetchFurnaces(activeProfitCenter.id),
         fetchShifts(activeProfitCenter.id),
         fetchHeatLogs(activeProfitCenter.id, {
@@ -72,11 +89,15 @@ export default function PortalProduction() {
           date: filterDate || undefined,
         }),
         fetchPermissionGrants(),
+        fetchMaterials(activeProfitCenter.id),
+        fetchStockLocations(activeProfitCenter.id),
       ]);
       setFurnaces(f);
       setShifts(s);
       setLogs(l);
       setGrants(g);
+      setMaterials(m);
+      setStockLocations(sl);
     } catch (error) {
       toast({ title: "Failed to load production data", description: error instanceof Error ? error.message : "Try again.", variant: "destructive" });
     } finally {
@@ -90,6 +111,7 @@ export default function PortalProduction() {
   }, [activeProfitCenter?.id, filterFurnace, filterShift, filterDate]);
 
   const canCreate = useMemo(() => userRoleAllows(grants, profile?.role, "heat_log", "create"), [grants, profile?.role]);
+  const canConsume = useMemo(() => userRoleAllows(grants, profile?.role, "inventory", "consume"), [grants, profile?.role]);
 
   const furnaceLabel = (id: string) => furnaces.find((f) => f.id === id)?.code ?? "—";
   const shiftLabel = (id: string) => shifts.find((s) => s.id === id)?.code ?? "—";
@@ -97,6 +119,7 @@ export default function PortalProduction() {
   const openCreate = () => {
     setEditing(null);
     setForm({ ...emptyForm, tapTime: nowLocalForInput() });
+    setConsumption([]);
     setCreateOpen(true);
   };
 
@@ -111,7 +134,18 @@ export default function PortalProduction() {
       powerMwh: log.powerMwh?.toString() ?? "",
       notes: log.notes ?? "",
     });
+    setConsumption([]);
     setCreateOpen(true);
+  };
+
+  const addConsumptionRow = () => {
+    setConsumption((rows) => [...rows, { key: crypto.randomUUID(), materialId: "", stockLocationId: "", quantity: 0 }]);
+  };
+  const updateConsumptionRow = (key: string, patch: Partial<ConsumptionRow>) => {
+    setConsumption((rows) => rows.map((r) => (r.key === key ? { ...r, ...patch } : r)));
+  };
+  const removeConsumptionRow = (key: string) => {
+    setConsumption((rows) => rows.filter((r) => r.key !== key));
   };
 
   const validate = (): string | null => {
@@ -119,6 +153,10 @@ export default function PortalProduction() {
     if (!form.shiftId) return "Shift is required";
     if (!form.heatNumber.trim()) return "Heat number is required";
     if (!form.tapTime) return "Tap time is required";
+    for (const r of consumption) {
+      if (!r.materialId || !r.stockLocationId) return "Each consumption row needs a material and location";
+      if (!Number.isFinite(r.quantity) || r.quantity <= 0) return "Each consumption quantity must be > 0";
+    }
     return null;
   };
 
@@ -143,7 +181,7 @@ export default function PortalProduction() {
           notes: form.notes || null,
         });
       } else {
-        await createHeatLog({
+        const newId = await createHeatLog({
           profitCenterId: activeProfitCenter.id,
           furnaceId: form.furnaceId,
           shiftId: form.shiftId,
@@ -154,6 +192,14 @@ export default function PortalProduction() {
           notes: form.notes || null,
           createdBy: session.user.id,
         });
+        if (consumption.length > 0) {
+          await recordHeatConsumption({
+            heatLogId: newId,
+            profitCenterId: activeProfitCenter.id,
+            createdBy: session.user.id,
+            rows: consumption.map((r) => ({ materialId: r.materialId, stockLocationId: r.stockLocationId, quantity: r.quantity })),
+          });
+        }
       }
       toast({ title: editing ? "Heat log updated" : "Heat log recorded" });
       setCreateOpen(false);
@@ -233,6 +279,39 @@ export default function PortalProduction() {
                   <Textarea value={form.notes} onChange={(e) => setForm({ ...form, notes: e.target.value })} />
                 </div>
               </div>
+              {!editing && canConsume && materials.length > 0 && stockLocations.length > 0 && (
+                <div className="space-y-2 rounded-md border border-border bg-panel p-3">
+                  <div className="flex items-center justify-between">
+                    <Label className="text-sm">Material consumption (optional)</Label>
+                    <Button type="button" size="sm" variant="outline" onClick={addConsumptionRow}>Add row</Button>
+                  </div>
+                  {consumption.length === 0 && (
+                    <p className="text-xs text-muted-foreground">No consumption recorded for this heat.</p>
+                  )}
+                  {consumption.map((row) => (
+                    <div key={row.key} className="grid gap-2 sm:grid-cols-[1fr_1fr_120px_40px]">
+                      <Select value={row.materialId} onValueChange={(v) => updateConsumptionRow(row.key, { materialId: v })}>
+                        <SelectTrigger><SelectValue placeholder="Material" /></SelectTrigger>
+                        <SelectContent>
+                          {materials.filter((m) => m.isActive).map((m) => (
+                            <SelectItem key={m.id} value={m.id}>{m.code} ({m.uom})</SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                      <Select value={row.stockLocationId} onValueChange={(v) => updateConsumptionRow(row.key, { stockLocationId: v })}>
+                        <SelectTrigger><SelectValue placeholder="Location" /></SelectTrigger>
+                        <SelectContent>
+                          {stockLocations.filter((l) => l.isActive).map((l) => (
+                            <SelectItem key={l.id} value={l.id}>{l.code}</SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                      <Input type="number" step="0.001" placeholder="Qty" value={row.quantity || ""} onChange={(e) => updateConsumptionRow(row.key, { quantity: Number(e.target.value) })} />
+                      <Button type="button" size="icon" variant="ghost" onClick={() => removeConsumptionRow(row.key)}><Trash2 className="h-4 w-4" /></Button>
+                    </div>
+                  ))}
+                </div>
+              )}
               <DialogFooter>
                 <Button variant="outline" onClick={() => setCreateOpen(false)}>Cancel</Button>
                 <Button onClick={() => void handleSave()} disabled={saving}>{saving ? "Saving…" : "Save"}</Button>

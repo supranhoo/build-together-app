@@ -7,6 +7,7 @@ import { RequireAdmin } from "@/components/RequireAdmin";
 import { PortalShell } from "@/components/PortalShell";
 import AdminAudit from "@/pages/AdminAudit";
 import { canEditHeatLogClient, describeRule, userRoleAllows, type PermissionGrant } from "@/lib/permissions";
+import { computeStockBalances, type InventoryLedgerEntry } from "@/lib/inventory";
 
 const navigateMock = vi.fn();
 const logoutMock = vi.fn();
@@ -345,5 +346,46 @@ describe("Permission rule helpers (Phase 3)", () => {
     const yesterday = { createdAt: new Date(Date.now() - 48 * 60 * 60_000).toISOString(), tapTime: new Date(Date.now() - 48 * 60 * 60_000).toISOString() };
     expect(canEditHeatLogClient(grants, "manager", today)).toBe(true);
     expect(canEditHeatLogClient(grants, "manager", yesterday)).toBe(false);
+  });
+});
+
+describe("Inventory helpers (Phase 4)", () => {
+  const baseEntry = (overrides: Partial<InventoryLedgerEntry>): InventoryLedgerEntry => ({
+    id: overrides.id ?? "x",
+    profitCenterId: "pc-1",
+    materialId: "m1",
+    stockLocationId: "loc1",
+    movementType: "receipt",
+    quantity: 0,
+    unitCost: null,
+    referenceType: null,
+    referenceId: null,
+    notes: null,
+    createdBy: "u1",
+    createdAt: new Date().toISOString(),
+    ...overrides,
+  });
+
+  it("sums signed ledger movements per material/location pair", () => {
+    const ledger: InventoryLedgerEntry[] = [
+      baseEntry({ id: "1", quantity: 100, movementType: "receipt" }),
+      baseEntry({ id: "2", quantity: -25, movementType: "consumption" }),
+      baseEntry({ id: "3", quantity: -10, movementType: "consumption" }),
+      baseEntry({ id: "4", materialId: "m2", quantity: 50, movementType: "receipt" }),
+      baseEntry({ id: "5", stockLocationId: "loc2", quantity: 7, movementType: "receipt" }),
+    ];
+    const balances = computeStockBalances(ledger);
+    const find = (mat: string, loc: string) => balances.find((b) => b.materialId === mat && b.stockLocationId === loc)?.quantity;
+    expect(find("m1", "loc1")).toBe(65);
+    expect(find("m2", "loc1")).toBe(50);
+    expect(find("m1", "loc2")).toBe(7);
+  });
+
+  it("returns an empty array for empty ledger and allows negative balances", () => {
+    expect(computeStockBalances([])).toEqual([]);
+    const negativeOnly: InventoryLedgerEntry[] = [
+      baseEntry({ id: "1", quantity: -5, movementType: "consumption" }),
+    ];
+    expect(computeStockBalances(negativeOnly)[0].quantity).toBe(-5);
   });
 });
