@@ -207,6 +207,17 @@ export default function PortalReports() {
           </CardContent>
         </Card>
       ) : null}
+
+      <KpiDetailDrawer
+        open={!!drawerKey}
+        onOpenChange={(o) => { if (!o) setDrawerKey(null); }}
+        definition={drawerDef}
+        profitCenterId={activeProfitCenter.id}
+        userId={session?.user?.id ?? ""}
+        range={range}
+        subscriptions={subscriptions}
+        onSubscriptionsChanged={refreshSubs}
+      />
     </div>
   );
 }
