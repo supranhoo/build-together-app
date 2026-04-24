@@ -676,3 +676,105 @@ describe("Forecast helper (Phase 9)", () => {
     expect(forecastLinear(series, 7)).toEqual([]);
   });
 });
+
+describe("Seasonal forecast helper (Phase 11)", () => {
+  const point = (day: string, value: number | null): KpiSeriesPoint => ({ day, value });
+  const buildSeries = (n: number, fn: (i: number) => number, startDay = "2026-03-01"): KpiSeriesPoint[] => {
+    const base = new Date(`${startDay}T00:00:00Z`);
+    const out: KpiSeriesPoint[] = [];
+    for (let i = 0; i < n; i++) {
+      const d = new Date(base);
+      d.setUTCDate(d.getUTCDate() + i);
+      out.push({ day: d.toISOString().slice(0, 10), value: fn(i) });
+    }
+    return out;
+  };
+
+  it("falls back to linear when fewer than 2*period (14) usable points", () => {
+    const series = buildSeries(10, (i) => i + 1);
+    const seasonal = forecastSeasonal(series, 7);
+    const linear = forecastLinear(series, 7);
+    expect(seasonal.map((p) => p.value)).toEqual(linear.map((p) => p.value));
+  });
+
+  it("engages weekly seasonality at 14+ points and reproduces a synthetic weekday signal", () => {
+    // 2026-03-01 is Sunday (UTC). Saturdays are i = 6, 13, 20, 27.
+    const series = buildSeries(28, (i) => {
+      const d = new Date(`2026-03-01T00:00:00Z`);
+      d.setUTCDate(d.getUTCDate() + i);
+      const isSat = d.getUTCDay() === 6;
+      return i + (isSat ? 5 : 0);
+    });
+    const out = forecastSeasonal(series, 7);
+    expect(out).toHaveLength(7);
+    const sat = out.find((p) => new Date(`${p.day}T00:00:00Z`).getUTCDay() === 6);
+    const sun = out.find((p) => new Date(`${p.day}T00:00:00Z`).getUTCDay() === 0);
+    expect(sat).toBeDefined();
+    expect(sun).toBeDefined();
+    expect((sat!.value as number) - (sun!.value as number)).toBeGreaterThan(3);
+  });
+
+  it("seasonality='off' is identical to forecastLinear", () => {
+    const series = buildSeries(20, (i) => i * 2);
+    const off = forecastSeasonal(series, 5, { seasonality: "off" });
+    const linear = forecastLinear(series, 5);
+    expect(off.map((p) => p.value)).toEqual(linear.map((p) => p.value));
+  });
+
+  it("fails closed on degenerate / empty / single-point series", () => {
+    expect(forecastSeasonal([], 7)).toEqual([]);
+    expect(forecastSeasonal([point("2026-04-23", 10)], 7)).toEqual([]);
+    expect(forecastSeasonal([point("2026-04-22", null), point("2026-04-23", 10)], 7)).toEqual([]);
+    expect(forecastSeasonal(buildSeries(20, () => 5), 7).length).toBe(0);
+  });
+});
+
+describe("Backtest helper (Phase 11)", () => {
+  const buildSeries = (n: number, fn: (i: number) => number): KpiSeriesPoint[] => {
+    const base = new Date(`2026-03-01T00:00:00Z`);
+    const out: KpiSeriesPoint[] = [];
+    for (let i = 0; i < n; i++) {
+      const d = new Date(base);
+      d.setUTCDate(d.getUTCDate() + i);
+      out.push({ day: d.toISOString().slice(0, 10), value: fn(i) });
+    }
+    return out;
+  };
+
+  it("returns method='none' on tiny series and never throws", () => {
+    expect(backtestForecast([], 7)).toEqual({ mape: null, mae: null, holdoutCount: 0, method: "none" });
+    expect(backtestForecast(buildSeries(3, (i) => i), 7)).toEqual({
+      mape: null,
+      mae: null,
+      holdoutCount: 0,
+      method: "none",
+    });
+  });
+
+  it("computes MAE≈0 and MAPE≈0 on a perfectly linear series", () => {
+    const series = buildSeries(15, (i) => i + 1);
+    const r = backtestForecast(series, 7);
+    expect(r.method).toBe("linear");
+    expect(r.holdoutCount).toBeGreaterThan(0);
+    expect(r.mae as number).toBeCloseTo(0, 6);
+    expect(r.mape as number).toBeCloseTo(0, 6);
+  });
+
+  it("returns mape=null when any actual is 0 but still reports MAE", () => {
+    const series: KpiSeriesPoint[] = [
+      { day: "2026-03-01", value: 1 },
+      { day: "2026-03-02", value: 2 },
+      { day: "2026-03-03", value: 3 },
+      { day: "2026-03-04", value: 4 },
+      { day: "2026-03-05", value: 5 },
+      { day: "2026-03-06", value: 6 },
+      { day: "2026-03-07", value: 7 },
+      { day: "2026-03-08", value: 0 },
+    ];
+    const r = backtestForecast(series, 7);
+    expect(r.method).toBe("linear");
+    expect(r.holdoutCount).toBeGreaterThan(0);
+    expect(r.mape).toBeNull();
+    expect(r.mae).not.toBeNull();
+  });
+});
