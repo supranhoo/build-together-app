@@ -1,12 +1,67 @@
-import { BarChart3, Factory, Gauge, MapPin, Warehouse } from "lucide-react";
+import { useEffect, useState } from "react";
+import { BarChart3, Factory, Gauge, MapPin, Pin, Warehouse } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { useAuth } from "@/hooks/use-auth";
 import { useWorkspace } from "@/hooks/use-workspace";
+import {
+  buildDateRange,
+  computeKpi,
+  fetchKpiDefinitions,
+  fetchKpiPins,
+  type KpiDefinition,
+  type KpiPin,
+} from "@/lib/reporting";
+
+interface PinnedKpiCard {
+  pin: KpiPin;
+  definition: KpiDefinition;
+  value: number | null;
+}
 
 export default function PortalOverview() {
-  const { profile } = useAuth();
+  const { profile, session } = useAuth();
   const { activeProfitCenter, modules, settings, assignments } = useWorkspace();
+  const [pinned, setPinned] = useState<PinnedKpiCard[]>([]);
+  const [pinnedLoading, setPinnedLoading] = useState(false);
+
+  useEffect(() => {
+    if (!activeProfitCenter || !session?.user?.id) {
+      setPinned([]);
+      return;
+    }
+    let cancelled = false;
+    (async () => {
+      setPinnedLoading(true);
+      try {
+        const [pins, defs] = await Promise.all([
+          fetchKpiPins(session.user.id, activeProfitCenter.id),
+          fetchKpiDefinitions(activeProfitCenter.id),
+        ]);
+        if (cancelled) return;
+        const range = buildDateRange("today");
+        const cards = await Promise.all(
+          pins.map(async (pin) => {
+            const def = defs.find((d) => d.id === pin.kpiDefinitionId);
+            if (!def) return null;
+            try {
+              const result = await computeKpi(activeProfitCenter.id, def.key, range);
+              return { pin, definition: def, value: result.value } satisfies PinnedKpiCard;
+            } catch {
+              return { pin, definition: def, value: null } satisfies PinnedKpiCard;
+            }
+          }),
+        );
+        if (cancelled) return;
+        setPinned(cards.filter((c): c is PinnedKpiCard => c !== null));
+      } catch {
+        if (!cancelled) setPinned([]);
+      } finally {
+        if (!cancelled) setPinnedLoading(false);
+      }
+    })();
+    return () => { cancelled = true; };
+  }, [activeProfitCenter, session?.user?.id]);
 
   const metrics = [
     { label: "Assigned workspaces", value: String(assignments.length), detail: "Access scope in current session", icon: Gauge },
