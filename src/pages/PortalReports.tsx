@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState } from "react";
 import { CartesianGrid, Line, LineChart, ResponsiveContainer, Tooltip, XAxis, YAxis } from "recharts";
-import { Download } from "lucide-react";
+import { Download, Pin, PinOff } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
@@ -15,12 +15,18 @@ import {
   computeKpi,
   computeKpiConsolidated,
   downloadCsv,
+  enforceMaxPins,
   exportKpiCsv,
   fetchKpiDefinitions,
+  fetchKpiPins,
   fetchMySubscriptions,
+  KPI_PIN_CAP,
+  pinKpi,
+  unpinKpi,
   unsubscribeFromKpi,
   type KpiConsolidatedResult,
   type KpiDefinition,
+  type KpiPin,
   type KpiPreset,
   type KpiResult,
   type KpiSubscription,
