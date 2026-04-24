@@ -97,5 +97,12 @@
 - Pinning a KPI from another workspace is rejected by RLS (`has_profit_center_access` must hold). Removing a workspace assignment removes the user's ability to read those pins, but pin rows are retained until explicitly unpinned.
 - Pin sort_order is user-controlled. Reordering MUST NOT trigger any KPI recomputation — pins are display metadata only.
 
+## Pin Reorder & Forecast Display Governance (Phase 9)
+- Pin reorder is personal preference and UX-only. Reordering MUST NOT append `audit_logs` rows, MUST NOT trigger any KPI recompute, and MUST NOT be visible to admins. Only the owning user may change `kpi_pins.sort_order`; RLS enforces this.
+- Bulk-select inside `KpiDetailDrawer` MUST reuse the existing `bulk_void_heat_logs` / `bulk_reverse_inventory_ledger` RPCs and the existing `permission_grants` checks. The drawer MUST NOT introduce a parallel permission path or a separate audit format — bulk operations from the drawer are indistinguishable from bulk operations from the outer pages, including `batch_id` grouping and the shared-reason rule.
+- Forecasts rendered in the UI (e.g. the dashed projection in the drawer's Trend tab) are **advisory and display-only**. Forecast values MUST NEVER be persisted, MUST NEVER be written back to `kpi_definitions` or `report_deliveries`, MUST NEVER appear in CSV exports of `series`, and MUST NEVER be used in compliance, audit, or scheduled-digest payloads.
+- The forecast helper MUST fail closed: any series too short, any non-finite intermediate value, or any degenerate slope MUST yield no projection rather than a fabricated number.
+
 ## Policy Change Log
 - 2026-04-24: Phase 8 — added Bulk Void & Reverse Governance (atomic batches, shared reason, `batch_id` audit grouping, no permission bypass) and Pinned KPIs Governance (personal preference, no admin override, capped at 12, RLS-scoped to assigned workspaces).
+- 2026-04-24: Phase 9 — added Pin Reorder & Forecast Display Governance (reorder is personal UX state with no audit, drawer bulk-select reuses existing RPCs, forecasts are advisory display-only and must fail closed).
