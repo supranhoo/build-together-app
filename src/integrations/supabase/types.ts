@@ -367,6 +367,54 @@ export type Database = {
           },
         ]
       }
+      kpi_subscriptions: {
+        Row: {
+          cadence: string
+          created_at: string
+          id: string
+          is_active: boolean
+          kpi_definition_id: string
+          profit_center_id: string
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          cadence: string
+          created_at?: string
+          id?: string
+          is_active?: boolean
+          kpi_definition_id: string
+          profit_center_id: string
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          cadence?: string
+          created_at?: string
+          id?: string
+          is_active?: boolean
+          kpi_definition_id?: string
+          profit_center_id?: string
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "kpi_subscriptions_kpi_definition_id_fkey"
+            columns: ["kpi_definition_id"]
+            isOneToOne: false
+            referencedRelation: "kpi_definitions"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "kpi_subscriptions_profit_center_id_fkey"
+            columns: ["profit_center_id"]
+            isOneToOne: false
+            referencedRelation: "profit_centers"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       material_consumption: {
         Row: {
           created_at: string
@@ -683,6 +731,57 @@ export type Database = {
         }
         Relationships: []
       }
+      report_deliveries: {
+        Row: {
+          cadence: string
+          delivered_at: string
+          error_message: string | null
+          id: string
+          kpi_definition_id: string
+          payload: Json
+          profit_center_id: string
+          status: string
+          user_id: string
+        }
+        Insert: {
+          cadence: string
+          delivered_at?: string
+          error_message?: string | null
+          id?: string
+          kpi_definition_id: string
+          payload?: Json
+          profit_center_id: string
+          status: string
+          user_id: string
+        }
+        Update: {
+          cadence?: string
+          delivered_at?: string
+          error_message?: string | null
+          id?: string
+          kpi_definition_id?: string
+          payload?: Json
+          profit_center_id?: string
+          status?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "report_deliveries_kpi_definition_id_fkey"
+            columns: ["kpi_definition_id"]
+            isOneToOne: false
+            referencedRelation: "kpi_definitions"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "report_deliveries_profit_center_id_fkey"
+            columns: ["profit_center_id"]
+            isOneToOne: false
+            referencedRelation: "profit_centers"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       shifts: {
         Row: {
           code: string
@@ -875,6 +974,16 @@ export type Database = {
         Args: {
           _from: string
           _key: string
+          _profit_center_id: string
+          _to: string
+        }
+        Returns: Json
+      }
+      compute_kpi_drilldown: {
+        Args: {
+          _from: string
+          _key: string
+          _limit?: number
           _profit_center_id: string
           _to: string
         }

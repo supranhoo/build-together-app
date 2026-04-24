@@ -4,17 +4,23 @@ import { Download } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Badge } from "@/components/ui/badge";
 import { useToast } from "@/hooks/use-toast";
 import { useWorkspace } from "@/hooks/use-workspace";
+import { useAuth } from "@/hooks/use-auth";
+import { KpiDetailDrawer } from "@/components/KpiDetailDrawer";
 import {
   buildDateRange,
   computeKpi,
   downloadCsv,
   exportKpiCsv,
   fetchKpiDefinitions,
+  fetchMySubscriptions,
+  unsubscribeFromKpi,
   type KpiDefinition,
   type KpiPreset,
   type KpiResult,
+  type KpiSubscription,
 } from "@/lib/reporting";
 
 const presets: { value: KpiPreset; label: string }[] = [
@@ -25,11 +31,14 @@ const presets: { value: KpiPreset; label: string }[] = [
 
 export default function PortalReports() {
   const { activeProfitCenter } = useWorkspace();
+  const { session } = useAuth();
   const { toast } = useToast();
   const [definitions, setDefinitions] = useState<KpiDefinition[]>([]);
   const [results, setResults] = useState<Record<string, KpiResult>>({});
   const [preset, setPreset] = useState<KpiPreset>("7d");
   const [selectedKey, setSelectedKey] = useState<string | null>(null);
+  const [drawerKey, setDrawerKey] = useState<string | null>(null);
+  const [subscriptions, setSubscriptions] = useState<KpiSubscription[]>([]);
   const [loading, setLoading] = useState(false);
 
   const range = useMemo(() => buildDateRange(preset), [preset]);
@@ -60,13 +69,36 @@ export default function PortalReports() {
     };
   }, [activeProfitCenter, range, toast, selectedKey]);
 
+  const refreshSubs = async () => {
+    if (!activeProfitCenter) return;
+    try {
+      const subs = await fetchMySubscriptions(activeProfitCenter.id);
+      setSubscriptions(subs.filter((s) => s.userId === session?.user?.id));
+    } catch {
+      // non-fatal
+    }
+  };
+
+  useEffect(() => { void refreshSubs(); /* eslint-disable-next-line */ }, [activeProfitCenter?.id, session?.user?.id]);
+
   const selected = selectedKey ? results[selectedKey] : null;
   const selectedDef = selectedKey ? definitions.find((d) => d.key === selectedKey) : null;
+  const drawerDef = drawerKey ? definitions.find((d) => d.key === drawerKey) ?? null : null;
 
   const handleExport = () => {
     if (!selected || !selectedDef) return;
     const csv = exportKpiCsv(selectedDef.displayName, selectedDef.unit, selected.series);
     downloadCsv(`${selectedDef.key}-${preset}.csv`, csv);
+  };
+
+  const handleQuickUnsubscribe = async (id: string) => {
+    try {
+      await unsubscribeFromKpi(id);
+      await refreshSubs();
+      toast({ title: "Unsubscribed" });
+    } catch (err) {
+      toast({ title: "Unsubscribe failed", description: err instanceof Error ? err.message : "", variant: "destructive" });
+    }
   };
 
   if (!activeProfitCenter) {
@@ -99,11 +131,20 @@ export default function PortalReports() {
           {definitions.map((def) => {
             const r = results[def.key];
             const isSelected = selectedKey === def.key;
+            const subCount = subscriptions.filter((s) => s.kpiDefinitionId === def.id).length;
             return (
-              <button key={def.id} type="button" onClick={() => setSelectedKey(def.key)} className="text-left">
+              <button
+                key={def.id}
+                type="button"
+                onClick={() => { setSelectedKey(def.key); setDrawerKey(def.key); }}
+                className="text-left"
+              >
                 <Card className={isSelected ? "border-primary" : ""}>
                   <CardHeader className="pb-2">
-                    <CardDescription>{def.displayName}</CardDescription>
+                    <div className="flex items-center justify-between">
+                      <CardDescription>{def.displayName}</CardDescription>
+                      {subCount > 0 ? <Badge variant="secondary" className="text-[10px]">subscribed</Badge> : null}
+                    </div>
                     <CardTitle className="text-3xl">
                       {r?.value == null ? "—" : Number(r.value).toLocaleString(undefined, { maximumFractionDigits: 2 })}
                       {def.unit ? <span className="ml-1 text-sm font-normal text-muted-foreground">{def.unit}</span> : null}
@@ -114,6 +155,26 @@ export default function PortalReports() {
             );
           })}
         </div>
+      )}
+
+      {subscriptions.length > 0 && (
+        <Card>
+          <CardHeader>
+            <CardTitle className="text-base">My subscriptions</CardTitle>
+            <CardDescription>Scheduled KPI digests delivered by email.</CardDescription>
+          </CardHeader>
+          <CardContent className="space-y-2">
+            {subscriptions.map((s) => {
+              const def = definitions.find((d) => d.id === s.kpiDefinitionId);
+              return (
+                <div key={s.id} className="flex items-center justify-between rounded-md border border-border bg-panel px-3 py-2 text-sm">
+                  <span>{def?.displayName ?? s.kpiDefinitionId.slice(0, 8)} · <span className="text-muted-foreground">{s.cadence}</span></span>
+                  <Button size="sm" variant="ghost" onClick={() => void handleQuickUnsubscribe(s.id)}>Unsubscribe</Button>
+                </div>
+              );
+            })}
+          </CardContent>
+        </Card>
       )}
 
       {selectedDef && selected ? (
@@ -146,6 +207,17 @@ export default function PortalReports() {
           </CardContent>
         </Card>
       ) : null}
+
+      <KpiDetailDrawer
+        open={!!drawerKey}
+        onOpenChange={(o) => { if (!o) setDrawerKey(null); }}
+        definition={drawerDef}
+        profitCenterId={activeProfitCenter.id}
+        userId={session?.user?.id ?? ""}
+        range={range}
+        subscriptions={subscriptions}
+        onSubscriptionsChanged={refreshSubs}
+      />
     </div>
   );
 }
