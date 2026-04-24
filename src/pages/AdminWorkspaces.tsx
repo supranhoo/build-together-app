@@ -54,6 +54,15 @@ export function filterActiveProfitCenters<T extends { isActive: boolean }>(rows:
   return rows.filter((row) => row.isActive);
 }
 
+/** Keep the create form open instead of auto-restoring the active selection. */
+export function shouldAutoSelectActiveProfitCenter(input: {
+  activeProfitCenterId: string | null;
+  isCreateMode: boolean;
+  selectedId: string | null;
+}): boolean {
+  return Boolean(input.activeProfitCenterId) && !input.selectedId && !input.isCreateMode;
+}
+
 /** Detect a Postgres / PostgREST RLS rejection so we can show a friendly message. */
 function isRlsError(err: unknown): boolean {
   if (!(err instanceof Error)) return false;
@@ -104,7 +113,11 @@ export default function AdminWorkspaces() {
       return;
     }
 
-    if (activeProfitCenter && !selectedId && !isCreateMode) {
+    if (shouldAutoSelectActiveProfitCenter({
+      activeProfitCenterId: activeProfitCenter?.id ?? null,
+      isCreateMode,
+      selectedId,
+    })) {
       setSelectedId(activeProfitCenter.id);
       return;
     }
