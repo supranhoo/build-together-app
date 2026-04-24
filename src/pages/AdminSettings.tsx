@@ -1,95 +1,75 @@
-import { useState } from "react";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
-import { Textarea } from "@/components/ui/textarea";
-import { Button } from "@/components/ui/button";
-import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
-import { useWorkspace } from "@/hooks/use-workspace";
-import { useAuth } from "@/hooks/use-auth";
-import { useToast } from "@/hooks/use-toast";
-import { createAuditLog, upsertProfitCenterSetting } from "@/lib/workspace";
+import { useMemo } from "react";
+import { useSearchParams } from "react-router-dom";
+import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
+import AdminWorkspaces from "./AdminWorkspaces";
+import AdminModules from "./AdminModules";
+import AdminAccess from "./AdminAccess";
+import AdminRawSettings from "./AdminRawSettings";
+import AdminFurnaces from "./AdminFurnaces";
+import AdminShifts from "./AdminShifts";
+import AdminMaterials from "./AdminMaterials";
+import AdminStockLocations from "./AdminStockLocations";
+import AdminKpis from "./AdminKpis";
+import AdminReportDeliveries from "./AdminReportDeliveries";
+import AdminRoles from "./AdminRoles";
+import AdminAudit from "./AdminAudit";
+
+/**
+ * Admin Settings tabs — single entry point that hosts every administrative
+ * configuration section. Each tab simply renders the existing page component
+ * unchanged, so business logic, RLS, and audit behavior are preserved.
+ */
+export const ADMIN_SETTINGS_TABS = [
+  { key: "workspaces", label: "Profit Centers", Component: AdminWorkspaces },
+  { key: "modules", label: "Modules", Component: AdminModules },
+  { key: "access", label: "Access", Component: AdminAccess },
+  { key: "settings", label: "Settings", Component: AdminRawSettings },
+  { key: "furnaces", label: "Furnaces", Component: AdminFurnaces },
+  { key: "shifts", label: "Shifts", Component: AdminShifts },
+  { key: "materials", label: "Materials", Component: AdminMaterials },
+  { key: "stock-locations", label: "Stock Locations", Component: AdminStockLocations },
+  { key: "kpis", label: "KPIs", Component: AdminKpis },
+  { key: "report-deliveries", label: "Report Deliveries", Component: AdminReportDeliveries },
+  { key: "roles", label: "Roles & Permissions", Component: AdminRoles },
+  { key: "audit", label: "Audit", Component: AdminAudit },
+] as const;
+
+export type AdminSettingsTabKey = (typeof ADMIN_SETTINGS_TABS)[number]["key"];
+
+/** Pure helper — exported for unit tests. Falls back to the first tab when invalid. */
+export function resolveAdminSettingsTab(raw: string | null | undefined): AdminSettingsTabKey {
+  const valid = ADMIN_SETTINGS_TABS.map((t) => t.key);
+  return (valid as readonly string[]).includes(raw ?? "")
+    ? (raw as AdminSettingsTabKey)
+    : ADMIN_SETTINGS_TABS[0].key;
+}
 
 export default function AdminSettings() {
-  const { session } = useAuth();
-  const { toast } = useToast();
-  const { settings, activeProfitCenter, refreshWorkspace } = useWorkspace();
-  const [settingKey, setSettingKey] = useState("");
-  const [scope, setScope] = useState("workspace");
-  const [settingValue, setSettingValue] = useState('{\n  "label": ""\n}');
-  const [saving, setSaving] = useState(false);
+  const [params, setParams] = useSearchParams();
+  const active = useMemo(() => resolveAdminSettingsTab(params.get("tab")), [params]);
 
-  const handleSave = async () => {
-    if (!session?.user || !activeProfitCenter) return;
-
-    setSaving(true);
-    try {
-      const parsedValue = JSON.parse(settingValue) as Record<string, unknown>;
-      await upsertProfitCenterSetting({ profitCenterId: activeProfitCenter.id, settingKey, scope, settingValue: parsedValue });
-      await createAuditLog({
-        actorUserId: session.user.id,
-        profitCenterId: activeProfitCenter.id,
-        entityType: "profit_center_settings",
-        action: "setting.upserted",
-        changeSummary: { settingKey, scope },
-      });
-      await refreshWorkspace();
-      toast({ title: "Setting saved", description: "Workspace settings were updated." });
-      setSettingKey("");
-      setSettingValue('{\n  "label": ""\n}');
-    } catch (error) {
-      toast({ title: "Setting save failed", description: error instanceof Error ? error.message : "Ensure the JSON is valid.", variant: "destructive" });
-    } finally {
-      setSaving(false);
-    }
+  const handleChange = (next: string) => {
+    setParams((current) => {
+      const updated = new URLSearchParams(current);
+      updated.set("tab", next);
+      return updated;
+    }, { replace: true });
   };
 
   return (
-    <div className="grid gap-6 xl:grid-cols-[1fr_0.95fr]">
-      <Card className="border-border bg-card shadow-panel">
-        <CardHeader>
-          <CardTitle>Active workspace settings</CardTitle>
-        </CardHeader>
-        <CardContent>
-          <Table>
-            <TableHeader>
-              <TableRow>
-                <TableHead>Key</TableHead>
-                <TableHead>Scope</TableHead>
-                <TableHead>Value</TableHead>
-              </TableRow>
-            </TableHeader>
-            <TableBody>
-              {settings.map((setting) => (
-                <TableRow key={setting.id}>
-                  <TableCell className="font-medium text-foreground">{setting.settingKey}</TableCell>
-                  <TableCell>{setting.scope}</TableCell>
-                  <TableCell className="max-w-[420px] truncate">{JSON.stringify(setting.settingValue)}</TableCell>
-                </TableRow>
-              ))}
-              {settings.length === 0 && (
-                <TableRow>
-                  <TableCell colSpan={3} className="text-muted-foreground">No workspace settings stored yet.</TableCell>
-                </TableRow>
-              )}
-            </TableBody>
-          </Table>
-        </CardContent>
-      </Card>
-
-      <Card className="border-border bg-card shadow-panel">
-        <CardHeader>
-          <CardTitle>Upsert workspace setting</CardTitle>
-        </CardHeader>
-        <CardContent className="space-y-4">
-          <div className="space-y-2"><Label htmlFor="setting-key">Setting key</Label><Input id="setting-key" value={settingKey} onChange={(e) => setSettingKey(e.target.value)} placeholder="production.recovery_formula" /></div>
-          <div className="space-y-2"><Label htmlFor="setting-scope">Scope</Label><Input id="setting-scope" value={scope} onChange={(e) => setScope(e.target.value)} placeholder="workspace" /></div>
-          <div className="space-y-2"><Label htmlFor="setting-value">JSON value</Label><Textarea id="setting-value" className="min-h-[220px] font-mono text-xs" value={settingValue} onChange={(e) => setSettingValue(e.target.value)} /></div>
-          <Button onClick={() => void handleSave()} disabled={saving || !activeProfitCenter || !settingKey}>
-            {saving ? "Saving…" : "Save setting"}
-          </Button>
-        </CardContent>
-      </Card>
-    </div>
+    <Tabs value={active} onValueChange={handleChange} className="space-y-6">
+      <TabsList className="flex h-auto w-full flex-wrap justify-start gap-1 bg-muted/50 p-1">
+        {ADMIN_SETTINGS_TABS.map((tab) => (
+          <TabsTrigger key={tab.key} value={tab.key} className="data-[state=active]:bg-primary data-[state=active]:text-primary-foreground">
+            {tab.label}
+          </TabsTrigger>
+        ))}
+      </TabsList>
+      {ADMIN_SETTINGS_TABS.map(({ key, Component }) => (
+        <TabsContent key={key} value={key} className="mt-4">
+          <Component />
+        </TabsContent>
+      ))}
+    </Tabs>
   );
 }

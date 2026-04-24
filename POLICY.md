@@ -14,7 +14,7 @@
 ## Configuration Governance
 - Plant, profit center, module visibility, module labels, module order, and workspace-level process settings must be configuration-driven.
 - Hardcoded plant-specific workflow behavior is not allowed where backend configuration is expected.
-- Admin configuration may span multiple pages when separation improves scale, clarity, and security.
+- Admin configuration may span multiple pages when separation improves scale, clarity, and security. When grouped, all admin configuration sections must be reachable from a single `Admin Settings` entry point and individual sections must remain deep-linkable.
 - Workspace creation is open to admins and super admins. The creator of a new workspace is automatically assigned as a manager of that workspace so they can edit it; super admins continue to manage all workspaces globally.
 - Workspace creation UX must treat the persisted backend write as the source of truth and must not depend on inline visibility of the new workspace before creator assignment-based access has been applied.
 

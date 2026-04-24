@@ -1076,3 +1076,19 @@ describe("shouldAutoSelectActiveProfitCenter (create mode guard)", () => {
   });
 });
 
+
+import { resolveAdminSettingsTab, ADMIN_SETTINGS_TABS } from "@/pages/AdminSettings";
+
+describe("resolveAdminSettingsTab", () => {
+  it("returns the requested tab when it is a known key", () => {
+    expect(resolveAdminSettingsTab("furnaces")).toBe("furnaces");
+    expect(resolveAdminSettingsTab("stock-locations")).toBe("stock-locations");
+  });
+
+  it("falls back to the first tab for null, unknown, or empty values", () => {
+    const fallback = ADMIN_SETTINGS_TABS[0].key;
+    expect(resolveAdminSettingsTab(null)).toBe(fallback);
+    expect(resolveAdminSettingsTab("")).toBe(fallback);
+    expect(resolveAdminSettingsTab("does-not-exist")).toBe(fallback);
+  });
+});

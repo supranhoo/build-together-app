@@ -21,6 +21,13 @@ SteelFlow ERP now uses a configuration-first workspace foundation for steel and 
 - `audit_logs` stores immutable records for sensitive configuration activity.
 - Roles remain in `user_roles`; no second role system is introduced.
 
+## Admin Settings Consolidation
+- The admin sidebar exposes only two destinations: `Overview` and `Admin Settings`.
+- `/admin/settings` is the single host page for every administrative configuration section. It uses URL-driven tabs (`?tab=<key>`) so deep links are stable and bookmarkable.
+- Tab keys: `workspaces`, `modules`, `access`, `settings`, `furnaces`, `shifts`, `materials`, `stock-locations`, `kpis`, `report-deliveries`, `roles`, `audit`. Unknown keys fall back to the first tab.
+- Each tab renders the unchanged page component for that section, so RLS, audit logging, and validation behavior are preserved.
+- Legacy paths (`/admin/workspaces`, `/admin/furnaces`, …) remain registered and redirect to the equivalent `/admin/settings?tab=<key>` so existing bookmarks and audit entries continue to work.
+
 ## Security And Policy Alignment
 - Backend access rules restrict users to assigned workspaces.
 - Admins can manage configuration only within approved workspace scope.

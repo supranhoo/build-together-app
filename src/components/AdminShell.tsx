@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { BarChart3, ClipboardList, Clock, Cog, Factory, KeyRound, LayoutDashboard, LogOut, Mail, Map, Menu, Package, ScrollText, ShieldCheck, Warehouse } from "lucide-react";
+import { Cog, LayoutDashboard, LogOut, Menu } from "lucide-react";
 import { Outlet, useLocation } from "react-router-dom";
 import { BFCLLogo } from "@/components/BFCLLogo";
 import { NavLink } from "@/components/NavLink";
@@ -12,18 +12,7 @@ import { cn } from "@/lib/utils";
 
 export const adminNavItems = [
   { label: "Overview", to: "/admin", icon: LayoutDashboard },
-  { label: "Profit Centers", to: "/admin/workspaces", icon: Map },
-  { label: "Modules", to: "/admin/modules", icon: ClipboardList },
-  { label: "Access", to: "/admin/access", icon: ShieldCheck },
-  { label: "Settings", to: "/admin/settings", icon: Cog },
-  { label: "Furnaces", to: "/admin/furnaces", icon: Factory },
-  { label: "Shifts", to: "/admin/shifts", icon: Clock },
-  { label: "Materials", to: "/admin/materials", icon: Package },
-  { label: "Stock Locations", to: "/admin/stock-locations", icon: Warehouse },
-  { label: "KPIs", to: "/admin/kpis", icon: BarChart3 },
-  { label: "Report Deliveries", to: "/admin/report-deliveries", icon: Mail },
-  { label: "Roles & Permissions", to: "/admin/roles", icon: KeyRound },
-  { label: "Audit", to: "/admin/audit", icon: ScrollText },
+  { label: "Admin Settings", to: "/admin/settings", icon: Cog },
 ];
 
 export function AdminShell() {
