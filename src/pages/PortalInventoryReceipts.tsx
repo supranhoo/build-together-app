@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { Link } from "react-router-dom";
+
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -86,7 +86,6 @@ export default function PortalInventoryReceipts() {
         <CardHeader><CardTitle>New receipt</CardTitle></CardHeader>
         <CardContent className="space-y-3 text-sm text-muted-foreground">
           <p>Your role does not have permission to post inventory receipts in this workspace.</p>
-          <Button asChild variant="outline"><Link to="/portal/inventory">Back to stock</Link></Button>
         </CardContent>
       </Card>
     );
@@ -94,9 +93,8 @@ export default function PortalInventoryReceipts() {
 
   return (
     <Card className="border-border bg-card shadow-panel">
-      <CardHeader className="flex flex-row items-center justify-between">
+      <CardHeader>
         <CardTitle>New receipt — {activeProfitCenter.name}</CardTitle>
-        <Button asChild variant="outline"><Link to="/portal/inventory">Back</Link></Button>
       </CardHeader>
       <CardContent className="space-y-4">
         <div className="grid gap-4 sm:grid-cols-2">

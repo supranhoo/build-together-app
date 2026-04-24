@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from "react";
-import { Link } from "react-router-dom";
+
 import { MoreHorizontal } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -164,9 +164,8 @@ export default function PortalInventoryLedger() {
 
   return (
     <Card className="border-border bg-card shadow-panel">
-      <CardHeader className="flex flex-row items-center justify-between">
+      <CardHeader>
         <CardTitle>Inventory ledger — {activeProfitCenter.name}</CardTitle>
-        <Button asChild variant="outline"><Link to="/portal/inventory">Back</Link></Button>
       </CardHeader>
       <CardContent className="space-y-4">
         <div className="grid gap-3 sm:grid-cols-3">

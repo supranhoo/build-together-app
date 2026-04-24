@@ -1,5 +1,6 @@
-import { useEffect, useMemo, useState } from "react";
-import { ArrowDown, ArrowUp, BarChart3, Factory, Gauge, MapPin, Pin, Users, Warehouse } from "lucide-react";
+import { useEffect, useMemo, useRef, useState } from "react";
+import { Link } from "react-router-dom";
+import { ArrowDown, ArrowRight, ArrowUp, BarChart3, Factory, Gauge, MapPin, Pin, Users, Warehouse } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -31,6 +32,12 @@ export default function PortalOverview() {
   const [pinned, setPinned] = useState<PinnedKpiCard[]>([]);
   const [pinnedLoading, setPinnedLoading] = useState(false);
   const [reordering, setReordering] = useState(false);
+  const workspaceCardRef = useRef<HTMLDivElement | null>(null);
+  const modulesGridRef = useRef<HTMLDivElement | null>(null);
+
+  const scrollTo = (ref: React.RefObject<HTMLElement>) => {
+    ref.current?.scrollIntoView({ behavior: "smooth", block: "start" });
+  };
 
   useEffect(() => {
     if (!activeProfitCenter || !session?.user?.id) {
@@ -221,12 +228,12 @@ export default function PortalOverview() {
             </p>
           </CardHeader>
           <CardContent className="flex flex-wrap items-center gap-3">
-            <Button className="h-11 gap-2">Open workspace brief</Button>
-            <Button variant="outline" className="h-11">Review configured modules</Button>
+            <Button className="h-11 gap-2" onClick={() => scrollTo(workspaceCardRef)}>Open workspace brief</Button>
+            <Button variant="outline" className="h-11" onClick={() => scrollTo(modulesGridRef)}>Review configured modules</Button>
           </CardContent>
         </Card>
 
-        <Card className="border-border bg-card shadow-panel">
+        <Card ref={workspaceCardRef} className="border-border bg-card shadow-panel">
           <CardHeader>
             <CardTitle className="text-lg">Current workspace</CardTitle>
           </CardHeader>
@@ -264,19 +271,29 @@ export default function PortalOverview() {
         ))}
       </section>
 
-      <section className="grid gap-4 xl:grid-cols-3">
+      <section ref={modulesGridRef} className="grid gap-4 xl:grid-cols-3">
         {modules.map((module) => (
-          <Card key={module.id} className="border-border bg-card">
-            <CardHeader>
-              <div className="inline-flex w-fit rounded-full bg-primary/12 px-3 py-1 text-[11px] font-semibold uppercase tracking-[0.18em] text-primary">
-                Configured module
-              </div>
-              <CardTitle className="mt-3 text-xl">{module.navLabel}</CardTitle>
-            </CardHeader>
-            <CardContent>
-              <p className="text-sm leading-6 text-muted-foreground">{module.description || "Workspace-controlled module prepared for future operational delivery."}</p>
-            </CardContent>
-          </Card>
+          <Link
+            key={module.id}
+            to={`/portal/${module.routeSegment}`}
+            className="group rounded-lg outline-none ring-offset-background focus-visible:ring-2 focus-visible:ring-ring"
+            aria-label={`Open ${module.navLabel}`}
+          >
+            <Card className="h-full border-border bg-card transition-colors group-hover:border-primary/60 group-hover:bg-panel">
+              <CardHeader>
+                <div className="flex items-start justify-between gap-2">
+                  <div className="inline-flex w-fit rounded-full bg-primary/12 px-3 py-1 text-[11px] font-semibold uppercase tracking-[0.18em] text-primary">
+                    Configured module
+                  </div>
+                  <ArrowRight className="h-4 w-4 text-muted-foreground transition-transform group-hover:translate-x-0.5 group-hover:text-primary" aria-hidden="true" />
+                </div>
+                <CardTitle className="mt-3 text-xl">{module.navLabel}</CardTitle>
+              </CardHeader>
+              <CardContent>
+                <p className="text-sm leading-6 text-muted-foreground">{module.description || "Workspace-controlled module prepared for future operational delivery."}</p>
+              </CardContent>
+            </Card>
+          </Link>
         ))}
       </section>
     </div>

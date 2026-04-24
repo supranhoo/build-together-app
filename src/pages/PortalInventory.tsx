@@ -1,8 +1,9 @@
 import { useEffect, useMemo, useState } from "react";
-import { Link, Outlet, useLocation } from "react-router-dom";
+import { Link, Outlet, useLocation, useNavigate } from "react-router-dom";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
+import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { useWorkspace } from "@/hooks/use-workspace";
 import { useToast } from "@/hooks/use-toast";
 import {
@@ -15,16 +16,27 @@ import {
   type StockLocation,
 } from "@/lib/inventory";
 
+const INVENTORY_TABS: Array<{ value: string; label: string; path: string }> = [
+  { value: "stock", label: "Stock on hand", path: "/portal/inventory" },
+  { value: "receipts", label: "Receipts", path: "/portal/inventory/receipts" },
+  { value: "ledger", label: "Ledger", path: "/portal/inventory/ledger" },
+];
+
 export default function PortalInventory() {
   const { activeProfitCenter } = useWorkspace();
   const { toast } = useToast();
   const location = useLocation();
+  const navigate = useNavigate();
   const [materials, setMaterials] = useState<Material[]>([]);
   const [locations, setLocations] = useState<StockLocation[]>([]);
   const [ledger, setLedger] = useState<InventoryLedgerEntry[]>([]);
   const [loading, setLoading] = useState(false);
 
   const isNested = location.pathname !== "/portal/inventory";
+  const activeTab = useMemo(() => {
+    const match = INVENTORY_TABS.find((t) => t.path === location.pathname);
+    return match?.value ?? "stock";
+  }, [location.pathname]);
 
   useEffect(() => {
     if (!activeProfitCenter) return;
@@ -51,12 +63,34 @@ export default function PortalInventory() {
     return <Card><CardHeader><CardTitle>Inventory</CardTitle></CardHeader><CardContent className="text-muted-foreground">Select a workspace to view inventory.</CardContent></Card>;
   }
 
+  const tabStrip = (
+    <Tabs
+      value={activeTab}
+      onValueChange={(value) => {
+        const next = INVENTORY_TABS.find((t) => t.value === value);
+        if (next) navigate(next.path);
+      }}
+    >
+      <TabsList>
+        {INVENTORY_TABS.map((tab) => (
+          <TabsTrigger key={tab.value} value={tab.value}>{tab.label}</TabsTrigger>
+        ))}
+      </TabsList>
+    </Tabs>
+  );
+
   if (isNested) {
-    return <Outlet />;
+    return (
+      <div className="space-y-6">
+        {tabStrip}
+        <Outlet />
+      </div>
+    );
   }
 
   return (
     <div className="space-y-6">
+      {tabStrip}
       <Card className="border-border bg-card shadow-panel">
         <CardHeader className="flex flex-row items-center justify-between gap-4">
           <CardTitle>Stock on hand — {activeProfitCenter.name}</CardTitle>
