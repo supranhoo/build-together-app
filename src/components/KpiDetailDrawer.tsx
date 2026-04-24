@@ -149,7 +149,56 @@ export function KpiDetailDrawer({
     downloadCsv(`${definition.key}-drilldown.csv`, csv);
   };
 
-  const headers = drill && drill.rows[0] ? Object.keys(drill.rows[0]) : [];
+  const headers = useMemo(() => (drill && drill.rows[0] ? Object.keys(drill.rows[0]) : []), [drill]);
+
+  const rowAction = (row: Record<string, unknown>): PendingAction => {
+    if (drill?.source === "heat_logs" && canVoidHeat) {
+      const id = String(row.id ?? "");
+      if (!id) return null;
+      return { kind: "void_heat_log", id, label: String(row.heat_number ?? id) };
+    }
+    if (drill?.source === "material_consumption" && canReverseInv) {
+      // material_consumption rows do not directly reverse — only inventory_ledger does.
+      // We surface no action here to avoid confusion. Reversal is exposed elsewhere.
+      return null;
+    }
+    return null;
+  };
+
+  const refreshDrill = async () => {
+    if (!definition) return;
+    try {
+      const r = await fetchKpiDrilldown(profitCenterId, definition.key, range);
+      setDrill(r);
+    } catch {
+      /* ignored */
+    }
+  };
+
+  const confirmAction = async () => {
+    if (!pending) return;
+    if (reason.trim().length < 3) {
+      toast({ title: "Reason required", description: "Enter at least 3 characters.", variant: "destructive" });
+      return;
+    }
+    setBusy(true);
+    try {
+      if (pending.kind === "void_heat_log") {
+        await voidHeatLog(pending.id, reason.trim());
+        toast({ title: "Heat log voided" });
+      } else if (pending.kind === "reverse_inventory") {
+        await reverseInventoryLedger(pending.id, reason.trim());
+        toast({ title: "Inventory entry reversed" });
+      }
+      setPending(null);
+      setReason("");
+      await refreshDrill();
+    } catch (err) {
+      toast({ title: "Action failed", description: err instanceof Error ? err.message : "", variant: "destructive" });
+    } finally {
+      setBusy(false);
+    }
+  };
 
   return (
     <Sheet open={open} onOpenChange={onOpenChange}>
@@ -160,6 +209,33 @@ export function KpiDetailDrawer({
             Source rows for the selected window {definition.unit ? `· unit: ${definition.unit}` : ""}
           </SheetDescription>
         </SheetHeader>
+
+        {perWorkspace && perWorkspace.length > 0 && (
+          <div className="mt-4 rounded-md border border-border bg-panel p-4">
+            <p className="text-sm font-medium">Per-workspace breakdown</p>
+            <div className="mt-2 max-h-48 overflow-auto">
+              <Table>
+                <TableHeader>
+                  <TableRow>
+                    <TableHead className="text-xs">Workspace</TableHead>
+                    <TableHead className="text-right text-xs">Value</TableHead>
+                  </TableRow>
+                </TableHeader>
+                <TableBody>
+                  {perWorkspace.map((p) => (
+                    <TableRow key={p.profitCenterId}>
+                      <TableCell className="text-xs">{p.name}</TableCell>
+                      <TableCell className="text-right text-xs">
+                        {p.value == null ? "—" : Number(p.value).toLocaleString(undefined, { maximumFractionDigits: 2 })}
+                        {definition.unit ? <span className="ml-1 text-muted-foreground">{definition.unit}</span> : null}
+                      </TableCell>
+                    </TableRow>
+                  ))}
+                </TableBody>
+              </Table>
+            </div>
+          </div>
+        )}
 
         <div className="mt-4 rounded-md border border-border bg-panel p-4">
           <p className="text-sm font-medium">Email digest</p>
@@ -193,14 +269,36 @@ export function KpiDetailDrawer({
                 <TableHeader>
                   <TableRow>
                     {headers.map((h) => <TableHead key={h} className="whitespace-nowrap text-xs">{h}</TableHead>)}
+                    {(canVoidHeat && drill?.source === "heat_logs") ? <TableHead className="w-10" /> : null}
                   </TableRow>
                 </TableHeader>
                 <TableBody>
-                  {drill?.rows.map((r, i) => (
-                    <TableRow key={i}>
-                      {headers.map((h) => <TableCell key={h} className="whitespace-nowrap text-xs">{String(r[h] ?? "")}</TableCell>)}
-                    </TableRow>
-                  ))}
+                  {drill?.rows.map((r, i) => {
+                    const action = rowAction(r);
+                    return (
+                      <TableRow key={i}>
+                        {headers.map((h) => <TableCell key={h} className="whitespace-nowrap text-xs">{String(r[h] ?? "")}</TableCell>)}
+                        {(canVoidHeat && drill?.source === "heat_logs") ? (
+                          <TableCell className="w-10">
+                            {action ? (
+                              <DropdownMenu>
+                                <DropdownMenuTrigger asChild>
+                                  <Button size="icon" variant="ghost" aria-label="Row actions">
+                                    <MoreHorizontal className="h-4 w-4" />
+                                  </Button>
+                                </DropdownMenuTrigger>
+                                <DropdownMenuContent align="end">
+                                  <DropdownMenuItem onSelect={(e) => { e.preventDefault(); setPending(action); }}>
+                                    Void heat log
+                                  </DropdownMenuItem>
+                                </DropdownMenuContent>
+                              </DropdownMenu>
+                            ) : null}
+                          </TableCell>
+                        ) : null}
+                      </TableRow>
+                    );
+                  })}
                   {!loading && drill && drill.rows.length === 0 && (
                     <TableRow><TableCell colSpan={Math.max(headers.length, 1)} className="text-center text-muted-foreground">No rows in this window.</TableCell></TableRow>
                   )}
@@ -212,6 +310,31 @@ export function KpiDetailDrawer({
             <pre className="max-h-80 overflow-auto rounded-md border border-border bg-panel p-3 text-xs">{JSON.stringify(definition.formula, null, 2)}</pre>
           </TabsContent>
         </Tabs>
+
+        <AlertDialog open={!!pending} onOpenChange={(o) => { if (!o) { setPending(null); setReason(""); } }}>
+          <AlertDialogContent>
+            <AlertDialogHeader>
+              <AlertDialogTitle>
+                {pending?.kind === "void_heat_log" ? `Void heat log ${pending?.label}?` : "Reverse entry?"}
+              </AlertDialogTitle>
+              <AlertDialogDescription>
+                This action is auditable and cannot be undone. Voided heat logs are excluded from KPIs but retained for audit.
+              </AlertDialogDescription>
+            </AlertDialogHeader>
+            <Textarea
+              placeholder="Reason (required, min 3 characters)"
+              value={reason}
+              onChange={(e) => setReason(e.target.value)}
+              rows={3}
+            />
+            <AlertDialogFooter>
+              <AlertDialogCancel disabled={busy}>Cancel</AlertDialogCancel>
+              <AlertDialogAction disabled={busy || reason.trim().length < 3} onClick={(e) => { e.preventDefault(); void confirmAction(); }}>
+                Confirm
+              </AlertDialogAction>
+            </AlertDialogFooter>
+          </AlertDialogContent>
+        </AlertDialog>
       </SheetContent>
     </Sheet>
   );
