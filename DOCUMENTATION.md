@@ -239,3 +239,18 @@ SteelFlow ERP now uses a configuration-first workspace foundation for steel and 
 - Audit semantics: each pin in a bulk operation produces its own `audit_logs` row (`entity_type='kpi_pin'`, `action IN ('share','unshare')`), and all rows from the same bulk apply share a `batch_id` UUID inside `change_summary`. This mirrors `bulk_void_heat_logs` and lets admins reconstruct a bulk action from the audit trail without losing per-pin granularity.
 - Tests added (`src/test/example.test.tsx`, Phase 12 block): four cases covering `diffSharedPinSelection` — empty current, identical sets, partial overlap (current=[A,B], desired=[B,C] → toShare=[C], toUnshare=[A]), and order preservation.
 - Deferred (out of scope for Phase 12): per-user "hide this shared pin", role-targeted shared pins, drag-and-drop reorder on the Overview surface itself, automatic propagation of defaults on workspace updates or user assignment changes (intentional — see POLICY.md Phase 12 clause), bulk operations across multiple workspaces in one action.
+
+## Navigation Shell
+- Both `PortalShell` and `AdminShell` now use the same navigation contract:
+  - **Desktop (≥lg)**: persistent sidebar. Portal sidebar can collapse to an icon-only rail (`w-24`); each collapsed icon has a `Tooltip` with the link label and an `aria-label`. Admin sidebar stays expanded (its 13 items don't fit in a usable mini-rail).
+  - **Mobile (<lg)**: the sidebar is hidden; the header exposes a `Sheet`-based drawer triggered by a `Menu` button with `aria-expanded`. The drawer renders the exact same nav links so every route remains reachable on phone/tablet.
+- Header breadcrumbs are produced by the shared `src/components/Breadcrumbs.tsx` helper:
+  - `buildBreadcrumbs(pathname, labelOverrides?)` — pure function. Splits `pathname` on `/`, maps each segment through a static label map (e.g. `inventory → "Inventory"`, `stock-locations → "Stock Locations"`), falls back to a humanized slug, and returns crumb objects with `href` for every segment except the last (which becomes an unlinked current page).
+  - `<Breadcrumbs pathname={...} labelOverrides={...} />` — renders the crumbs through `@/components/ui/breadcrumb`. `PortalShell` passes module nav labels (`{ [routeSegment]: navLabel }`) so the crumb for a configured module always reflects its admin-defined name.
+- Sub-route navigation inside a section uses a persistent `Tabs` strip rendered by the parent route. `PortalInventory` exposes Stock on hand / Receipts / Ledger tabs in both the root view and every nested view; the children no longer render their own "Back" buttons.
+- `PortalOverview` makes the configured-module cards real navigation entry points: each card is wrapped in a `Link` to `/portal/${routeSegment}`. The "Open workspace brief" and "Review configured modules" buttons now scroll to the relevant in-page section instead of being decorative.
+- `aria-current="page"` on the active link is provided automatically by `react-router-dom`'s `NavLink`; the wrapper in `src/components/NavLink.tsx` does not override it.
+- The header `Switch workspace` button is reachable on every breakpoint: an icon-only variant is rendered below `md`.
+- The header search input is intentionally `disabled` with placeholder "Search (coming soon)" — kept as a visible affordance without misleading users that it works.
+- Tests for `buildBreadcrumbs` live in `src/test/example.test.tsx` ("Breadcrumbs helper" describe block): linked-vs-unlinked behavior, hyphen humanization, label overrides, and root-path empty result.
+
