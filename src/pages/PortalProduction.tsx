@@ -365,9 +365,44 @@ export default function PortalProduction() {
             </Select>
             <Input type="date" value={filterDate} onChange={(e) => setFilterDate(e.target.value)} />
           </div>
+
+          {canVoid && selectedIds.size > 0 && (
+            <div className="flex items-center justify-between rounded-md border border-border bg-panel px-4 py-2">
+              <p className="text-sm">{selectedIds.size} selected</p>
+              <div className="flex items-center gap-2">
+                <Button size="sm" variant="ghost" onClick={() => setSelectedIds(new Set())}>Clear</Button>
+                <Button size="sm" variant="destructive" onClick={() => setVoidOpen(true)}>
+                  Void {selectedIds.size} selected
+                </Button>
+              </div>
+            </div>
+          )}
+
           <Table>
             <TableHeader>
               <TableRow>
+                {canVoid && (
+                  <TableHead className="w-10">
+                    <Checkbox
+                      checked={
+                        logs.filter((l) => !l.isVoided).length > 0 &&
+                        logs.filter((l) => !l.isVoided).every((l) => selectedIds.has(l.id))
+                          ? true
+                          : selectedIds.size > 0
+                          ? "indeterminate"
+                          : false
+                      }
+                      onCheckedChange={(v) => {
+                        if (v === true) {
+                          setSelectedIds(new Set(logs.filter((l) => !l.isVoided).map((l) => l.id)));
+                        } else {
+                          setSelectedIds(new Set());
+                        }
+                      }}
+                      aria-label="Select all non-voided rows"
+                    />
+                  </TableHead>
+                )}
                 <TableHead>Heat #</TableHead>
                 <TableHead>Furnace</TableHead>
                 <TableHead>Shift</TableHead>
@@ -380,23 +415,44 @@ export default function PortalProduction() {
             <TableBody>
               {logs.map((log) => {
                 const editable = canEditHeatLogClient(grants, profile?.role, log);
+                const voided = !!log.isVoided;
                 return (
-                  <TableRow key={log.id}>
-                    <TableCell className="font-medium">{log.heatNumber}</TableCell>
+                  <TableRow key={log.id} className={voided ? "opacity-60" : ""}>
+                    {canVoid && (
+                      <TableCell className="w-10">
+                        {!voided ? (
+                          <Checkbox
+                            checked={selectedIds.has(log.id)}
+                            onCheckedChange={(v) => {
+                              setSelectedIds((prev) => {
+                                const next = new Set(prev);
+                                if (v === true) next.add(log.id); else next.delete(log.id);
+                                return next;
+                              });
+                            }}
+                            aria-label={`Select heat ${log.heatNumber}`}
+                          />
+                        ) : null}
+                      </TableCell>
+                    )}
+                    <TableCell className="font-medium">
+                      {log.heatNumber}
+                      {voided ? <span className="ml-2 text-xs text-destructive">(voided)</span> : null}
+                    </TableCell>
                     <TableCell>{furnaceLabel(log.furnaceId)}</TableCell>
                     <TableCell>{shiftLabel(log.shiftId)}</TableCell>
                     <TableCell>{new Date(log.tapTime).toLocaleString()}</TableCell>
                     <TableCell>{log.weightMt ?? "—"}</TableCell>
                     <TableCell>{log.powerMwh ?? "—"}</TableCell>
                     <TableCell>
-                      <Button size="sm" variant="outline" disabled={!editable} onClick={() => openEdit(log)}>Edit</Button>
+                      <Button size="sm" variant="outline" disabled={!editable || voided} onClick={() => openEdit(log)}>Edit</Button>
                     </TableCell>
                   </TableRow>
                 );
               })}
               {logs.length === 0 && !loading && (
                 <TableRow>
-                  <TableCell colSpan={7} className="text-muted-foreground">No heat logs in scope.</TableCell>
+                  <TableCell colSpan={canVoid ? 8 : 7} className="text-muted-foreground">No heat logs in scope.</TableCell>
                 </TableRow>
               )}
             </TableBody>
@@ -406,6 +462,48 @@ export default function PortalProduction() {
               An admin must configure at least one furnace and shift in this workspace before heat logs can be recorded.
             </p>
           )}
+
+          <AlertDialog open={voidOpen} onOpenChange={(o) => { if (!o) { setVoidOpen(false); setVoidReason(""); } }}>
+            <AlertDialogContent>
+              <AlertDialogHeader>
+                <AlertDialogTitle>Void {selectedIds.size} heat log{selectedIds.size === 1 ? "" : "s"}?</AlertDialogTitle>
+                <AlertDialogDescription>
+                  Voided heat logs are excluded from KPIs but retained for audit. The same reason is recorded against every selected row, grouped by a shared batch identifier. If any row fails, none will be voided.
+                </AlertDialogDescription>
+              </AlertDialogHeader>
+              <Textarea
+                placeholder="Reason (required, min 3 characters)"
+                value={voidReason}
+                onChange={(e) => setVoidReason(e.target.value)}
+                rows={3}
+              />
+              <AlertDialogFooter>
+                <AlertDialogCancel disabled={voiding}>Cancel</AlertDialogCancel>
+                <AlertDialogAction
+                  disabled={voiding || voidReason.trim().length < 3}
+                  onClick={async (ev) => {
+                    ev.preventDefault();
+                    setVoiding(true);
+                    try {
+                      const result = await bulkVoidHeatLogs(Array.from(selectedIds), voidReason.trim());
+                      if (!result.ok) throw new Error(result.error ?? "bulk_failed");
+                      toast({ title: `Voided ${result.succeeded ?? selectedIds.size} heat log(s)` });
+                      setVoidOpen(false);
+                      setVoidReason("");
+                      setSelectedIds(new Set());
+                      await loadAll();
+                    } catch (err) {
+                      toast({ title: "Bulk void failed", description: err instanceof Error ? err.message : "", variant: "destructive" });
+                    } finally {
+                      setVoiding(false);
+                    }
+                  }}
+                >
+                  Confirm
+                </AlertDialogAction>
+              </AlertDialogFooter>
+            </AlertDialogContent>
+          </AlertDialog>
         </CardContent>
       </Card>
     </div>
