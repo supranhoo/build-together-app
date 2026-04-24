@@ -283,6 +283,12 @@ export default function PortalReports() {
           <p className="text-sm text-muted-foreground">Aggregations driven by workspace formulas. Configure under Admin → KPIs.</p>
         </div>
         <div className="flex items-center gap-3">
+          {canShare && (
+            <Button size="sm" variant="outline" onClick={() => setBulkOpen(true)}>
+              <Users className="mr-1.5 h-3.5 w-3.5" />
+              Bulk share
+            </Button>
+          )}
           {canConsolidate && (
             <ToggleGroup
               type="single"
@@ -460,6 +466,20 @@ export default function PortalReports() {
         onSubscriptionsChanged={refreshSubs}
         perWorkspace={drawerConsolidated?.perWorkspace}
       />
+      {canShare && (
+        <SharedPinBulkDialog
+          open={bulkOpen}
+          onOpenChange={setBulkOpen}
+          title="Bulk share KPIs with this workspace"
+          description="Toggle KPIs on or off and reorder them. Changes apply to every member of this workspace."
+          definitions={definitions}
+          initialSelectedIds={initialBulkSelection}
+          enableReorder
+          saving={bulkSaving}
+          applyLabel="Apply changes"
+          onApply={handleBulkApply}
+        />
+      )}
     </div>
   );
 }
