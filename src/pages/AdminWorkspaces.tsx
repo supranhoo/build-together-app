@@ -60,7 +60,7 @@ function isRlsError(err: unknown): boolean {
 export default function AdminWorkspaces() {
   const { session } = useAuth();
   const { toast } = useToast();
-  const { activeProfitCenter, allProfitCenters, isSuperAdmin, refreshWorkspace } = useWorkspace();
+  const { activeProfitCenter, allProfitCenters, isAdmin, isSuperAdmin, refreshWorkspace } = useWorkspace();
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [form, setForm] = useState(emptyForm);
   const [saving, setSaving] = useState(false);
@@ -73,8 +73,10 @@ export default function AdminWorkspaces() {
   );
 
   const isCreating = !selectedWorkspace;
-  const canCreate = isSuperAdmin;
-  // Hide the create form entirely for non-super-admins to avoid a dead form.
+  // Workspace creation is open to admins and super admins (RLS mirrors this).
+  // The creator is auto-assigned as a manager via DB trigger so they can edit it afterwards.
+  const canCreate = isAdmin;
+  // Hide the create form entirely if the user has no creation permission.
   const showForm = !isCreating || canCreate;
 
   useEffect(() => {
