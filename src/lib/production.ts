@@ -186,8 +186,8 @@ export async function createHeatLog(input: {
   powerMwh: number | null;
   notes: string | null;
   createdBy: string;
-}) {
-  const { error } = await client.from("heat_logs").insert({
+}): Promise<string> {
+  const { data, error } = await client.from("heat_logs").insert({
     profit_center_id: input.profitCenterId,
     furnace_id: input.furnaceId,
     shift_id: input.shiftId,
@@ -197,8 +197,9 @@ export async function createHeatLog(input: {
     power_mwh: input.powerMwh,
     notes: input.notes,
     created_by: input.createdBy,
-  });
+  }).select("id").single();
   if (error) throw error;
+  return (data as any).id as string;
 }
 
 export async function updateHeatLog(id: string, input: {

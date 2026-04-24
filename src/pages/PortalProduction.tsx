@@ -63,6 +63,8 @@ export default function PortalProduction() {
   const [shifts, setShifts] = useState<Shift[]>([]);
   const [logs, setLogs] = useState<HeatLog[]>([]);
   const [grants, setGrants] = useState<PermissionGrant[]>([]);
+  const [materials, setMaterials] = useState<Material[]>([]);
+  const [stockLocations, setStockLocations] = useState<StockLocation[]>([]);
   const [filterFurnace, setFilterFurnace] = useState<string>("all");
   const [filterShift, setFilterShift] = useState<string>("all");
   const [filterDate, setFilterDate] = useState<string>("");
@@ -70,6 +72,7 @@ export default function PortalProduction() {
   const [createOpen, setCreateOpen] = useState(false);
   const [editing, setEditing] = useState<HeatLog | null>(null);
   const [form, setForm] = useState<FormState>(emptyForm);
+  const [consumption, setConsumption] = useState<ConsumptionRow[]>([]);
   const [saving, setSaving] = useState(false);
   const [loading, setLoading] = useState(false);
 
@@ -77,7 +80,7 @@ export default function PortalProduction() {
     if (!activeProfitCenter) return;
     setLoading(true);
     try {
-      const [f, s, l, g] = await Promise.all([
+      const [f, s, l, g, m, sl] = await Promise.all([
         fetchFurnaces(activeProfitCenter.id),
         fetchShifts(activeProfitCenter.id),
         fetchHeatLogs(activeProfitCenter.id, {
@@ -86,11 +89,15 @@ export default function PortalProduction() {
           date: filterDate || undefined,
         }),
         fetchPermissionGrants(),
+        fetchMaterials(activeProfitCenter.id),
+        fetchStockLocations(activeProfitCenter.id),
       ]);
       setFurnaces(f);
       setShifts(s);
       setLogs(l);
       setGrants(g);
+      setMaterials(m);
+      setStockLocations(sl);
     } catch (error) {
       toast({ title: "Failed to load production data", description: error instanceof Error ? error.message : "Try again.", variant: "destructive" });
     } finally {
@@ -104,6 +111,7 @@ export default function PortalProduction() {
   }, [activeProfitCenter?.id, filterFurnace, filterShift, filterDate]);
 
   const canCreate = useMemo(() => userRoleAllows(grants, profile?.role, "heat_log", "create"), [grants, profile?.role]);
+  const canConsume = useMemo(() => userRoleAllows(grants, profile?.role, "inventory", "consume"), [grants, profile?.role]);
 
   const furnaceLabel = (id: string) => furnaces.find((f) => f.id === id)?.code ?? "—";
   const shiftLabel = (id: string) => shifts.find((s) => s.id === id)?.code ?? "—";
@@ -111,6 +119,7 @@ export default function PortalProduction() {
   const openCreate = () => {
     setEditing(null);
     setForm({ ...emptyForm, tapTime: nowLocalForInput() });
+    setConsumption([]);
     setCreateOpen(true);
   };
 
