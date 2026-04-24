@@ -5,6 +5,7 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Badge } from "@/components/ui/badge";
+import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group";
 import { useToast } from "@/hooks/use-toast";
 import { useWorkspace } from "@/hooks/use-workspace";
 import { useAuth } from "@/hooks/use-auth";
@@ -12,11 +13,13 @@ import { KpiDetailDrawer } from "@/components/KpiDetailDrawer";
 import {
   buildDateRange,
   computeKpi,
+  computeKpiConsolidated,
   downloadCsv,
   exportKpiCsv,
   fetchKpiDefinitions,
   fetchMySubscriptions,
   unsubscribeFromKpi,
+  type KpiConsolidatedResult,
   type KpiDefinition,
   type KpiPreset,
   type KpiResult,
@@ -28,6 +31,8 @@ const presets: { value: KpiPreset; label: string }[] = [
   { value: "7d", label: "Last 7 days" },
   { value: "30d", label: "Last 30 days" },
 ];
+
+type ViewMode = "workspace" | "consolidated";
 
 export default function PortalReports() {
   const { activeProfitCenter } = useWorkspace();
