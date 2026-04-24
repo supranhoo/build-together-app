@@ -8,7 +8,7 @@ import { PortalShell } from "@/components/PortalShell";
 import AdminAudit from "@/pages/AdminAudit";
 import { canEditHeatLogClient, describeRule, userRoleAllows, type PermissionGrant } from "@/lib/permissions";
 import { computeStockBalances, type InventoryLedgerEntry } from "@/lib/inventory";
-import { buildDateRange, enforceMaxPins, exportKpiCsv, exportDrilldownCsv, filterDeliveriesByStatus, KPI_PIN_CAP, reorderPins, sumPerWorkspace, type KpiPerWorkspace, type KpiPin, type ReportDelivery } from "@/lib/reporting";
+import { buildDateRange, enforceMaxPins, exportKpiCsv, exportDrilldownCsv, filterDeliveriesByStatus, forecastLinear, KPI_PIN_CAP, reorderPins, sumPerWorkspace, type KpiPerWorkspace, type KpiPin, type KpiSeriesPoint, type ReportDelivery } from "@/lib/reporting";
 
 const navigateMock = vi.fn();
 const logoutMock = vi.fn();
