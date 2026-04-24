@@ -36,6 +36,15 @@ export function deriveSlug(name: string): string {
     .replace(/^-+|-+$/g, "");
 }
 
+/**
+ * Whether the current user may create a new workspace.
+ * Pure helper — exported for unit tests. Mirrors the RLS INSERT policy on `profit_centers`
+ * which allows users with role `admin` or `super_admin`.
+ */
+export function canCreateWorkspace(role: string | null | undefined): boolean {
+  return role === "admin" || role === "super_admin";
+}
+
 /** Detect a Postgres / PostgREST RLS rejection so we can show a friendly message. */
 function isRlsError(err: unknown): boolean {
   if (!(err instanceof Error)) return false;
@@ -51,7 +60,7 @@ function isRlsError(err: unknown): boolean {
 export default function AdminWorkspaces() {
   const { session } = useAuth();
   const { toast } = useToast();
-  const { activeProfitCenter, allProfitCenters, isSuperAdmin, refreshWorkspace } = useWorkspace();
+  const { activeProfitCenter, allProfitCenters, isAdmin, refreshWorkspace } = useWorkspace();
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [form, setForm] = useState(emptyForm);
   const [saving, setSaving] = useState(false);
@@ -64,8 +73,10 @@ export default function AdminWorkspaces() {
   );
 
   const isCreating = !selectedWorkspace;
-  const canCreate = isSuperAdmin;
-  // Hide the create form entirely for non-super-admins to avoid a dead form.
+  // Workspace creation is open to admins and super admins (RLS mirrors this).
+  // The creator is auto-assigned as a manager via DB trigger so they can edit it afterwards.
+  const canCreate = isAdmin;
+  // Hide the create form entirely if the user has no creation permission.
   const showForm = !isCreating || canCreate;
 
   useEffect(() => {
@@ -124,8 +135,8 @@ export default function AdminWorkspaces() {
           changeSummary: { code: updated.code, slug: updated.slug, name: updated.name, isActive: updated.isActive },
         });
       } else {
-        if (!isSuperAdmin) {
-          throw new Error("Only super admins can create new workspaces.");
+        if (!canCreate) {
+          throw new Error("You don't have permission to create new workspaces.");
         }
         const created = await createProfitCenter(form);
         await createAuditLog({
@@ -208,8 +219,8 @@ export default function AdminWorkspaces() {
             variant="outline"
             className="mt-4"
             onClick={() => { setSelectedId(null); setForm(emptyForm); setSlugTouched(false); }}
-            disabled={!isSuperAdmin}
-            title={!isSuperAdmin ? "Only super admins can create workspaces" : undefined}
+            disabled={!canCreate}
+            title={!canCreate ? "Admins and super admins can create workspaces" : undefined}
           >
             New workspace
           </Button>
@@ -225,7 +236,7 @@ export default function AdminWorkspaces() {
             <div className="rounded-md border border-border bg-panel px-4 py-3 text-sm text-muted-foreground">
               <p className="font-medium text-foreground">Creation restricted</p>
               <p className="mt-1">
-                Only super admins can create new workspaces. Select an existing workspace from the catalog on the left to edit its details.
+                You don't have permission to create new workspaces. Select an existing workspace from the catalog on the left to view its details.
               </p>
             </div>
           )}

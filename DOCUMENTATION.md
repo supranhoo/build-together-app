@@ -33,7 +33,7 @@ SteelFlow ERP now uses a configuration-first workspace foundation for steel and 
 - Route flow: `/ -> /login -> /profit-centers -> /portal -> /portal/{configured-module}` and `/admin/*`.
 - Sidebar navigation is driven from configured modules, with overview retained as the fixed portal entry.
 - Admin configuration is intentionally split across multiple pages: overview, workspaces, modules, access, settings, and audit.
-- Workspace management now supports editing existing workspaces and super-admin-only workspace creation.
+- Workspace management supports editing existing workspaces and admin/super-admin workspace creation. The creator is auto-assigned as a manager of the new workspace via a database trigger so subsequent edits succeed under the existing per-workspace authorization.
 - Module management now persists enablement, naming, ordering, route segments, and default entry behavior.
 - Access management now supports assigning users to the active workspace from the admin UI.
 - Settings management now persists JSON-based workspace settings from the admin UI.
@@ -139,6 +139,7 @@ SteelFlow ERP now uses a configuration-first workspace foundation for steel and 
 - 2026-04-24: Implemented Phase 6 — KPI drill-down drawer with row-level CSV export, self-managed subscriptions (`kpi_subscriptions`), immutable `report_deliveries` log, `compute_kpi_drilldown` SQL function, scheduled `scheduled-report-digest` edge function (Resend), and admin delivery viewer.
 - 2026-04-24: Implemented Phase 7 — cross-workspace KPI consolidation (`compute_kpi_consolidated`), heat log soft-void (`is_voided` + `void_reason`, excluded from KPIs, audited), inventory ledger reversal (`reverse_inventory_ledger`, additive entry preserving immutability), and `permission_grants` resources `heat_log/void` + `inventory/void`.
 - 2026-04-24: Workspace create form (`/admin/workspaces`) — Slug auto-derived from Name (overridable), required-field markers + helper text, RLS error messages humanized, and the create form is hidden for non–super-admins so the policy is visible instead of presenting a dead button. Pure helper `deriveSlug` covered by 4 unit tests.
+- 2026-04-24: Workspace creation widened to admins. RLS on `profit_centers` split into separate INSERT/UPDATE/DELETE policies: INSERT now allows `admin` or `super_admin`; UPDATE still requires `super_admin` or assigned manager (`can_manage_profit_center`); DELETE is super-admin-only. New `AFTER INSERT` trigger `assign_creator_to_new_workspace` (SECURITY DEFINER) inserts a `user_profit_centers` row for the creator so they can manage the workspace they just created. UI: `/admin/workspaces` `New workspace` button and create form are now enabled for admins; `canCreateWorkspace` helper exported and unit-tested.
 
 
 ## Phase 6 — Drill-down, Subscriptions, Scheduled Digests
