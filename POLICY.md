@@ -62,6 +62,7 @@
 - 2026-04-24: Added Inventory Data Governance — material/location master data ownership, immutable inventory ledger, configurable RBAC for inventory actions via `permission_grants`, and heat-linked consumption traceability.
 - 2026-04-24: Added KPI Reporting Governance — global vs workspace KPI scope, super-admin ownership of global defaults, and `compute_kpi` as the single source of truth for KPI values.
 - 2026-04-24: Added Scheduled Reports Governance.
+- 2026-04-24: Added Void & Reversal Governance and Cross-Workspace Consolidation rules (Phase 7).
 
 ## Scheduled Reports Governance
 - KPI subscriptions are self-managed: a user may only create, read, update, or delete their own subscription, and only for workspaces they belong to.
@@ -70,3 +71,16 @@
 - The scheduled dispatcher must be idempotent per `(user, kpi, cadence, day)` to prevent duplicate sends. Duplicate runs must record a `skipped` row, never a second `sent` row for the same window.
 - Drill-down access reuses the same workspace authorization as the KPI itself; no new data exposure is permitted through drill-down.
 - Email content must contain only the KPI value, unit, window, and display name — never raw row data — because email is an out-of-band channel without RLS enforcement.
+
+## Void & Reversal Governance
+- Permission to void a heat log or reverse an inventory ledger entry is governed exclusively by `permission_grants` rows (`resource = 'heat_log'`, `action = 'void'` and `resource = 'inventory'`, `action = 'void'`). Void capability must never be hardcoded in the UI or in code.
+- Default policy: only super admins may void or reverse. Workspace admins, managers, operators, analysts, and users default to `never` and may be elevated only by super admins via the configurable role matrix.
+- A non-empty reason is mandatory on every void and every reversal. The reason is persisted in `heat_logs.void_reason` (heat logs) and `inventory_ledger.notes` (reversals) and is also written to the corresponding immutable audit trail.
+- Heat log voids are soft: the row is retained with `is_voided = true`, `void_reason`, `voided_at`, and `voided_by`. Voided rows are excluded from every KPI aggregation (`_compute_kpi_aggregate`, `_compute_kpi_series`) but remain visible in audit and drill-down history. The original row is never deleted.
+- Inventory ledger reversals are additive: a new row is inserted with the negated quantity, `reference_type = 'reversal'`, and `reference_id` pointing at the original ledger row. The original row is never modified or deleted; the inventory ledger remains immutable and append-only.
+- Every void appends a `heat_log_events` row plus an `audit_logs` entry; every reversal appends an `audit_logs` entry. These trails are not editable or deletable through standard application flows.
+
+## Cross-Workspace Consolidation Governance
+- Consolidated KPI views (`compute_kpi_consolidated`) must enumerate only the workspaces the calling user can access via `has_profit_center_access`. The function must not bypass workspace RLS or expose data from workspaces the user is not assigned to.
+- The consolidated view toggle must only be exposed in the UI when the user has two or more active workspace assignments. Single-workspace users must not see a consolidated option.
+- Per-workspace breakdown rows must reuse the same KPI evaluation path (`compute_kpi`) as the single-workspace view, so a value shown in consolidated mode always matches the value shown when entering that workspace directly.
