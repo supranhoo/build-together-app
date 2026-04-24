@@ -219,8 +219,8 @@ export default function AdminWorkspaces() {
             variant="outline"
             className="mt-4"
             onClick={() => { setSelectedId(null); setForm(emptyForm); setSlugTouched(false); }}
-            disabled={!isSuperAdmin}
-            title={!isSuperAdmin ? "Only super admins can create workspaces" : undefined}
+            disabled={!canCreate}
+            title={!canCreate ? "Admins and super admins can create workspaces" : undefined}
           >
             New workspace
           </Button>
