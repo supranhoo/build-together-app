@@ -54,6 +54,15 @@ export function filterActiveProfitCenters<T extends { isActive: boolean }>(rows:
   return rows.filter((row) => row.isActive);
 }
 
+/** Keep the create form open instead of auto-restoring the active selection. */
+export function shouldAutoSelectActiveProfitCenter(input: {
+  activeProfitCenterId: string | null;
+  isCreateMode: boolean;
+  selectedId: string | null;
+}): boolean {
+  return Boolean(input.activeProfitCenterId) && !input.selectedId && !input.isCreateMode;
+}
+
 /** Detect a Postgres / PostgREST RLS rejection so we can show a friendly message. */
 function isRlsError(err: unknown): boolean {
   if (!(err instanceof Error)) return false;
@@ -71,6 +80,7 @@ export default function AdminWorkspaces() {
   const { toast } = useToast();
   const { activeProfitCenter, allProfitCenters, isAdmin, refreshWorkspace } = useWorkspace();
   const [selectedId, setSelectedId] = useState<string | null>(null);
+  const [isCreateMode, setIsCreateMode] = useState(false);
   const [form, setForm] = useState(emptyForm);
   const [saving, setSaving] = useState(false);
   const [copyDefaults, setCopyDefaults] = useState(false);
@@ -81,7 +91,7 @@ export default function AdminWorkspaces() {
     [allProfitCenters, selectedId],
   );
 
-  const isCreating = !selectedWorkspace;
+  const isCreating = isCreateMode || !selectedWorkspace;
   // Workspace creation is open to admins and super admins (RLS mirrors this).
   // The creator is auto-assigned as a manager via DB trigger so they can edit it afterwards.
   const canCreate = isAdmin;
@@ -103,16 +113,20 @@ export default function AdminWorkspaces() {
       return;
     }
 
-    if (activeProfitCenter && !selectedId) {
+    if (shouldAutoSelectActiveProfitCenter({
+      activeProfitCenterId: activeProfitCenter?.id ?? null,
+      isCreateMode,
+      selectedId,
+    })) {
       setSelectedId(activeProfitCenter.id);
       return;
     }
 
-    if (!selectedId) {
+    if (!selectedId && isCreateMode) {
       setForm(emptyForm);
       setSlugTouched(false);
     }
-  }, [activeProfitCenter, selectedId, selectedWorkspace]);
+  }, [activeProfitCenter, isCreateMode, selectedId, selectedWorkspace]);
 
   const handleNameChange = (nextName: string) => {
     setForm((current) => ({
@@ -177,6 +191,7 @@ export default function AdminWorkspaces() {
       }
 
       await refreshWorkspace();
+        setIsCreateMode(false);
       toast({ title: "Profit Center saved", description: "Configuration changes were saved successfully." });
     } catch (error) {
       const friendly = isRlsError(error)
@@ -223,7 +238,10 @@ export default function AdminWorkspaces() {
                 <TableRow
                   key={workspace.id}
                   className={`cursor-pointer ${workspace.id === selectedId ? "bg-accent" : ""}`}
-                  onClick={() => setSelectedId(workspace.id)}
+                  onClick={() => {
+                    setIsCreateMode(false);
+                    setSelectedId(workspace.id);
+                  }}
                   aria-selected={workspace.id === selectedId}
                 >
                   <TableCell className="font-medium text-foreground">{workspace.name}</TableCell>
@@ -244,7 +262,12 @@ export default function AdminWorkspaces() {
           <div className="mt-4 flex items-center gap-3">
             <Button
               variant="outline"
-              onClick={() => { setSelectedId(null); setForm(emptyForm); setSlugTouched(false); }}
+              onClick={() => {
+                setIsCreateMode(true);
+                setSelectedId(null);
+                setForm(emptyForm);
+                setSlugTouched(false);
+              }}
               disabled={!canCreate}
               title={!canCreate ? "Admins and super admins can create Profit Centers" : undefined}
             >
