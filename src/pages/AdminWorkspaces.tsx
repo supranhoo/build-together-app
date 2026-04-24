@@ -241,15 +241,26 @@ export default function AdminWorkspaces() {
               )}
             </TableBody>
           </Table>
-          <Button
-            variant="outline"
-            className="mt-4"
-            onClick={() => { setSelectedId(null); setForm(emptyForm); setSlugTouched(false); }}
-            disabled={!canCreate}
-            title={!canCreate ? "Admins and super admins can create Profit Centers" : undefined}
-          >
-            New Profit Center
-          </Button>
+          <div className="mt-4 flex items-center gap-3">
+            <Button
+              variant="outline"
+              onClick={() => { setSelectedId(null); setForm(emptyForm); setSlugTouched(false); }}
+              disabled={!canCreate}
+              title={!canCreate ? "Admins and super admins can create Profit Centers" : undefined}
+            >
+              + New Profit Center
+            </Button>
+            {isCreating && canCreate && (
+              <p className="text-xs text-muted-foreground">
+                Creating a new Profit Center. Fill the form on the right and click Create.
+              </p>
+            )}
+            {!isCreating && canCreate && (
+              <p className="text-xs text-muted-foreground">
+                Editing <strong className="text-foreground">{selectedWorkspace?.name}</strong>. Click <em>+ New Profit Center</em> to add another.
+              </p>
+            )}
+          </div>
         </CardContent>
       </Card>
 
