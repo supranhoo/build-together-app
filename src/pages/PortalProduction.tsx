@@ -1,0 +1,306 @@
+import { useEffect, useMemo, useState } from "react";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
+import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
+import { Label } from "@/components/ui/label";
+import { Textarea } from "@/components/ui/textarea";
+import { useWorkspace } from "@/hooks/use-workspace";
+import { useAuth } from "@/hooks/use-auth";
+import { useToast } from "@/hooks/use-toast";
+import {
+  createHeatLog,
+  fetchFurnaces,
+  fetchHeatLogs,
+  fetchShifts,
+  updateHeatLog,
+  type Furnace,
+  type HeatLog,
+  type Shift,
+} from "@/lib/production";
+import { canEditHeatLogClient, fetchPermissionGrants, userRoleAllows, type PermissionGrant } from "@/lib/permissions";
+
+interface FormState {
+  furnaceId: string;
+  shiftId: string;
+  heatNumber: string;
+  tapTime: string;
+  weightMt: string;
+  powerMwh: string;
+  notes: string;
+}
+
+const emptyForm: FormState = { furnaceId: "", shiftId: "", heatNumber: "", tapTime: "", weightMt: "", powerMwh: "", notes: "" };
+
+function nowLocalForInput() {
+  const d = new Date();
+  d.setMinutes(d.getMinutes() - d.getTimezoneOffset());
+  return d.toISOString().slice(0, 16);
+}
+
+export default function PortalProduction() {
+  const { activeProfitCenter } = useWorkspace();
+  const { session, profile } = useAuth();
+  const { toast } = useToast();
+
+  const [furnaces, setFurnaces] = useState<Furnace[]>([]);
+  const [shifts, setShifts] = useState<Shift[]>([]);
+  const [logs, setLogs] = useState<HeatLog[]>([]);
+  const [grants, setGrants] = useState<PermissionGrant[]>([]);
+  const [filterFurnace, setFilterFurnace] = useState<string>("all");
+  const [filterShift, setFilterShift] = useState<string>("all");
+  const [filterDate, setFilterDate] = useState<string>("");
+
+  const [createOpen, setCreateOpen] = useState(false);
+  const [editing, setEditing] = useState<HeatLog | null>(null);
+  const [form, setForm] = useState<FormState>(emptyForm);
+  const [saving, setSaving] = useState(false);
+  const [loading, setLoading] = useState(false);
+
+  const loadAll = async () => {
+    if (!activeProfitCenter) return;
+    setLoading(true);
+    try {
+      const [f, s, l, g] = await Promise.all([
+        fetchFurnaces(activeProfitCenter.id),
+        fetchShifts(activeProfitCenter.id),
+        fetchHeatLogs(activeProfitCenter.id, {
+          furnaceId: filterFurnace !== "all" ? filterFurnace : undefined,
+          shiftId: filterShift !== "all" ? filterShift : undefined,
+          date: filterDate || undefined,
+        }),
+        fetchPermissionGrants(),
+      ]);
+      setFurnaces(f);
+      setShifts(s);
+      setLogs(l);
+      setGrants(g);
+    } catch (error) {
+      toast({ title: "Failed to load production data", description: error instanceof Error ? error.message : "Try again.", variant: "destructive" });
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    void loadAll();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [activeProfitCenter?.id, filterFurnace, filterShift, filterDate]);
+
+  const canCreate = useMemo(() => userRoleAllows(grants, profile?.role, "heat_log", "create"), [grants, profile?.role]);
+
+  const furnaceLabel = (id: string) => furnaces.find((f) => f.id === id)?.code ?? "—";
+  const shiftLabel = (id: string) => shifts.find((s) => s.id === id)?.code ?? "—";
+
+  const openCreate = () => {
+    setEditing(null);
+    setForm({ ...emptyForm, tapTime: nowLocalForInput() });
+    setCreateOpen(true);
+  };
+
+  const openEdit = (log: HeatLog) => {
+    setEditing(log);
+    setForm({
+      furnaceId: log.furnaceId,
+      shiftId: log.shiftId,
+      heatNumber: log.heatNumber,
+      tapTime: log.tapTime.slice(0, 16),
+      weightMt: log.weightMt?.toString() ?? "",
+      powerMwh: log.powerMwh?.toString() ?? "",
+      notes: log.notes ?? "",
+    });
+    setCreateOpen(true);
+  };
+
+  const validate = (): string | null => {
+    if (!form.furnaceId) return "Furnace is required";
+    if (!form.shiftId) return "Shift is required";
+    if (!form.heatNumber.trim()) return "Heat number is required";
+    if (!form.tapTime) return "Tap time is required";
+    return null;
+  };
+
+  const handleSave = async () => {
+    if (!activeProfitCenter || !session?.user) return;
+    const err = validate();
+    if (err) {
+      toast({ title: "Cannot save heat log", description: err, variant: "destructive" });
+      return;
+    }
+    setSaving(true);
+    try {
+      const tapIso = new Date(form.tapTime).toISOString();
+      const weightMt = form.weightMt ? Number(form.weightMt) : null;
+      const powerMwh = form.powerMwh ? Number(form.powerMwh) : null;
+      if (editing) {
+        await updateHeatLog(editing.id, {
+          heatNumber: form.heatNumber,
+          tapTime: tapIso,
+          weightMt,
+          powerMwh,
+          notes: form.notes || null,
+        });
+      } else {
+        await createHeatLog({
+          profitCenterId: activeProfitCenter.id,
+          furnaceId: form.furnaceId,
+          shiftId: form.shiftId,
+          heatNumber: form.heatNumber,
+          tapTime: tapIso,
+          weightMt,
+          powerMwh,
+          notes: form.notes || null,
+          createdBy: session.user.id,
+        });
+      }
+      toast({ title: editing ? "Heat log updated" : "Heat log recorded" });
+      setCreateOpen(false);
+      await loadAll();
+    } catch (error) {
+      toast({ title: "Save failed", description: error instanceof Error ? error.message : "Try again.", variant: "destructive" });
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  if (!activeProfitCenter) {
+    return (
+      <Card>
+        <CardHeader><CardTitle>Production</CardTitle></CardHeader>
+        <CardContent className="text-muted-foreground">Select a workspace to view heat logs.</CardContent>
+      </Card>
+    );
+  }
+
+  return (
+    <div className="space-y-6">
+      <Card className="border-border bg-card shadow-panel">
+        <CardHeader className="flex flex-row items-center justify-between gap-4">
+          <CardTitle>Heat logs — {activeProfitCenter.name}</CardTitle>
+          <Dialog open={createOpen} onOpenChange={setCreateOpen}>
+            <DialogTrigger asChild>
+              <Button onClick={openCreate} disabled={!canCreate || furnaces.length === 0 || shifts.length === 0}>
+                New heat log
+              </Button>
+            </DialogTrigger>
+            <DialogContent className="max-w-xl">
+              <DialogHeader>
+                <DialogTitle>{editing ? "Edit heat log" : "Record heat log"}</DialogTitle>
+              </DialogHeader>
+              <div className="grid gap-4 sm:grid-cols-2">
+                <div>
+                  <Label>Furnace</Label>
+                  <Select value={form.furnaceId} onValueChange={(v) => setForm({ ...form, furnaceId: v })} disabled={!!editing}>
+                    <SelectTrigger><SelectValue placeholder="Choose" /></SelectTrigger>
+                    <SelectContent>
+                      {furnaces.filter((f) => f.isActive).map((f) => (
+                        <SelectItem key={f.id} value={f.id}>{f.code} — {f.name}</SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+                <div>
+                  <Label>Shift</Label>
+                  <Select value={form.shiftId} onValueChange={(v) => setForm({ ...form, shiftId: v })} disabled={!!editing}>
+                    <SelectTrigger><SelectValue placeholder="Choose" /></SelectTrigger>
+                    <SelectContent>
+                      {shifts.filter((s) => s.isActive).map((s) => (
+                        <SelectItem key={s.id} value={s.id}>{s.code} — {s.name}</SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+                <div>
+                  <Label>Heat number</Label>
+                  <Input value={form.heatNumber} onChange={(e) => setForm({ ...form, heatNumber: e.target.value })} />
+                </div>
+                <div>
+                  <Label>Tap time</Label>
+                  <Input type="datetime-local" value={form.tapTime} onChange={(e) => setForm({ ...form, tapTime: e.target.value })} />
+                </div>
+                <div>
+                  <Label>Weight (MT)</Label>
+                  <Input type="number" step="0.001" value={form.weightMt} onChange={(e) => setForm({ ...form, weightMt: e.target.value })} />
+                </div>
+                <div>
+                  <Label>Power (MWh)</Label>
+                  <Input type="number" step="0.001" value={form.powerMwh} onChange={(e) => setForm({ ...form, powerMwh: e.target.value })} />
+                </div>
+                <div className="sm:col-span-2">
+                  <Label>Notes</Label>
+                  <Textarea value={form.notes} onChange={(e) => setForm({ ...form, notes: e.target.value })} />
+                </div>
+              </div>
+              <DialogFooter>
+                <Button variant="outline" onClick={() => setCreateOpen(false)}>Cancel</Button>
+                <Button onClick={() => void handleSave()} disabled={saving}>{saving ? "Saving…" : "Save"}</Button>
+              </DialogFooter>
+            </DialogContent>
+          </Dialog>
+        </CardHeader>
+        <CardContent className="space-y-4">
+          <div className="grid gap-3 sm:grid-cols-3">
+            <Select value={filterFurnace} onValueChange={setFilterFurnace}>
+              <SelectTrigger><SelectValue placeholder="All furnaces" /></SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">All furnaces</SelectItem>
+                {furnaces.map((f) => <SelectItem key={f.id} value={f.id}>{f.code}</SelectItem>)}
+              </SelectContent>
+            </Select>
+            <Select value={filterShift} onValueChange={setFilterShift}>
+              <SelectTrigger><SelectValue placeholder="All shifts" /></SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">All shifts</SelectItem>
+                {shifts.map((s) => <SelectItem key={s.id} value={s.id}>{s.code}</SelectItem>)}
+              </SelectContent>
+            </Select>
+            <Input type="date" value={filterDate} onChange={(e) => setFilterDate(e.target.value)} />
+          </div>
+          <Table>
+            <TableHeader>
+              <TableRow>
+                <TableHead>Heat #</TableHead>
+                <TableHead>Furnace</TableHead>
+                <TableHead>Shift</TableHead>
+                <TableHead>Tap time</TableHead>
+                <TableHead>Weight (MT)</TableHead>
+                <TableHead>Power (MWh)</TableHead>
+                <TableHead className="w-24"></TableHead>
+              </TableRow>
+            </TableHeader>
+            <TableBody>
+              {logs.map((log) => {
+                const editable = canEditHeatLogClient(grants, profile?.role, log);
+                return (
+                  <TableRow key={log.id}>
+                    <TableCell className="font-medium">{log.heatNumber}</TableCell>
+                    <TableCell>{furnaceLabel(log.furnaceId)}</TableCell>
+                    <TableCell>{shiftLabel(log.shiftId)}</TableCell>
+                    <TableCell>{new Date(log.tapTime).toLocaleString()}</TableCell>
+                    <TableCell>{log.weightMt ?? "—"}</TableCell>
+                    <TableCell>{log.powerMwh ?? "—"}</TableCell>
+                    <TableCell>
+                      <Button size="sm" variant="outline" disabled={!editable} onClick={() => openEdit(log)}>Edit</Button>
+                    </TableCell>
+                  </TableRow>
+                );
+              })}
+              {logs.length === 0 && !loading && (
+                <TableRow>
+                  <TableCell colSpan={7} className="text-muted-foreground">No heat logs in scope.</TableCell>
+                </TableRow>
+              )}
+            </TableBody>
+          </Table>
+          {(furnaces.length === 0 || shifts.length === 0) && (
+            <p className="text-xs text-muted-foreground">
+              An admin must configure at least one furnace and shift in this workspace before heat logs can be recorded.
+            </p>
+          )}
+        </CardContent>
+      </Card>
+    </div>
+  );
+}
