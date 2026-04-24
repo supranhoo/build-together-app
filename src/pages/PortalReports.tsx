@@ -270,6 +270,8 @@ export default function PortalReports() {
       setBulkSaving(false);
     }
   };
+
+  if (!activeProfitCenter) {
     return <p className="text-sm text-muted-foreground">Select a workspace to view reports.</p>;
   }
 
