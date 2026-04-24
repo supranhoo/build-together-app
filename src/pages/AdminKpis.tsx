@@ -226,62 +226,100 @@ export default function AdminKpis() {
   }
 
   return (
-    <Card className="border-border bg-card shadow-panel">
-      <CardHeader className="flex flex-row items-center justify-between">
-        <CardTitle>KPI definitions — {activeProfitCenter.name}</CardTitle>
-        <Dialog open={open} onOpenChange={setOpen}>
-          <DialogTrigger asChild><Button onClick={openNew}>New KPI</Button></DialogTrigger>
-          <DialogContent className="max-w-2xl">
-            <DialogHeader><DialogTitle>{form.id ? "Edit KPI" : "New KPI"}</DialogTitle></DialogHeader>
-            <div className="grid gap-3 md:grid-cols-2">
-              <div><Label>Key</Label><Input value={form.key} onChange={(e) => setForm({ ...form, key: e.target.value })} placeholder="heats_per_day" /></div>
-              <div><Label>Display name</Label><Input value={form.displayName} onChange={(e) => setForm({ ...form, displayName: e.target.value })} /></div>
-              <div><Label>Unit</Label><Input value={form.unit} onChange={(e) => setForm({ ...form, unit: e.target.value })} placeholder="MT, kWh/MT, %" /></div>
-              <div><Label>Sort order</Label><Input type="number" value={form.sortOrder} onChange={(e) => setForm({ ...form, sortOrder: e.target.value })} /></div>
-              <div className="md:col-span-2">
-                <Label>Formula (JSON)</Label>
-                <Textarea rows={10} value={form.formula} onChange={(e) => setForm({ ...form, formula: e.target.value })} className="font-mono text-xs" />
-              </div>
-              <div className="md:col-span-2 flex items-center justify-between rounded-md border border-border bg-panel px-4 py-3">
-                <span>Active</span>
-                <Switch checked={form.isActive} onCheckedChange={(v) => setForm({ ...form, isActive: v })} />
-              </div>
-              {preview ? (
-                <div className="md:col-span-2 rounded-md border border-border bg-panel px-4 py-3 text-sm">
-                  <span className="text-muted-foreground">Preview (last 7 days):</span>{" "}
-                  <strong>{preview.value == null ? "—" : Number(preview.value).toLocaleString(undefined, { maximumFractionDigits: 2 })}</strong>{" "}
-                  {form.unit}
-                  {preview.error ? <span className="ml-2 text-destructive">({preview.error})</span> : null}
-                </div>
-              ) : null}
+    <div className="space-y-6">
+      {canManageDefaults && (
+        <Card className="border-border bg-card shadow-panel">
+          <CardHeader className="flex flex-row items-start justify-between gap-3">
+            <div>
+              <CardTitle>Workspace shared-pin defaults</CardTitle>
+              <CardDescription>
+                {defaultsIds.length === 0
+                  ? "No defaults configured. New workspaces start with no shared pins."
+                  : `${defaultsIds.length} KPI(s) marked as defaults for ${activeProfitCenter.name}.`}
+              </CardDescription>
             </div>
-            <DialogFooter>
-              <Button variant="outline" onClick={() => void handlePreview()} disabled={previewLoading || !form.key.trim()}>{previewLoading ? "Previewing…" : "Preview"}</Button>
-              <Button onClick={() => void handleSave()} disabled={saving}>{saving ? "Saving…" : "Save"}</Button>
-            </DialogFooter>
-          </DialogContent>
-        </Dialog>
-      </CardHeader>
-      <CardContent>
-        <Table>
-          <TableHeader>
-            <TableRow><TableHead>Key</TableHead><TableHead>Display name</TableHead><TableHead>Unit</TableHead><TableHead>Scope</TableHead><TableHead>Active</TableHead><TableHead></TableHead></TableRow>
-          </TableHeader>
-          <TableBody>
-            {defs.map((d) => (
-              <TableRow key={d.id}>
-                <TableCell className="font-mono text-xs">{d.key}</TableCell>
-                <TableCell>{d.displayName}</TableCell>
-                <TableCell>{d.unit || "—"}</TableCell>
-                <TableCell>{d.profitCenterId ? "Workspace" : "Global default"}</TableCell>
-                <TableCell>{d.isActive ? "Yes" : "No"}</TableCell>
-                <TableCell><Button size="sm" variant="outline" onClick={() => openEdit(d)}>{d.profitCenterId ? "Edit" : "Override"}</Button></TableCell>
-              </TableRow>
-            ))}
-            {defs.length === 0 && <TableRow><TableCell colSpan={6} className="text-muted-foreground">No KPI definitions yet.</TableCell></TableRow>}
-          </TableBody>
-        </Table>
-      </CardContent>
-    </Card>
+            <div className="flex items-center gap-2">
+              <Button size="sm" variant="outline" onClick={() => setDefaultsOpen(true)}>Edit defaults</Button>
+              <Button size="sm" onClick={() => void handleApplyDefaults()} disabled={applyingDefaults || defaultsIds.length === 0}>
+                {applyingDefaults ? "Applying…" : "Apply to this workspace now"}
+              </Button>
+            </div>
+          </CardHeader>
+        </Card>
+      )}
+
+      <Card className="border-border bg-card shadow-panel">
+        <CardHeader className="flex flex-row items-center justify-between">
+          <CardTitle>KPI definitions — {activeProfitCenter.name}</CardTitle>
+          <Dialog open={open} onOpenChange={setOpen}>
+            <DialogTrigger asChild><Button onClick={openNew}>New KPI</Button></DialogTrigger>
+            <DialogContent className="max-w-2xl">
+              <DialogHeader><DialogTitle>{form.id ? "Edit KPI" : "New KPI"}</DialogTitle></DialogHeader>
+              <div className="grid gap-3 md:grid-cols-2">
+                <div><Label>Key</Label><Input value={form.key} onChange={(e) => setForm({ ...form, key: e.target.value })} placeholder="heats_per_day" /></div>
+                <div><Label>Display name</Label><Input value={form.displayName} onChange={(e) => setForm({ ...form, displayName: e.target.value })} /></div>
+                <div><Label>Unit</Label><Input value={form.unit} onChange={(e) => setForm({ ...form, unit: e.target.value })} placeholder="MT, kWh/MT, %" /></div>
+                <div><Label>Sort order</Label><Input type="number" value={form.sortOrder} onChange={(e) => setForm({ ...form, sortOrder: e.target.value })} /></div>
+                <div className="md:col-span-2">
+                  <Label>Formula (JSON)</Label>
+                  <Textarea rows={10} value={form.formula} onChange={(e) => setForm({ ...form, formula: e.target.value })} className="font-mono text-xs" />
+                </div>
+                <div className="md:col-span-2 flex items-center justify-between rounded-md border border-border bg-panel px-4 py-3">
+                  <span>Active</span>
+                  <Switch checked={form.isActive} onCheckedChange={(v) => setForm({ ...form, isActive: v })} />
+                </div>
+                {preview ? (
+                  <div className="md:col-span-2 rounded-md border border-border bg-panel px-4 py-3 text-sm">
+                    <span className="text-muted-foreground">Preview (last 7 days):</span>{" "}
+                    <strong>{preview.value == null ? "—" : Number(preview.value).toLocaleString(undefined, { maximumFractionDigits: 2 })}</strong>{" "}
+                    {form.unit}
+                    {preview.error ? <span className="ml-2 text-destructive">({preview.error})</span> : null}
+                  </div>
+                ) : null}
+              </div>
+              <DialogFooter>
+                <Button variant="outline" onClick={() => void handlePreview()} disabled={previewLoading || !form.key.trim()}>{previewLoading ? "Previewing…" : "Preview"}</Button>
+                <Button onClick={() => void handleSave()} disabled={saving}>{saving ? "Saving…" : "Save"}</Button>
+              </DialogFooter>
+            </DialogContent>
+          </Dialog>
+        </CardHeader>
+        <CardContent>
+          <Table>
+            <TableHeader>
+              <TableRow><TableHead>Key</TableHead><TableHead>Display name</TableHead><TableHead>Unit</TableHead><TableHead>Scope</TableHead><TableHead>Active</TableHead><TableHead></TableHead></TableRow>
+            </TableHeader>
+            <TableBody>
+              {defs.map((d) => (
+                <TableRow key={d.id}>
+                  <TableCell className="font-mono text-xs">{d.key}</TableCell>
+                  <TableCell>{d.displayName}</TableCell>
+                  <TableCell>{d.unit || "—"}</TableCell>
+                  <TableCell>{d.profitCenterId ? "Workspace" : "Global default"}</TableCell>
+                  <TableCell>{d.isActive ? "Yes" : "No"}</TableCell>
+                  <TableCell><Button size="sm" variant="outline" onClick={() => openEdit(d)}>{d.profitCenterId ? "Edit" : "Override"}</Button></TableCell>
+                </TableRow>
+              ))}
+              {defs.length === 0 && <TableRow><TableCell colSpan={6} className="text-muted-foreground">No KPI definitions yet.</TableCell></TableRow>}
+            </TableBody>
+          </Table>
+        </CardContent>
+      </Card>
+
+      {canManageDefaults && (
+        <SharedPinBulkDialog
+          open={defaultsOpen}
+          onOpenChange={setDefaultsOpen}
+          title="Workspace shared-pin defaults"
+          description="Pick the KPIs that should be shared by default. Saved as workspace settings; apply explicitly via the button above."
+          definitions={defs.filter((d) => d.isActive)}
+          initialSelectedIds={defaultsIds}
+          enableReorder
+          saving={defaultsSaving}
+          applyLabel="Save defaults"
+          onApply={handleSaveDefaults}
+        />
+      )}
+    </div>
   );
 }
