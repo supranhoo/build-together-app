@@ -68,7 +68,7 @@ SteelFlow ERP now uses a configuration-first workspace foundation for steel and 
 - Phase 3 — Production foundation (furnaces, shifts, heat logs, configurable RBAC): complete.
 - Phase 4 — Inventory and material flows: complete.
 - Phase 5 — Reporting and KPI aggregation: complete.
-- Phase 6 — Finance and costing engine: not started.
+- Phase 6 — Drill-down, subscriptions, scheduled report digests: complete (email delivery active when `RESEND_API_KEY` is configured).
 - Phase 7 — Advanced admin and process workflow builder: not started.
 
 ## Phase 3 — Production Foundation
@@ -105,6 +105,7 @@ SteelFlow ERP now uses a configuration-first workspace foundation for steel and 
 - `/portal/inventory/ledger` — read-only inventory ledger viewer
 - `/portal/reports` — KPI cards plus daily time-series chart with CSV export
 - `/admin/kpis` — KPI definition management (workspace overrides plus inherited global defaults)
+- `/admin/report-deliveries` — read-only log of scheduled KPI digest deliveries
 
 ## Phase 4 — Inventory & Material Flows
 - New tables: `materials`, `stock_locations`, `inventory_ledger`, `material_consumption`. All workspace-scoped, RLS-protected.
@@ -133,3 +134,11 @@ SteelFlow ERP now uses a configuration-first workspace foundation for steel and 
 - 2026-04-24: Implemented Phase 3 production foundation — furnaces, shifts, heat logs with immutable event trail, and a configurable role/permission grants system with admin UI.
 - 2026-04-24: Implemented Phase 4 inventory and material flows — materials, stock locations, immutable inventory ledger, heat-linked material consumption, and admin/portal UI for stock management.
 - 2026-04-24: Implemented Phase 5 reporting — `kpi_definitions` table with global defaults plus workspace overrides, `compute_kpi` SQL function, portal KPI dashboard with CSV export, and admin KPI editor.
+- 2026-04-24: Implemented Phase 6 — KPI drill-down drawer with row-level CSV export, self-managed subscriptions (`kpi_subscriptions`), immutable `report_deliveries` log, `compute_kpi_drilldown` SQL function, scheduled `scheduled-report-digest` edge function (Resend), and admin delivery viewer.
+
+## Phase 6 — Drill-down, Subscriptions, Scheduled Digests
+- New tables: `kpi_subscriptions` (self-managed, unique on `(user_id, kpi_definition_id, cadence)`) and `report_deliveries` (immutable, append-only log).
+- DB function `compute_kpi_drilldown(_profit_center_id, _key, _from, _to, _limit)` returns the underlying rows for a KPI window. For ratio formulas it drills into the numerator's `source`. Respects RLS via `has_profit_center_access`.
+- Portal `/portal/reports`: clicking a KPI card opens a drawer (`KpiDetailDrawer`) with the source rows, CSV export, and per-cadence subscribe toggles. A "My subscriptions" panel surfaces active subscriptions with quick unsubscribe.
+- Admin `/admin/report-deliveries`: read-only delivery log filtered by status (sent/failed/skipped).
+- Edge function `scheduled-report-digest` (cron 07:00 UTC daily, weekly on Mondays) computes KPIs for each active subscription, sends email via Resend, and writes the outcome to `report_deliveries`. Idempotent per `(user, kpi, cadence, day)`. Logs `failed` with `RESEND_API_KEY not configured` if the secret is absent — UI/admin path is unaffected.

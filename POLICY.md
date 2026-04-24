@@ -61,3 +61,12 @@
 - 2026-04-24: Added Production Data Governance — furnace/shift master data ownership, configurable RBAC for heat log edits via `permission_grants`, and immutable `heat_log_events` audit trail.
 - 2026-04-24: Added Inventory Data Governance — material/location master data ownership, immutable inventory ledger, configurable RBAC for inventory actions via `permission_grants`, and heat-linked consumption traceability.
 - 2026-04-24: Added KPI Reporting Governance — global vs workspace KPI scope, super-admin ownership of global defaults, and `compute_kpi` as the single source of truth for KPI values.
+- 2026-04-24: Added Scheduled Reports Governance.
+
+## Scheduled Reports Governance
+- KPI subscriptions are self-managed: a user may only create, read, update, or delete their own subscription, and only for workspaces they belong to.
+- Workspace admins and super admins may view (but not modify) any user's subscriptions and the full delivery log within their scope, for support and compliance.
+- The `report_deliveries` table is immutable and append-only. Only the scheduled backend dispatcher (running with service-role privileges) may write rows. There are no UPDATE or DELETE policies.
+- The scheduled dispatcher must be idempotent per `(user, kpi, cadence, day)` to prevent duplicate sends. Duplicate runs must record a `skipped` row, never a second `sent` row for the same window.
+- Drill-down access reuses the same workspace authorization as the KPI itself; no new data exposure is permitted through drill-down.
+- Email content must contain only the KPI value, unit, window, and display name — never raw row data — because email is an out-of-band channel without RLS enforcement.

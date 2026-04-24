@@ -8,7 +8,7 @@ import { PortalShell } from "@/components/PortalShell";
 import AdminAudit from "@/pages/AdminAudit";
 import { canEditHeatLogClient, describeRule, userRoleAllows, type PermissionGrant } from "@/lib/permissions";
 import { computeStockBalances, type InventoryLedgerEntry } from "@/lib/inventory";
-import { buildDateRange, exportKpiCsv } from "@/lib/reporting";
+import { buildDateRange, exportKpiCsv, exportDrilldownCsv, filterDeliveriesByStatus, type ReportDelivery } from "@/lib/reporting";
 
 const navigateMock = vi.fn();
 const logoutMock = vi.fn();
@@ -430,5 +430,47 @@ describe("Reporting helpers (Phase 5)", () => {
   it("omits the unit suffix when KPI has no unit", () => {
     const csv = exportKpiCsv("Count", "", [{ day: "2026-04-24", value: 1 }]);
     expect(csv.split("\n")[0]).toBe("Date,Count");
+  });
+});
+
+describe("Reporting helpers (Phase 6)", () => {
+  it("serializes drill-down rows to CSV with header from union of keys", () => {
+    const csv = exportDrilldownCsv([
+      { id: "h1", heat_number: "H001", weight_mt: 12.5 },
+      { id: "h2", heat_number: "H002", weight_mt: 11 },
+    ]);
+    const lines = csv.split("\n");
+    expect(lines[0]).toBe("id,heat_number,weight_mt");
+    expect(lines[1]).toBe("h1,H001,12.5");
+    expect(lines[2]).toBe("h2,H002,11");
+  });
+
+  it("escapes fields with commas, quotes, and newlines in drill-down CSV", () => {
+    const csv = exportDrilldownCsv([{ a: 'has "quote", and comma', b: "x\ny" }]);
+    const lines = csv.split("\n");
+    expect(lines[0]).toBe("a,b");
+    expect(lines[1]).toContain('"has ""quote"", and comma"');
+    expect(lines[1]).toContain('"x');
+  });
+
+  it("returns empty string for empty drill-down rows", () => {
+    expect(exportDrilldownCsv([])).toBe("");
+  });
+
+  const buildDelivery = (overrides: Partial<ReportDelivery>): ReportDelivery => ({
+    id: "d1", profitCenterId: "pc-1", userId: "u1", kpiDefinitionId: "k1",
+    cadence: "daily", deliveredAt: "2026-04-24T07:00:00Z",
+    status: "sent", errorMessage: null, payload: {}, ...overrides,
+  });
+
+  it("filters deliveries by status and returns all when 'all'", () => {
+    const rows: ReportDelivery[] = [
+      buildDelivery({ id: "1", status: "sent" }),
+      buildDelivery({ id: "2", status: "failed" }),
+      buildDelivery({ id: "3", status: "skipped" }),
+    ];
+    expect(filterDeliveriesByStatus(rows, "all")).toHaveLength(3);
+    expect(filterDeliveriesByStatus(rows, "failed").map((r) => r.id)).toEqual(["2"]);
+    expect(filterDeliveriesByStatus(rows, "sent").map((r) => r.id)).toEqual(["1"]);
   });
 });
