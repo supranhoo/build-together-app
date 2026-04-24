@@ -45,6 +45,15 @@ export function canCreateWorkspace(role: string | null | undefined): boolean {
   return role === "admin" || role === "super_admin";
 }
 
+/**
+ * Filter a list of profit centers down to active ones only.
+ * Pure helper — exported for unit tests.
+ * Used to scope the Admin → Profit Centers catalog so it shows only active records.
+ */
+export function filterActiveProfitCenters<T extends { isActive: boolean }>(rows: T[]): T[] {
+  return rows.filter((row) => row.isActive);
+}
+
 /** Detect a Postgres / PostgREST RLS rejection so we can show a friendly message. */
 function isRlsError(err: unknown): boolean {
   if (!(err instanceof Error)) return false;
