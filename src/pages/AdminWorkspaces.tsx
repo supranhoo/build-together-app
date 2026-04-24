@@ -135,8 +135,8 @@ export default function AdminWorkspaces() {
           changeSummary: { code: updated.code, slug: updated.slug, name: updated.name, isActive: updated.isActive },
         });
       } else {
-        if (!isSuperAdmin) {
-          throw new Error("Only super admins can create new workspaces.");
+        if (!canCreate) {
+          throw new Error("You don't have permission to create new workspaces.");
         }
         const created = await createProfitCenter(form);
         await createAuditLog({
