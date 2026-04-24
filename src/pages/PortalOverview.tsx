@@ -68,6 +68,41 @@ export default function PortalOverview() {
     return () => { cancelled = true; };
   }, [activeProfitCenter, session?.user?.id]);
 
+  const movePin = async (pinId: string, direction: -1 | 1) => {
+    if (reordering) return;
+    const currentIdx = pinned.findIndex((c) => c.pin.id === pinId);
+    if (currentIdx === -1) return;
+    const targetIdx = currentIdx + direction;
+    if (targetIdx < 0 || targetIdx >= pinned.length) return;
+
+    const previous = pinned;
+    const reorderedPins = reorderPins(pinned.map((c) => c.pin), pinId, targetIdx);
+    const cardById = new Map(pinned.map((c) => [c.pin.id, c]));
+    const optimistic = reorderedPins.map((p) => {
+      const card = cardById.get(p.id)!;
+      return { ...card, pin: { ...card.pin, sortOrder: p.sortOrder } };
+    });
+    setPinned(optimistic);
+    setReordering(true);
+    try {
+      // Persist only the two pins whose sort_order actually changed.
+      const changed = reorderedPins.filter((p) => {
+        const before = previous.find((c) => c.pin.id === p.id)?.pin.sortOrder;
+        return before !== p.sortOrder;
+      });
+      await persistPinOrder(changed.map((p) => ({ id: p.id, sortOrder: p.sortOrder })));
+    } catch (err) {
+      setPinned(previous);
+      toast({
+        title: "Reorder failed",
+        description: err instanceof Error ? err.message : "Could not save the new order.",
+        variant: "destructive",
+      });
+    } finally {
+      setReordering(false);
+    }
+  };
+
   const metrics = [
     { label: "Assigned workspaces", value: String(assignments.length), detail: "Access scope in current session", icon: Gauge },
     { label: "Configured modules", value: String(modules.length), detail: "Driven by backend configuration", icon: Warehouse },
