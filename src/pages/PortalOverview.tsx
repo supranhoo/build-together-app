@@ -128,10 +128,34 @@ export default function PortalOverview() {
             </Card>
           ) : (
             <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
-              {pinned.map((card) => (
+              {pinned.map((card, idx) => (
                 <Card key={card.pin.id} className="border-border bg-card">
                   <CardHeader className="pb-3">
-                    <p className="text-xs text-muted-foreground">{card.definition.displayName}</p>
+                    <div className="flex items-start justify-between gap-2">
+                      <p className="text-xs text-muted-foreground">{card.definition.displayName}</p>
+                      <div className="flex shrink-0 items-center gap-0.5">
+                        <Button
+                          size="icon"
+                          variant="ghost"
+                          className="h-6 w-6"
+                          aria-label="Move pin up"
+                          disabled={idx === 0 || reordering}
+                          onClick={() => void movePin(card.pin.id, -1)}
+                        >
+                          <ArrowUp className="h-3.5 w-3.5" />
+                        </Button>
+                        <Button
+                          size="icon"
+                          variant="ghost"
+                          className="h-6 w-6"
+                          aria-label="Move pin down"
+                          disabled={idx === pinned.length - 1 || reordering}
+                          onClick={() => void movePin(card.pin.id, 1)}
+                        >
+                          <ArrowDown className="h-3.5 w-3.5" />
+                        </Button>
+                      </div>
+                    </div>
                     <CardTitle className="text-2xl">
                       {card.value == null ? "—" : Number(card.value).toLocaleString(undefined, { maximumFractionDigits: 2 })}
                       {card.definition.unit ? <span className="ml-1 text-sm font-normal text-muted-foreground">{card.definition.unit}</span> : null}
