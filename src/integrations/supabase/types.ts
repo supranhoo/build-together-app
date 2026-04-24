@@ -60,6 +60,7 @@ export type Database = {
         Row: {
           action: string
           actor_user_id: string
+          batch_id: string | null
           change_summary: Json
           context: Json
           created_at: string
@@ -71,6 +72,7 @@ export type Database = {
         Insert: {
           action: string
           actor_user_id: string
+          batch_id?: string | null
           change_summary?: Json
           context?: Json
           created_at?: string
@@ -82,6 +84,7 @@ export type Database = {
         Update: {
           action?: string
           actor_user_id?: string
+          batch_id?: string | null
           change_summary?: Json
           context?: Json
           created_at?: string
@@ -378,6 +381,36 @@ export type Database = {
             referencedColumns: ["id"]
           },
         ]
+      }
+      kpi_pins: {
+        Row: {
+          created_at: string
+          id: string
+          kpi_definition_id: string
+          profit_center_id: string
+          sort_order: number
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          kpi_definition_id: string
+          profit_center_id: string
+          sort_order?: number
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          kpi_definition_id?: string
+          profit_center_id?: string
+          sort_order?: number
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: []
       }
       kpi_subscriptions: {
         Row: {
@@ -968,6 +1001,14 @@ export type Database = {
           _spec: Json
           _to: string
         }
+        Returns: Json
+      }
+      bulk_reverse_inventory_ledger: {
+        Args: { _ids: string[]; _reason: string }
+        Returns: Json
+      }
+      bulk_void_heat_logs: {
+        Args: { _ids: string[]; _reason: string }
         Returns: Json
       }
       can_edit_heat_log: {
