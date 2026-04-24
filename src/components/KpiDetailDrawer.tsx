@@ -271,7 +271,7 @@ export function KpiDetailDrawer({
                 <TableHeader>
                   <TableRow>
                     {headers.map((h) => <TableHead key={h} className="whitespace-nowrap text-xs">{h}</TableHead>)}
-                    {(canVoidHeat && drill?.source === "heat_logs") ? <TableHead className="w-10" /> : null}
+                    {hasRowActions ? <TableHead className="w-10" /> : null}
                   </TableRow>
                 </TableHeader>
                 <TableBody>
@@ -280,7 +280,7 @@ export function KpiDetailDrawer({
                     return (
                       <TableRow key={i}>
                         {headers.map((h) => <TableCell key={h} className="whitespace-nowrap text-xs">{String(r[h] ?? "")}</TableCell>)}
-                        {(canVoidHeat && drill?.source === "heat_logs") ? (
+                        {hasRowActions ? (
                           <TableCell className="w-10">
                             {action ? (
                               <DropdownMenu>
@@ -291,7 +291,7 @@ export function KpiDetailDrawer({
                                 </DropdownMenuTrigger>
                                 <DropdownMenuContent align="end">
                                   <DropdownMenuItem onSelect={(e) => { e.preventDefault(); setPending(action); }}>
-                                    Void heat log
+                                    {action.kind === "void_heat_log" ? "Void heat log" : "Reverse entry"}
                                   </DropdownMenuItem>
                                 </DropdownMenuContent>
                               </DropdownMenu>
