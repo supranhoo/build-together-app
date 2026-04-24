@@ -1030,3 +1030,23 @@ describe("canCreateWorkspace (UI gate mirrors RLS INSERT policy)", () => {
   });
 });
 
+describe("filterActiveProfitCenters (catalog scoping)", () => {
+  const rows = [
+    { id: "a", isActive: true },
+    { id: "b", isActive: false },
+    { id: "c", isActive: true },
+  ];
+
+  it("returns only active rows", () => {
+    expect(filterActiveProfitCenters(rows).map((r) => r.id)).toEqual(["a", "c"]);
+  });
+
+  it("returns empty array when no rows are active", () => {
+    expect(filterActiveProfitCenters([{ id: "x", isActive: false }])).toEqual([]);
+  });
+
+  it("returns empty array for empty input", () => {
+    expect(filterActiveProfitCenters([])).toEqual([]);
+  });
+});
+
