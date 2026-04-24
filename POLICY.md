@@ -84,3 +84,18 @@
 - Consolidated KPI views (`compute_kpi_consolidated`) must enumerate only the workspaces the calling user can access via `has_profit_center_access`. The function must not bypass workspace RLS or expose data from workspaces the user is not assigned to.
 - The consolidated view toggle must only be exposed in the UI when the user has two or more active workspace assignments. Single-workspace users must not see a consolidated option.
 - Per-workspace breakdown rows must reuse the same KPI evaluation path (`compute_kpi`) as the single-workspace view, so a value shown in consolidated mode always matches the value shown when entering that workspace directly.
+
+## Bulk Void & Reverse Governance (Phase 8)
+- Bulk void of heat logs (`bulk_void_heat_logs`) and bulk reverse of inventory ledger entries (`bulk_reverse_inventory_ledger`) MUST be atomic: any per-row permission failure or validation error rolls back the entire batch. No partial application is permitted.
+- Every bulk operation MUST share one non-empty reason across the batch and MUST persist a single `batch_id` on every produced `audit_logs` (and `heat_log_events`) row so the operation is reconstructable as a single unit.
+- Per-row permission checks MUST reuse the same `can_void_heat_log` / `user_can_act(_, 'inventory', 'void')` predicates used by single-row operations. Bulk RPCs MUST NOT bypass these checks.
+- The 3-character minimum reason rule from Phase 7 applies unchanged to bulk operations.
+
+## Pinned KPIs Governance (Phase 8)
+- KPI pins are personal preference, not configuration. Users see and manage only their own pins; admins (including super_admin) MUST NOT view or modify pins belonging to other users.
+- Pin count per `(user, workspace)` is hard-capped at 12 by a database trigger to keep `/portal/overview` rendering responsive. Client-side cap checks are a UX courtesy only — the trigger is the source of truth.
+- Pinning a KPI from another workspace is rejected by RLS (`has_profit_center_access` must hold). Removing a workspace assignment removes the user's ability to read those pins, but pin rows are retained until explicitly unpinned.
+- Pin sort_order is user-controlled. Reordering MUST NOT trigger any KPI recomputation — pins are display metadata only.
+
+## Policy Change Log
+- 2026-04-24: Phase 8 — added Bulk Void & Reverse Governance (atomic batches, shared reason, `batch_id` audit grouping, no permission bypass) and Pinned KPIs Governance (personal preference, no admin override, capped at 12, RLS-scoped to assigned workspaces).
