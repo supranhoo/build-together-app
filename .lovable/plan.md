@@ -1,4 +1,4 @@
-## Phase 12 Wrap-Up — Verify, Test, Document
+## Phase 12 Wrap-Up — Verify, Test, Document ✅ Complete (2026-04-24, 52/52 tests, batch_id verified threaded through bulkApplySharedPins → shareKpiPin/unshareKpiPin → audit_logs.change_summary.batch_id)
 
 Phase 12 code (logic + UI) is already in place. Remaining work to make the phase complete and policy-compliant per the SSOT rule (no code change ships without docs + policy in the same response).
 
