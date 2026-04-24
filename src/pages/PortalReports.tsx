@@ -35,11 +35,13 @@ const presets: { value: KpiPreset; label: string }[] = [
 type ViewMode = "workspace" | "consolidated";
 
 export default function PortalReports() {
-  const { activeProfitCenter } = useWorkspace();
+  const { activeProfitCenter, assignments } = useWorkspace();
   const { session } = useAuth();
   const { toast } = useToast();
   const [definitions, setDefinitions] = useState<KpiDefinition[]>([]);
   const [results, setResults] = useState<Record<string, KpiResult>>({});
+  const [consolidated, setConsolidated] = useState<Record<string, KpiConsolidatedResult>>({});
+  const [view, setView] = useState<ViewMode>("workspace");
   const [preset, setPreset] = useState<KpiPreset>("7d");
   const [selectedKey, setSelectedKey] = useState<string | null>(null);
   const [drawerKey, setDrawerKey] = useState<string | null>(null);
@@ -47,6 +49,8 @@ export default function PortalReports() {
   const [loading, setLoading] = useState(false);
 
   const range = useMemo(() => buildDateRange(preset), [preset]);
+  const activeAssignmentCount = assignments.filter((a) => a.isActive).length;
+  const canConsolidate = activeAssignmentCount >= 2;
 
   useEffect(() => {
     if (!activeProfitCenter) return;
@@ -58,11 +62,19 @@ export default function PortalReports() {
         if (cancelled) return;
         setDefinitions(defs);
         if (!selectedKey && defs[0]) setSelectedKey(defs[0].key);
-        const entries = await Promise.all(
-          defs.map(async (d) => [d.key, await computeKpi(activeProfitCenter.id, d.key, range)] as const),
-        );
-        if (cancelled) return;
-        setResults(Object.fromEntries(entries));
+        if (view === "workspace") {
+          const entries = await Promise.all(
+            defs.map(async (d) => [d.key, await computeKpi(activeProfitCenter.id, d.key, range)] as const),
+          );
+          if (cancelled) return;
+          setResults(Object.fromEntries(entries));
+        } else {
+          const entries = await Promise.all(
+            defs.map(async (d) => [d.key, await computeKpiConsolidated(d.key, range)] as const),
+          );
+          if (cancelled) return;
+          setConsolidated(Object.fromEntries(entries));
+        }
       } catch (err) {
         toast({ title: "Failed to load KPIs", description: err instanceof Error ? err.message : String(err), variant: "destructive" });
       } finally {
@@ -72,7 +84,7 @@ export default function PortalReports() {
     return () => {
       cancelled = true;
     };
-  }, [activeProfitCenter, range, toast, selectedKey]);
+  }, [activeProfitCenter, range, toast, selectedKey, view]);
 
   const refreshSubs = async () => {
     if (!activeProfitCenter) return;
@@ -86,9 +98,10 @@ export default function PortalReports() {
 
   useEffect(() => { void refreshSubs(); /* eslint-disable-next-line */ }, [activeProfitCenter?.id, session?.user?.id]);
 
-  const selected = selectedKey ? results[selectedKey] : null;
+  const selected = view === "workspace" && selectedKey ? results[selectedKey] : null;
   const selectedDef = selectedKey ? definitions.find((d) => d.key === selectedKey) : null;
   const drawerDef = drawerKey ? definitions.find((d) => d.key === drawerKey) ?? null : null;
+  const drawerConsolidated = view === "consolidated" && drawerKey ? consolidated[drawerKey] : null;
 
   const handleExport = () => {
     if (!selected || !selectedDef) return;
