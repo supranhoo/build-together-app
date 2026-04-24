@@ -103,7 +103,17 @@ export default function PortalReports() {
     }
   };
 
-  useEffect(() => { void refreshSubs(); /* eslint-disable-next-line */ }, [activeProfitCenter?.id, session?.user?.id]);
+  const refreshPins = async () => {
+    if (!activeProfitCenter || !session?.user?.id) return;
+    try {
+      const list = await fetchKpiPins(session.user.id, activeProfitCenter.id);
+      setPins(list);
+    } catch {
+      // non-fatal
+    }
+  };
+
+  useEffect(() => { void refreshSubs(); void refreshPins(); /* eslint-disable-next-line */ }, [activeProfitCenter?.id, session?.user?.id]);
 
   const selected = view === "workspace" && selectedKey ? results[selectedKey] : null;
   const selectedDef = selectedKey ? definitions.find((d) => d.key === selectedKey) : null;
