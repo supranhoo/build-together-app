@@ -1,3 +1,4 @@
+import { Fragment } from "react";
 import { Link } from "react-router-dom";
 import {
   Breadcrumb,
@@ -73,16 +74,18 @@ export function Breadcrumbs({ pathname, labelOverrides, className }: Breadcrumbs
     <Breadcrumb className={className}>
       <BreadcrumbList>
         {crumbs.map((crumb, idx) => (
-          <BreadcrumbItem key={`${crumb.label}-${idx}`}>
-            {crumb.href ? (
-              <BreadcrumbLink asChild>
-                <Link to={crumb.href}>{crumb.label}</Link>
-              </BreadcrumbLink>
-            ) : (
-              <BreadcrumbPage>{crumb.label}</BreadcrumbPage>
-            )}
+          <Fragment key={`${crumb.label}-${idx}`}>
+            <BreadcrumbItem>
+              {crumb.href ? (
+                <BreadcrumbLink asChild>
+                  <Link to={crumb.href}>{crumb.label}</Link>
+                </BreadcrumbLink>
+              ) : (
+                <BreadcrumbPage>{crumb.label}</BreadcrumbPage>
+              )}
+            </BreadcrumbItem>
             {idx < crumbs.length - 1 && <BreadcrumbSeparator />}
-          </BreadcrumbItem>
+          </Fragment>
         ))}
       </BreadcrumbList>
     </Breadcrumb>
