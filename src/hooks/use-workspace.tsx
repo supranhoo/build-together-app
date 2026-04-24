@@ -273,7 +273,14 @@ export function WorkspaceProvider({ children }: { children: ReactNode }) {
           return;
         }
 
-        if (!assignments.some((assignment) => assignment.profitCenterId === profitCenterId)) {
+        const isAssigned = assignments.some((assignment) => assignment.profitCenterId === profitCenterId);
+        // Super admins have global access without an explicit assignment row, so allow switching
+        // to any active workspace they can see in `allProfitCenters`.
+        const isSuperAdminAllowed =
+          profile?.role === "super_admin" &&
+          allProfitCenters.some((pc) => pc.id === profitCenterId && pc.isActive);
+
+        if (!isAssigned && !isSuperAdminAllowed) {
           return;
         }
 
