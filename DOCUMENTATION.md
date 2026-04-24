@@ -66,7 +66,7 @@ SteelFlow ERP now uses a configuration-first workspace foundation for steel and 
 - Phase 1 — Configurable multi-workspace foundation: complete.
 - Phase 2 — Live admin management (workspaces, modules, access, settings, audit + pagination): complete.
 - Phase 3 — Production foundation (furnaces, shifts, heat logs, configurable RBAC): complete.
-- Phase 4 — Inventory and material flows: not started.
+- Phase 4 — Inventory and material flows: complete.
 - Phase 5 — Reporting and KPI aggregation: not started.
 - Phase 6 — Finance and costing engine: not started.
 - Phase 7 — Advanced admin and process workflow builder: not started.
@@ -98,6 +98,21 @@ SteelFlow ERP now uses a configuration-first workspace foundation for steel and 
 - `/admin/shifts` — per-workspace shift catalog
 - `/admin/roles` — configurable role/permission matrix (super-admin only)
 - `/admin/audit` — paginated audit log viewer
+- `/admin/materials` — per-workspace material catalog
+- `/admin/stock-locations` — per-workspace stock location catalog
+- `/portal/inventory` — current stock view
+- `/portal/inventory/receipts` — manual material receipt entry (manager+)
+- `/portal/inventory/ledger` — read-only inventory ledger viewer
+
+## Phase 4 — Inventory & Material Flows
+- New tables: `materials`, `stock_locations`, `inventory_ledger`, `material_consumption`. All workspace-scoped, RLS-protected.
+- `materials` and `stock_locations` are admin-managed per workspace; uniqueness enforced on `(profit_center_id, code)`.
+- `inventory_ledger` is the immutable, append-only signed-quantity movement record (`receipt`, `consumption`, `adjustment`, `transfer_in`, `transfer_out`). No updates or deletes — reversals are new rows.
+- `material_consumption` links a heat log to a consumption ledger row; insert triggers the ledger entry automatically via `create_consumption_ledger_entry`.
+- DB function `current_stock(_profit_center_id, _material_id, _stock_location_id)` is the single source of truth for stock; `computeStockBalances` mirrors the same math client-side for tabular views.
+- Inventory permissions live in `permission_grants` with `resource = 'inventory'` and actions `consume`, `receipt`, `adjustment`. Defaults: operators may consume only; managers may receipt; admins/super admins may adjust. Role gating reuses the same `user_can_act` SECURITY DEFINER function as Phase 3.
+- Heat log entry form (operator side) gains an optional consumption section that posts material_consumption rows on save. Edit dialog does not allow consumption changes — adjustments must go through the ledger.
+- New `inventory` entry in `app_modules` (disabled per workspace until enabled in `/admin/modules`).
 
 ## Version History
 - 2026-04-23: Removed self-service signup from the public login page and retained sign-in plus password reset only.
@@ -106,3 +121,4 @@ SteelFlow ERP now uses a configuration-first workspace foundation for steel and 
 - 2026-04-23: Added incremental audit log browsing with 20-row paging and load-more support in the admin audit area.
 - 2026-04-24: Reconciled the external SteelFlow ERP Architecture Document with the implemented model and added Implementation Status plus Route Map sections.
 - 2026-04-24: Implemented Phase 3 production foundation — furnaces, shifts, heat logs with immutable event trail, and a configurable role/permission grants system with admin UI.
+- 2026-04-24: Implemented Phase 4 inventory and material flows — materials, stock locations, immutable inventory ledger, heat-linked material consumption, and admin/portal UI for stock management.
