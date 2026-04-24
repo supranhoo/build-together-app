@@ -8,6 +8,7 @@ import { PortalShell } from "@/components/PortalShell";
 import AdminAudit from "@/pages/AdminAudit";
 import { canEditHeatLogClient, describeRule, userRoleAllows, type PermissionGrant } from "@/lib/permissions";
 import { computeStockBalances, type InventoryLedgerEntry } from "@/lib/inventory";
+import { buildBreadcrumbs } from "@/components/Breadcrumbs";
 import { buildDateRange, backtestForecast, canShareKpiPin, diffSharedPinSelection, enforceMaxPins, exportKpiCsv, exportDrilldownCsv, filterDeliveriesByStatus, forecastLinear, forecastSeasonal, KPI_PIN_CAP, reorderPins, splitPinsByScope, sumPerWorkspace, type KpiPerWorkspace, type KpiPin, type KpiSeriesPoint, type ReportDelivery } from "@/lib/reporting";
 
 const navigateMock = vi.fn();
