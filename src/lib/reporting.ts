@@ -386,6 +386,118 @@ export async function userCanAct(userId: string, resource: string, action: strin
   return Boolean(data);
 }
 
+// ===== Phase 8: KPI Pins + bulk void/reverse =====
+
+export const KPI_PIN_CAP = 12;
+
+export interface KpiPin {
+  id: string;
+  userId: string;
+  profitCenterId: string;
+  kpiDefinitionId: string;
+  sortOrder: number;
+}
+
+function toKpiPin(row: any): KpiPin {
+  return {
+    id: row.id,
+    userId: row.user_id,
+    profitCenterId: row.profit_center_id,
+    kpiDefinitionId: row.kpi_definition_id,
+    sortOrder: row.sort_order ?? 0,
+  };
+}
+
+export async function fetchKpiPins(userId: string, profitCenterId: string): Promise<KpiPin[]> {
+  const { data, error } = await (supabase as any)
+    .from("kpi_pins")
+    .select("*")
+    .eq("user_id", userId)
+    .eq("profit_center_id", profitCenterId)
+    .order("sort_order", { ascending: true });
+  if (error) throw error;
+  return (data ?? []).map(toKpiPin);
+}
+
+export async function pinKpi(input: {
+  userId: string;
+  profitCenterId: string;
+  kpiDefinitionId: string;
+  sortOrder: number;
+}): Promise<void> {
+  const { error } = await (supabase as any).from("kpi_pins").insert({
+    user_id: input.userId,
+    profit_center_id: input.profitCenterId,
+    kpi_definition_id: input.kpiDefinitionId,
+    sort_order: input.sortOrder,
+  });
+  if (error) {
+    if (typeof error.message === "string" && error.message.includes("pin_cap_exceeded")) {
+      throw new Error("pin_cap_exceeded");
+    }
+    throw error;
+  }
+}
+
+export async function unpinKpi(pinId: string): Promise<void> {
+  const { error } = await (supabase as any).from("kpi_pins").delete().eq("id", pinId);
+  if (error) throw error;
+}
+
+/**
+ * Pure helper: reorder a list of pins by moving `pinId` to `targetIndex`.
+ * Returns the new ordered list with updated sort_order values (0-indexed).
+ */
+export function reorderPins(pins: KpiPin[], pinId: string, targetIndex: number): KpiPin[] {
+  const idx = pins.findIndex((p) => p.id === pinId);
+  if (idx === -1) return pins;
+  const clamped = Math.max(0, Math.min(targetIndex, pins.length - 1));
+  const next = [...pins];
+  const [moved] = next.splice(idx, 1);
+  next.splice(clamped, 0, moved);
+  return next.map((p, i) => ({ ...p, sortOrder: i }));
+}
+
+/**
+ * Pure helper: returns `true` if adding one more pin would exceed the cap.
+ */
+export function enforceMaxPins(currentCount: number): boolean {
+  return currentCount >= KPI_PIN_CAP;
+}
+
+export interface BulkResult {
+  ok: boolean;
+  batchId?: string;
+  succeeded?: number;
+  failed?: number;
+  error?: string;
+}
+
+export async function bulkVoidHeatLogs(ids: string[], reason: string): Promise<BulkResult> {
+  const { data, error } = await (supabase as any).rpc("bulk_void_heat_logs", { _ids: ids, _reason: reason });
+  if (error) throw error;
+  const r = (data ?? {}) as any;
+  return {
+    ok: !!r.ok,
+    batchId: r.batch_id,
+    succeeded: r.succeeded,
+    failed: r.failed,
+    error: r.error,
+  };
+}
+
+export async function bulkReverseInventoryLedger(ids: string[], reason: string): Promise<BulkResult> {
+  const { data, error } = await (supabase as any).rpc("bulk_reverse_inventory_ledger", { _ids: ids, _reason: reason });
+  if (error) throw error;
+  const r = (data ?? {}) as any;
+  return {
+    ok: !!r.ok,
+    batchId: r.batch_id,
+    succeeded: r.succeeded,
+    error: r.error,
+  };
+}
+
 export function downloadCsv(filename: string, csv: string) {
   const blob = new Blob([csv], { type: "text/csv;charset=utf-8" });
   const url = URL.createObjectURL(blob);
