@@ -33,6 +33,8 @@ export interface HeatLog {
   createdBy: string;
   createdAt: string;
   updatedAt: string;
+  isVoided: boolean;
+  voidReason: string | null;
 }
 
 const client = supabase as unknown as { from: (t: string) => any };
@@ -75,6 +77,8 @@ function toHeatLog(row: any): HeatLog {
     createdBy: row.created_by,
     createdAt: row.created_at,
     updatedAt: row.updated_at,
+    isVoided: Boolean(row.is_voided),
+    voidReason: row.void_reason ?? null,
   };
 }
 
