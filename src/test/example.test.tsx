@@ -9,7 +9,7 @@ import AdminAudit from "@/pages/AdminAudit";
 import { canEditHeatLogClient, describeRule, userRoleAllows, type PermissionGrant } from "@/lib/permissions";
 import { computeStockBalances, type InventoryLedgerEntry } from "@/lib/inventory";
 import { buildBreadcrumbs } from "@/components/Breadcrumbs";
-import { canCreateWorkspace, deriveSlug, filterActiveProfitCenters } from "@/pages/AdminWorkspaces";
+import { canCreateWorkspace, deriveSlug, filterActiveProfitCenters, shouldAutoSelectActiveProfitCenter } from "@/pages/AdminWorkspaces";
 import { buildDateRange, backtestForecast, canShareKpiPin, diffSharedPinSelection, enforceMaxPins, exportKpiCsv, exportDrilldownCsv, filterDeliveriesByStatus, forecastLinear, forecastSeasonal, KPI_PIN_CAP, reorderPins, splitPinsByScope, sumPerWorkspace, type KpiPerWorkspace, type KpiPin, type KpiSeriesPoint, type ReportDelivery } from "@/lib/reporting";
 
 const navigateMock = vi.fn();
@@ -1047,6 +1047,32 @@ describe("filterActiveProfitCenters (catalog scoping)", () => {
 
   it("returns empty array for empty input", () => {
     expect(filterActiveProfitCenters([])).toEqual([]);
+  });
+});
+
+describe("shouldAutoSelectActiveProfitCenter (create mode guard)", () => {
+  it("auto-selects the active Profit Center when idle with no explicit selection", () => {
+    expect(shouldAutoSelectActiveProfitCenter({
+      activeProfitCenterId: "pc-1",
+      isCreateMode: false,
+      selectedId: null,
+    })).toBe(true);
+  });
+
+  it("does not auto-select while the user is creating a new Profit Center", () => {
+    expect(shouldAutoSelectActiveProfitCenter({
+      activeProfitCenterId: "pc-1",
+      isCreateMode: true,
+      selectedId: null,
+    })).toBe(false);
+  });
+
+  it("does not auto-select when a Profit Center is already selected", () => {
+    expect(shouldAutoSelectActiveProfitCenter({
+      activeProfitCenterId: "pc-1",
+      isCreateMode: false,
+      selectedId: "pc-2",
+    })).toBe(false);
   });
 });
 
