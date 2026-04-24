@@ -21,7 +21,7 @@ const CATEGORIES = ["raw", "consumable", "finished"];
 const UOMS = ["kg", "MT", "litre", "piece"];
 
 export default function AdminMaterials() {
-  const { activeProfitCenter } = useWorkspace();
+  const { activeProfitCenter, selectProfitCenter } = useWorkspace();
   const { session } = useAuth();
   const { toast } = useToast();
   const [materials, setMaterials] = useState<Material[]>([]);
