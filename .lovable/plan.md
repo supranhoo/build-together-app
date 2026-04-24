@@ -1,76 +1,100 @@
-## Phase 10 — Pin Sharing & Admin Overrides
+## Phase 11 — Seasonality, Multi-Horizon Forecasting & Accuracy Backtests
 
-Defaults applied for all 4 decisions. Confirm to proceed.
+Phase 9 shipped a 7-day linear projection as deliberate "groundwork." Phase 11 turns that into something a shift manager can actually trust: weekly seasonality (the dominant pattern in shift-based plant data), selectable horizons, and an honest accuracy readout via walk-forward backtests.
 
-### Decisions (defaults)
+This is **strictly additive and display-only**. Phase 9's Forecast Display Governance (POLICY.md) still applies verbatim: no persistence, no audit, no digest payloads, no CSV-of-series leakage, fail-closed on degenerate inputs.
 
-1. **Scope model**: Workspace-scoped only (`scope='shared'` belongs to a `profit_center_id`, no role targeting).
-2. **Cap interaction**: Shared pins do **not** count against the 12-pin personal cap. Rendered in a separate section.
-3. **Who can publish**: `super_admin` + workspace admin (via existing `can_manage_profit_center`). No new `permission_grants` rows.
-4. **User hide**: Not allowed. Shared pins are mandatory; one source of truth.
+### Open Decisions (please confirm or say "use defaults")
 
-### Schema Changes (`supabase/migrations/<phase10>.sql`)
+1. **Seasonality period** — *default: weekly (period=7) only.*
+   - 1a (default): Weekly only. Captures shift/weekend cycles, needs ≥14 points to engage.
+   - 1b: Weekly + monthly (period=30). Needs ≥60 points; most series in the current 30-day default window won't qualify, so monthly will silently be unavailable for almost everyone. Adds code without much real-world payoff yet.
 
-- `kpi_pins.scope text NOT NULL DEFAULT 'personal'` with CHECK `scope IN ('personal','shared')`.
-- `kpi_pins.created_by uuid` (records the admin who shared).
-- `kpi_pins.user_id` becomes nullable; CHECK: `(scope='personal' AND user_id IS NOT NULL) OR (scope='shared' AND user_id IS NULL)`.
-- Drop existing unique on `(user_id, profit_center_id, kpi_definition_id)` if present; replace with two partial uniques:
-  - `UNIQUE (user_id, profit_center_id, kpi_definition_id) WHERE scope='personal'`
-  - `UNIQUE (profit_center_id, kpi_definition_id) WHERE scope='shared'`
-- Backfill: existing rows get `scope='personal'` (the DEFAULT covers it).
-- Revise `enforce_kpi_pin_cap()` trigger to skip when `NEW.scope='shared'` and to count only `scope='personal'` rows.
-- Revise RLS policies on `kpi_pins`:
-  - SELECT: `(scope='personal' AND user_id=auth.uid() AND has_profit_center_access(...)) OR (scope='shared' AND has_profit_center_access(...))`
-  - INSERT/UPDATE/DELETE for `scope='personal'`: existing `user_id=auth.uid()` rules.
-  - INSERT/UPDATE/DELETE for `scope='shared'`: `has_role(super_admin) OR can_manage_profit_center(auth.uid(), profit_center_id)`.
+2. **Horizons offered** — *default: 7 / 14 / 30 days.*
+   - 2a (default): 7, 14, 30. Single-select, default 7.
+   - 2b: 7 / 14 only. More conservative; 30-day projections from 30-day input series are statistically dubious.
+   - 2c: Free numeric input (1–60). Maximum flexibility, easier to misuse.
 
-### Code Changes
+3. **Backtest readout** — *default: MAPE + MAE on the last 7 actual days, recomputed whenever horizon or seasonality changes.*
+   - 3a (default): Single hold-out (last 7 points), report MAPE % and MAE in series unit. Cheap, honest enough.
+   - 3b: Rolling-origin walk-forward (5 folds × 1-day step). More robust, ~5× the compute, still trivial client-side.
+   - 3c: Skip backtests entirely. Rejected by me — shipping a seasonal model without an accuracy readout is exactly the "linear-trend toy bolted with features" failure mode I flagged when Phase 9 was scoped.
 
-**`src/lib/reporting.ts`** — add helpers:
-- `shareKpiPin({ profitCenterId, kpiDefinitionId })` — inserts `scope='shared'`, `user_id=null`, `created_by=auth.uid()`; writes `audit_logs` entry (`entity_type='kpi_pin'`, `action='share'`).
-- `unshareKpiPin({ profitCenterId, kpiDefinitionId })` — deletes the shared row; writes audit `action='unshare'`.
-- `canShareKpiPin(roles, profitCenterId, managedProfitCenterIds)` — pure helper for UI gating.
-- `splitPinsByScope(pins)` — returns `{ personal, shared }`.
-- `pinKpi`/`unpinKpi`/`reorderPins` unchanged externally; internally scoped to `scope='personal'`.
+4. **UI surface** — *default: extend the existing Trend tab in `KpiDetailDrawer`.*
+   - 4a (default): Same drawer tab. Add a horizon selector + seasonality toggle + accuracy badge. Zero new routes.
+   - 4b: New "Forecast" tab next to Trend. Cleaner separation, but Trend already shows the chart; splitting feels artificial.
 
-**`src/pages/PortalReports.tsx`**:
-- KPI card menu gains "Share with workspace" / "Unshare" entries, visible only when `canShareKpiPin` returns true.
-- Cap indicator counts personal pins only; tooltip notes team pins are separate.
+---
 
-**`src/pages/PortalOverview.tsx`**:
-- Two sections: **Pinned by your team** (read-only, subtle "Team" badge) and **Your pins** (existing reorder + unpin controls).
-- Team section omitted entirely when empty.
+### What gets built
 
-### Documentation & Policy (same response as code, per SSOT)
+**1. Pure helpers in `src/lib/reporting.ts`** (no schema, no DB, no new deps)
 
-- `DOCUMENTATION.md`: new `kpi_pins.scope` + `created_by` semantics, partial unique indexes, share/unshare contracts, audit entry shapes, revised cap-trigger behavior. Bump Version History.
-- `POLICY.md`: new **Shared Pin Governance** section covering: who can share (admin only), workspace scope, separate cap (shared pins not counted), no per-user hide, mandatory audit trail on share/unshare.
+- `forecastSeasonal(series, horizonDays, opts)` — returns projected `KpiSeriesPoint[]`. Algorithm: detrend with linear regression → if `series.length >= 2 * period` (default period=7), compute mean residual per weekday → project as `trend(future_x) + seasonal_index(future_weekday)`. Falls back to `forecastLinear` when seasonality cannot engage. Fails closed on the same conditions as `forecastLinear` (NaN, degenerate slope, <2 usable points).
+- `backtestForecast(series, horizonDays, opts)` — holds out the last `min(7, floor(series.length / 3))` points, runs `forecastSeasonal` on the prefix, returns `{ mape: number | null, mae: number | null, holdoutCount: number, method: "seasonal" | "linear" | "none" }`. Returns `mape: null` when any actual is 0 (avoid divide-by-zero) and falls back to MAE only.
+- Existing `forecastLinear` stays untouched and exported — `forecastSeasonal` calls it internally for the trend component and as the fallback.
 
-### Tests (`src/test/example.test.tsx`) — 5–7 new
+**2. UI changes — `src/components/KpiDetailDrawer.tsx` only**
 
-- `canShareKpiPin` returns true for super_admin and workspace admin, false otherwise.
-- `splitPinsByScope` partitions correctly (mixed, all-personal, all-shared, empty).
-- `enforceMaxPins` ignores `scope='shared'` rows when counting against the 12 cap.
-- `reorderPins` operates only on personal pins (shared pins untouched in result).
-- Audit payload shape for `share` / `unshare` matches contract.
+The Trend tab gets three new controls above the chart, replacing the current single Switch:
 
-### Pre-Implementation Risk Recap
+```text
+┌───────────────────────────────────────────────────────────────┐
+│  Show forecast  [Switch]                                      │
+│  Horizon: [7d] [14d] [30d]    Seasonality: [Auto ▼]           │
+│  Accuracy (last 7d holdout): MAPE 8.2% · MAE 1.4 mt · weekly  │
+└───────────────────────────────────────────────────────────────┘
+```
 
-- **Highest risk**: rewritten `kpi_pins` SELECT policy. Mitigation = explicit policy tests via `read_query` post-migration plus unit tests on the helper-side split logic.
-- **Second risk**: cap trigger silently changing semantics. Mitigation = trigger short-circuits on `scope='shared'`; `scope='personal'` path is identical to today.
-- **Additive migration only** — no destructive ops; existing rows backfill to `'personal'`.
+- Horizon segmented control (default 7).
+- Seasonality select: `Auto` (default — engages when data allows) / `Off` (linear only).
+- Accuracy badge: shows MAPE/MAE, the method actually used (`seasonal`/`linear`/`none`), and the holdout size. Greyed-out with "Insufficient data" text when fewer than 6 points exist.
+- Dashed forecast line on the chart — same styling as today, just longer when 14/30 selected.
+- Tooltip on the accuracy badge: "Computed by holding out the last N actual days and comparing the model's prediction. Display-only; never persisted."
 
-### Out of Scope (deferred)
+No changes to `PortalOverview.tsx`, `PortalReports.tsx`, or any export/CSV/digest path.
 
-- Per-user hide of shared pins.
-- Role-targeted shared pins.
-- Drag-and-drop reorder UI.
-- Forecast hardening.
-- Cross-workspace pin sharing.
+**3. Tests** (`src/test/example.test.tsx`)
 
-### Files Touched
+Add a `describe("Seasonal forecast helper (Phase 11)")` block covering:
+- Returns linear-only when series < 14 points.
+- Engages weekly seasonality at exactly 14 points.
+- Reproduces a synthetic `trend + sin(2π·weekday/7)` signal within tight tolerance.
+- Fails closed (`[]`) on all-null, single-point, NaN, and zero-variance series.
+- `backtestForecast` returns `{ mape: null, mae: number, holdoutCount: 0, method: "none" }` on tiny series and never throws.
+- Backtest MAPE on a known synthetic series matches a hand-computed expected value.
 
-- New: `supabase/migrations/<phase10>.sql`
-- Modified: `src/lib/reporting.ts`, `src/pages/PortalReports.tsx`, `src/pages/PortalOverview.tsx`, `DOCUMENTATION.md`, `POLICY.md`, `src/test/example.test.tsx`
+Target: 6 new tests, total 47 passing.
 
-**Approve to proceed?**
+**4. Documentation & policy updates (atomic, same response as code)**
+
+- `DOCUMENTATION.md` — append Phase 11 section describing helpers, UI, holdout convention, and the unchanged "no schema, no persistence" boundary. Add Version History entry.
+- `POLICY.md` — extend the existing Phase 9 "Forecast Display Governance" with one paragraph for Phase 11: backtest accuracy figures (MAPE/MAE) are themselves display-only artifacts, MUST NOT be persisted to `kpi_definitions`, `report_deliveries`, or audit logs, and MUST NOT appear in CSV-of-series exports. Add Policy Change Log entry.
+
+### Pre-Implementation Risk & Impact Report
+
+- **Data Impact**: None. No schema changes, no migrations, no new tables, no RLS edits. `kpi_pins`, `kpi_definitions`, `report_deliveries`, `audit_logs` all untouched.
+- **Workflow Impact**: None. Permissions, roles, RPCs, edge functions unchanged. Forecast UI is visible to anyone who can already open the drawer.
+- **UI/UX Impact**: One existing tab gains controls. No new routes, no nav changes. Same dashed-line styling on the chart.
+- **Regression Risk**: Low and contained.
+  - `KpiDetailDrawer` rerenders when horizon/seasonality changes — both `forecastSeasonal` and `backtestForecast` are wrapped in `useMemo` keyed on `[series, horizon, seasonalityMode]`, matching the existing `forecastPoints` pattern.
+  - `forecastLinear` is unchanged and re-exported, so all 41 existing tests still pass.
+  - Recharts handles longer dashed lines fine; no library bump.
+- **Mitigation**: New tests cover the new helpers; manual QA flow is "open drawer → switch horizons → confirm chart redraws and accuracy badge updates."
+
+### Out of Scope (deferred — call out explicitly)
+
+- Server-side forecasting in `compute_kpi` (would violate the display-only boundary).
+- Forecasts in scheduled digests / `report_deliveries`.
+- Confidence intervals / prediction bands (Recharts Area overlay is doable but adds visual noise; defer until users ask).
+- Anomaly detection (separate feature, separate phase).
+- Holt-Winters / ARIMA / Prophet (overkill for daily plant data without a real forecasting need that the simple seasonal-naive model can't serve).
+- Per-shift (intra-day) seasonality — current series are already daily-bucketed by `compute_kpi`; intra-day would require new RPCs.
+
+### Pushback I want on the record
+
+- **Decision 1b (monthly seasonality)** I recommend against right now. With the default 30-day window in `compute_kpi` callers, almost no series will hit the 60-point engagement threshold, so the code path will exist but never run for real users. Add it the day we add 90-day windows.
+- **Decision 3c (skip backtests)** I refuse to build silently. If you genuinely don't want them, say so explicitly and I'll add a one-line POLICY.md entry stating "no accuracy readout is shown" so the omission is intentional rather than accidental.
+- **Decision 2c (free numeric horizon)** I'd push back on. `forecastSeasonal` for `horizonDays > series.length` produces a number, but it's a number you should not show a shift manager. The 7/14/30 chips bound the foot-gun.
+
+**Please confirm the 4 decisions above (or say "use defaults") before I proceed.**
