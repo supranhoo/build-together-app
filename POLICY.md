@@ -97,11 +97,13 @@
 - Pinning a KPI from another workspace is rejected by RLS (`has_profit_center_access` must hold). Removing a workspace assignment removes the user's ability to read those pins, but pin rows are retained until explicitly unpinned.
 - Pin sort_order is user-controlled. Reordering MUST NOT trigger any KPI recomputation — pins are display metadata only.
 
-## Pin Reorder & Forecast Display Governance (Phase 9)
+## Pin Reorder & Forecast Display Governance (Phase 9, extended in Phase 11)
 - Pin reorder is personal preference and UX-only. Reordering MUST NOT append `audit_logs` rows, MUST NOT trigger any KPI recompute, and MUST NOT be visible to admins. Only the owning user may change `kpi_pins.sort_order`; RLS enforces this.
 - Bulk-select inside `KpiDetailDrawer` MUST reuse the existing `bulk_void_heat_logs` / `bulk_reverse_inventory_ledger` RPCs and the existing `permission_grants` checks. The drawer MUST NOT introduce a parallel permission path or a separate audit format — bulk operations from the drawer are indistinguishable from bulk operations from the outer pages, including `batch_id` grouping and the shared-reason rule.
-- Forecasts rendered in the UI (e.g. the dashed projection in the drawer's Trend tab) are **advisory and display-only**. Forecast values MUST NEVER be persisted, MUST NEVER be written back to `kpi_definitions` or `report_deliveries`, MUST NEVER appear in CSV exports of `series`, and MUST NEVER be used in compliance, audit, or scheduled-digest payloads.
-- The forecast helper MUST fail closed: any series too short, any non-finite intermediate value, or any degenerate slope MUST yield no projection rather than a fabricated number.
+- Forecasts rendered in the UI (e.g. the dashed projection in the drawer's Trend tab, including the Phase 11 seasonal projection at 7/14/30-day horizons) are **advisory and display-only**. Forecast values MUST NEVER be persisted, MUST NEVER be written back to `kpi_definitions` or `report_deliveries`, MUST NEVER appear in CSV exports of `series`, and MUST NEVER be used in compliance, audit, or scheduled-digest payloads.
+- The forecast helper(s) MUST fail closed: any series too short, any non-finite intermediate value, or any degenerate slope MUST yield no projection rather than a fabricated number. This applies to both `forecastLinear` and `forecastSeasonal`.
+- **Phase 11 — Backtest accuracy figures (MAPE, MAE) are themselves display-only artifacts.** Accuracy values MUST NOT be persisted to `kpi_definitions`, `kpi_pins`, `report_deliveries`, or `audit_logs`, MUST NOT appear in CSV-of-series exports, and MUST NOT be used to gate publication or alerting decisions in compliance/digest paths. They exist solely to give an operator a sense of how reliable the on-screen projection is for the current series.
+- The backtest helper MUST fail closed in the same way as the forecast helper: insufficient data MUST yield `{ mape: null, mae: null, holdoutCount: 0, method: 'none' }` rather than a fabricated metric. MAPE MUST be `null` when any held-out actual is zero (divide-by-zero), with MAE reported separately in series units.
 
 ## Shared Pin Governance (Phase 10)
 - KPI pins now carry a `scope`: `personal` (the existing per-user preference) or `shared` (a workspace-published pin visible to every member of that workspace).
@@ -117,3 +119,4 @@
 - 2026-04-24: Phase 8 — added Bulk Void & Reverse Governance (atomic batches, shared reason, `batch_id` audit grouping, no permission bypass) and Pinned KPIs Governance (personal preference, no admin override, capped at 12, RLS-scoped to assigned workspaces).
 - 2026-04-24: Phase 9 — added Pin Reorder & Forecast Display Governance (reorder is personal UX state with no audit, drawer bulk-select reuses existing RPCs, forecasts are advisory display-only and must fail closed).
 - 2026-04-24: Phase 10 — added Shared Pin Governance (admin-only publish via existing role helpers, workspace-scoped, no per-user hide, separate from personal cap, mandatory `share`/`unshare` audit trail, shared rows immutable in `scope`/`user_id`).
+- 2026-04-24: Phase 11 — extended Forecast Display Governance to cover seasonal forecasts and backtest metrics (MAPE/MAE are display-only, never persisted, never in CSV/digest payloads; backtest helper must fail closed and return `null` MAPE on zero actuals).

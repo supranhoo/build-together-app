@@ -678,6 +678,158 @@ export function forecastLinear(series: KpiSeriesPoint[], horizonDays: number): K
   return out;
 }
 
+/**
+ * Phase 11 — Seasonal forecast (weekly period only).
+ *
+ * Algorithm: linear-regression detrend → if the series has at least
+ * `2 * period` (default 14) usable points, compute the mean residual per
+ * weekday (UTC) → project as `trend(future_x) + seasonal_index(future_weekday)`.
+ *
+ * Falls back to `forecastLinear` when seasonality cannot engage. Fails closed
+ * (returns `[]`) under the same conditions as `forecastLinear`. Display-only;
+ * see POLICY.md → Forecast Display Governance.
+ */
+export type SeasonalityMode = "auto" | "off";
+export interface ForecastOpts {
+  seasonality?: SeasonalityMode;
+  period?: number; // default 7
+}
+
+export function forecastSeasonal(
+  series: KpiSeriesPoint[],
+  horizonDays: number,
+  opts: ForecastOpts = {},
+): KpiSeriesPoint[] {
+  const seasonality: SeasonalityMode = opts.seasonality ?? "auto";
+  const period = opts.period ?? 7;
+
+  if (seasonality === "off") return forecastLinear(series, horizonDays);
+  if (horizonDays <= 0) return [];
+
+  const usable = series
+    .map((p, i) => ({ x: i, y: p.value, day: p.day }))
+    .filter((p): p is { x: number; y: number; day: string } => typeof p.y === "number" && Number.isFinite(p.y));
+  if (usable.length < 2) return [];
+  if (usable.length < 2 * period) return forecastLinear(series, horizonDays);
+
+  // Linear trend on usable points (same math as forecastLinear).
+  const n = usable.length;
+  const sumX = usable.reduce((s, p) => s + p.x, 0);
+  const sumY = usable.reduce((s, p) => s + p.y, 0);
+  const sumXY = usable.reduce((s, p) => s + p.x * p.y, 0);
+  const sumXX = usable.reduce((s, p) => s + p.x * p.x, 0);
+  const denom = n * sumXX - sumX * sumX;
+  if (denom === 0) return [];
+  const slope = (n * sumXY - sumX * sumY) / denom;
+  const intercept = (sumY - slope * sumX) / n;
+  if (!Number.isFinite(slope) || !Number.isFinite(intercept)) return [];
+
+  // Per-weekday residual mean (UTC).
+  const sums = new Array<number>(period).fill(0);
+  const counts = new Array<number>(period).fill(0);
+  for (const p of usable) {
+    const wd = weekdayOf(p.day);
+    if (wd < 0) return [];
+    const trend = slope * p.x + intercept;
+    const resid = p.y - trend;
+    if (!Number.isFinite(resid)) return [];
+    sums[wd] += resid;
+    counts[wd] += 1;
+  }
+  const seasonalIdx = sums.map((s, i) => (counts[i] > 0 ? s / counts[i] : 0));
+
+  const lastDay = series[series.length - 1]?.day;
+  const baseDate = lastDay ? new Date(`${lastDay}T00:00:00Z`) : new Date();
+  if (Number.isNaN(baseDate.getTime())) return [];
+
+  const out: KpiSeriesPoint[] = [];
+  for (let i = 1; i <= horizonDays; i++) {
+    const xi = series.length - 1 + i;
+    const d = new Date(baseDate);
+    d.setUTCDate(d.getUTCDate() + i);
+    const wd = d.getUTCDay();
+    const yi = slope * xi + intercept + seasonalIdx[wd];
+    if (!Number.isFinite(yi)) return [];
+    out.push({ day: d.toISOString().slice(0, 10), value: yi });
+  }
+  return out;
+}
+
+function weekdayOf(day: string): number {
+  const d = new Date(`${day}T00:00:00Z`);
+  if (Number.isNaN(d.getTime())) return -1;
+  return d.getUTCDay();
+}
+
+/**
+ * Phase 11 — Walk-forward backtest (single hold-out).
+ *
+ * Holds out the last `min(7, floor(usable.length / 3))` points, runs
+ * `forecastSeasonal` on the prefix, compares predictions to the held-out
+ * actuals. Returns MAPE (% error, null if any actual is 0) and MAE (in
+ * series units). Display-only; never persisted.
+ */
+export interface BacktestResult {
+  mape: number | null;
+  mae: number | null;
+  holdoutCount: number;
+  method: "seasonal" | "linear" | "none";
+}
+
+export function backtestForecast(
+  series: KpiSeriesPoint[],
+  _horizonDays: number,
+  opts: ForecastOpts = {},
+): BacktestResult {
+  const usable = series.filter((p) => typeof p.value === "number" && Number.isFinite(p.value));
+  if (usable.length < 6) return { mape: null, mae: null, holdoutCount: 0, method: "none" };
+
+  const holdout = Math.min(7, Math.floor(usable.length / 3));
+  if (holdout < 1) return { mape: null, mae: null, holdoutCount: 0, method: "none" };
+
+  const cutoff = series.length - holdout;
+  const prefix = series.slice(0, cutoff);
+  const actuals = series.slice(cutoff).filter((p) => typeof p.value === "number" && Number.isFinite(p.value));
+  if (actuals.length === 0) return { mape: null, mae: null, holdoutCount: 0, method: "none" };
+
+  // Detect which method the seasonal helper will actually use on the prefix.
+  const period = opts.period ?? 7;
+  const prefixUsable = prefix.filter((p) => typeof p.value === "number" && Number.isFinite(p.value)).length;
+  const willUseSeasonal = (opts.seasonality ?? "auto") === "auto" && prefixUsable >= 2 * period;
+  const method: BacktestResult["method"] = willUseSeasonal ? "seasonal" : prefixUsable >= 2 ? "linear" : "none";
+  if (method === "none") return { mape: null, mae: null, holdoutCount: 0, method: "none" };
+
+  const predicted = forecastSeasonal(prefix, holdout, opts);
+  if (predicted.length !== holdout) return { mape: null, mae: null, holdoutCount: 0, method: "none" };
+
+  const byDay = new Map(predicted.map((p) => [p.day, p.value as number]));
+  let absSum = 0;
+  let pctSum = 0;
+  let pctCount = 0;
+  let pairs = 0;
+  let anyZeroActual = false;
+  for (const a of actuals) {
+    const pred = byDay.get(a.day);
+    if (typeof pred !== "number" || !Number.isFinite(pred)) continue;
+    const actual = a.value as number;
+    const err = Math.abs(pred - actual);
+    if (!Number.isFinite(err)) continue;
+    absSum += err;
+    pairs += 1;
+    if (actual === 0) {
+      anyZeroActual = true;
+    } else {
+      pctSum += err / Math.abs(actual);
+      pctCount += 1;
+    }
+  }
+  if (pairs === 0) return { mape: null, mae: null, holdoutCount: 0, method: "none" };
+
+  const mae = absSum / pairs;
+  const mape = anyZeroActual || pctCount === 0 ? null : (pctSum / pctCount) * 100;
+  return { mape, mae, holdoutCount: actuals.length, method };
+}
+
 export function downloadCsv(filename: string, csv: string) {
   const blob = new Blob([csv], { type: "text/csv;charset=utf-8" });
   const url = URL.createObjectURL(blob);

@@ -21,13 +21,14 @@ import {
 import { Textarea } from "@/components/ui/textarea";
 import { useToast } from "@/hooks/use-toast";
 import {
+  backtestForecast,
   bulkReverseInventoryLedger,
   bulkVoidHeatLogs,
   computeKpi,
   downloadCsv,
   exportDrilldownCsv,
   fetchKpiDrilldown,
-  forecastLinear,
+  forecastSeasonal,
   reverseInventoryLedger,
   subscribeToKpi,
   unsubscribeFromKpi,
@@ -39,6 +40,7 @@ import {
   type KpiResult,
   type KpiSeriesPoint,
   type KpiSubscription,
+  type SeasonalityMode,
 } from "@/lib/reporting";
 
 interface Props {
@@ -61,7 +63,8 @@ type PendingAction =
   | { kind: "bulk_reverse_inventory"; ids: string[] }
   | null;
 
-const FORECAST_HORIZON_DAYS = 7;
+const FORECAST_HORIZONS = [7, 14, 30] as const;
+type ForecastHorizon = (typeof FORECAST_HORIZONS)[number];
 
 export function KpiDetailDrawer({
   open,
@@ -85,6 +88,8 @@ export function KpiDetailDrawer({
   const [reason, setReason] = useState("");
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
   const [showForecast, setShowForecast] = useState(false);
+  const [forecastHorizon, setForecastHorizon] = useState<ForecastHorizon>(7);
+  const [seasonalityMode, setSeasonalityMode] = useState<SeasonalityMode>("auto");
 
   useEffect(() => {
     if (!open || !definition) return;
@@ -146,8 +151,13 @@ export function KpiDetailDrawer({
 
   const forecastPoints = useMemo<KpiSeriesPoint[]>(() => {
     if (!showForecast || !series?.series) return [];
-    return forecastLinear(series.series, FORECAST_HORIZON_DAYS);
-  }, [showForecast, series?.series]);
+    return forecastSeasonal(series.series, forecastHorizon, { seasonality: seasonalityMode });
+  }, [showForecast, series?.series, forecastHorizon, seasonalityMode]);
+
+  const backtest = useMemo(() => {
+    if (!series?.series || series.series.length < 6) return null;
+    return backtestForecast(series.series, forecastHorizon, { seasonality: seasonalityMode });
+  }, [series?.series, forecastHorizon, seasonalityMode]);
 
   const chartData = useMemo(() => {
     const actual = (series?.series ?? []).map((p) => ({ day: p.day, value: p.value, forecast: null as number | null }));
@@ -429,19 +439,80 @@ export function KpiDetailDrawer({
           </TabsContent>
 
           <TabsContent value="trend" className="mt-3">
-            <div className="mb-3 flex items-center justify-between rounded-md border border-border bg-panel px-3 py-2">
-              <div>
-                <p className="text-sm font-medium">Show forecast</p>
-                <p className="text-[11px] text-muted-foreground">
-                  Linear projection · {FORECAST_HORIZON_DAYS}-day horizon · advisory only
-                </p>
+            <div className="mb-3 space-y-2 rounded-md border border-border bg-panel px-3 py-2">
+              <div className="flex items-center justify-between">
+                <div>
+                  <p className="text-sm font-medium">Show forecast</p>
+                  <p className="text-[11px] text-muted-foreground">
+                    Advisory projection · never persisted, never in exports
+                  </p>
+                </div>
+                <Switch
+                  checked={showForecast}
+                  onCheckedChange={setShowForecast}
+                  disabled={!series || (series.series ?? []).length < 2}
+                  aria-label="Toggle forecast projection"
+                />
               </div>
-              <Switch
-                checked={showForecast}
-                onCheckedChange={setShowForecast}
-                disabled={!series || (series.series ?? []).length < 2}
-                aria-label="Toggle forecast projection"
-              />
+              {showForecast && (
+                <div className="flex flex-wrap items-center gap-3 border-t border-border pt-2">
+                  <div className="flex items-center gap-1.5">
+                    <span className="text-[11px] text-muted-foreground">Horizon:</span>
+                    {FORECAST_HORIZONS.map((h) => (
+                      <Button
+                        key={h}
+                        type="button"
+                        size="sm"
+                        variant={forecastHorizon === h ? "default" : "outline"}
+                        className="h-6 px-2 text-[11px]"
+                        onClick={() => setForecastHorizon(h)}
+                      >
+                        {h}d
+                      </Button>
+                    ))}
+                  </div>
+                  <div className="flex items-center gap-1.5">
+                    <span className="text-[11px] text-muted-foreground">Seasonality:</span>
+                    <Button
+                      type="button"
+                      size="sm"
+                      variant={seasonalityMode === "auto" ? "default" : "outline"}
+                      className="h-6 px-2 text-[11px]"
+                      onClick={() => setSeasonalityMode("auto")}
+                    >
+                      Auto
+                    </Button>
+                    <Button
+                      type="button"
+                      size="sm"
+                      variant={seasonalityMode === "off" ? "default" : "outline"}
+                      className="h-6 px-2 text-[11px]"
+                      onClick={() => setSeasonalityMode("off")}
+                    >
+                      Off
+                    </Button>
+                  </div>
+                  <div
+                    className="ml-auto text-[11px] text-muted-foreground"
+                    title="Computed by holding out the last N actual days and comparing the model's prediction. Display-only; never persisted."
+                  >
+                    {!backtest || backtest.method === "none" ? (
+                      <span>Accuracy: insufficient data</span>
+                    ) : (
+                      <span>
+                        Accuracy ({backtest.holdoutCount}d holdout):{" "}
+                        {backtest.mape !== null ? `MAPE ${backtest.mape.toFixed(1)}%` : "MAPE n/a"}
+                        {" · "}
+                        {backtest.mae !== null
+                          ? `MAE ${backtest.mae.toFixed(2)}${series?.unit ? ` ${series.unit}` : ""}`
+                          : "MAE n/a"}
+                        {" · "}
+                        {backtest.method}
+                      </span>
+                    )}
+                  </div>
+                </div>
+              )}
             </div>
             <div className="h-64 rounded-md border border-border bg-card p-2">
               {!series || (series.series ?? []).length === 0 ? (
