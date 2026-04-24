@@ -70,9 +70,18 @@ export default function AdminMaterials() {
         action: form.id ? "material.updated" : "material.created",
         changeSummary: { code: form.code, name: form.name, category: form.category, uom: form.uom, profit_center_id: form.profitCenterId },
       });
-      toast({ title: "Material saved" });
+      const targetPcId = form.profitCenterId;
+      const isCrossWorkspace = targetPcId !== activeProfitCenter.id;
+      toast({
+        title: "Material saved",
+        description: isCrossWorkspace ? "Switched workspace to show the new record." : undefined,
+      });
       setOpen(false);
-      await load();
+      if (isCrossWorkspace) {
+        selectProfitCenter(targetPcId);
+      } else {
+        await load();
+      }
     } catch (error) {
       toast({ title: "Save failed", description: error instanceof Error ? error.message : "", variant: "destructive" });
     } finally {
