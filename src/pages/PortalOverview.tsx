@@ -1,6 +1,7 @@
-import { useEffect, useState } from "react";
-import { ArrowDown, ArrowUp, BarChart3, Factory, Gauge, MapPin, Pin, Warehouse } from "lucide-react";
+import { useEffect, useMemo, useState } from "react";
+import { ArrowDown, ArrowUp, BarChart3, Factory, Gauge, MapPin, Pin, Users, Warehouse } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { useToast } from "@/hooks/use-toast";
 import { useAuth } from "@/hooks/use-auth";
@@ -12,6 +13,7 @@ import {
   fetchKpiPins,
   persistPinOrder,
   reorderPins,
+  splitPinsByScope,
   type KpiDefinition,
   type KpiPin,
 } from "@/lib/reporting";
