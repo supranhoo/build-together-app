@@ -1,5 +1,5 @@
-import { useEffect, useState } from "react";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { useEffect, useMemo, useState } from "react";
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -10,8 +10,20 @@ import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle, DialogT
 import { useWorkspace } from "@/hooks/use-workspace";
 import { useAuth } from "@/hooks/use-auth";
 import { useToast } from "@/hooks/use-toast";
-import { buildDateRange, computeKpi, fetchKpiDefinitions, upsertKpiDefinition, type KpiDefinition, type KpiResult } from "@/lib/reporting";
-import { createAuditLog } from "@/lib/workspace";
+import {
+  applySharedPinDefaults,
+  buildDateRange,
+  canShareKpiPin,
+  computeKpi,
+  fetchKpiDefinitions,
+  upsertKpiDefinition,
+  type KpiDefinition,
+  type KpiResult,
+} from "@/lib/reporting";
+import { createAuditLog, fetchProfitCenterSettings, upsertProfitCenterSetting } from "@/lib/workspace";
+import { SharedPinBulkDialog } from "@/components/SharedPinBulkDialog";
+
+const SHARED_PIN_DEFAULTS_KEY = "shared_pin_defaults";
 
 interface FormState {
   id?: string;
