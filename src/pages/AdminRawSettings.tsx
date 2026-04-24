@@ -10,7 +10,7 @@ import { useAuth } from "@/hooks/use-auth";
 import { useToast } from "@/hooks/use-toast";
 import { createAuditLog, upsertProfitCenterSetting } from "@/lib/workspace";
 
-export default function AdminSettings() {
+export default function AdminRawSettings() {
   const { session } = useAuth();
   const { toast } = useToast();
   const { settings, activeProfitCenter, refreshWorkspace } = useWorkspace();
