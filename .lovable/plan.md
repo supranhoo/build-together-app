@@ -1,101 +1,76 @@
-
 ## Phase 10 — Pin Sharing & Admin Overrides
 
-Phase 9 closed the deferred Phase 8 items (bulk-select in drawer, pin reorder, forecasting). The one remaining deferred item from Phase 9 — and the option you just selected — is **shared/team pins with admin overrides**. This is a meaningful governance change, not a UI tweak, so it gets its own phase.
+Defaults applied for all 4 decisions. Confirm to proceed.
 
-### Goal
+### Decisions (defaults)
 
-Allow admins to publish KPI pins that appear on every workspace member's Overview, while preserving each user's personal pin slate and the existing 12-pin cap semantics.
+1. **Scope model**: Workspace-scoped only (`scope='shared'` belongs to a `profit_center_id`, no role targeting).
+2. **Cap interaction**: Shared pins do **not** count against the 12-pin personal cap. Rendered in a separate section.
+3. **Who can publish**: `super_admin` + workspace admin (via existing `can_manage_profit_center`). No new `permission_grants` rows.
+4. **User hide**: Not allowed. Shared pins are mandatory; one source of truth.
 
----
+### Schema Changes (`supabase/migrations/<phase10>.sql`)
 
-### Decisions Needed (4)
+- `kpi_pins.scope text NOT NULL DEFAULT 'personal'` with CHECK `scope IN ('personal','shared')`.
+- `kpi_pins.created_by uuid` (records the admin who shared).
+- `kpi_pins.user_id` becomes nullable; CHECK: `(scope='personal' AND user_id IS NOT NULL) OR (scope='shared' AND user_id IS NULL)`.
+- Drop existing unique on `(user_id, profit_center_id, kpi_definition_id)` if present; replace with two partial uniques:
+  - `UNIQUE (user_id, profit_center_id, kpi_definition_id) WHERE scope='personal'`
+  - `UNIQUE (profit_center_id, kpi_definition_id) WHERE scope='shared'`
+- Backfill: existing rows get `scope='personal'` (the DEFAULT covers it).
+- Revise `enforce_kpi_pin_cap()` trigger to skip when `NEW.scope='shared'` and to count only `scope='personal'` rows.
+- Revise RLS policies on `kpi_pins`:
+  - SELECT: `(scope='personal' AND user_id=auth.uid() AND has_profit_center_access(...)) OR (scope='shared' AND has_profit_center_access(...))`
+  - INSERT/UPDATE/DELETE for `scope='personal'`: existing `user_id=auth.uid()` rules.
+  - INSERT/UPDATE/DELETE for `scope='shared'`: `has_role(super_admin) OR can_manage_profit_center(auth.uid(), profit_center_id)`.
 
-**1. Scope model for shared pins**
+### Code Changes
 
-- **a) Workspace-scoped only** *(default, recommended)* — shared pins live at the `profit_center_id` level. Anyone with `has_profit_center_access` sees them. Simple, matches existing RLS patterns.
-- **b) Role-scoped** — shared pins target a specific `app_role` (e.g., "operators see these, managers see those"). Adds a `target_role` column and a join against `user_roles` at read time. More flexible, more surface area.
-- **c) User-group scoped** — requires a new `pin_groups` table + membership. Overkill for current needs.
+**`src/lib/reporting.ts`** — add helpers:
+- `shareKpiPin({ profitCenterId, kpiDefinitionId })` — inserts `scope='shared'`, `user_id=null`, `created_by=auth.uid()`; writes `audit_logs` entry (`entity_type='kpi_pin'`, `action='share'`).
+- `unshareKpiPin({ profitCenterId, kpiDefinitionId })` — deletes the shared row; writes audit `action='unshare'`.
+- `canShareKpiPin(roles, profitCenterId, managedProfitCenterIds)` — pure helper for UI gating.
+- `splitPinsByScope(pins)` — returns `{ personal, shared }`.
+- `pinKpi`/`unpinKpi`/`reorderPins` unchanged externally; internally scoped to `scope='personal'`.
 
-**2. How shared pins interact with the 12-pin cap**
+**`src/pages/PortalReports.tsx`**:
+- KPI card menu gains "Share with workspace" / "Unshare" entries, visible only when `canShareKpiPin` returns true.
+- Cap indicator counts personal pins only; tooltip notes team pins are separate.
 
-- **a) Shared pins do NOT count against the personal cap** *(default)* — a user can have 12 personal pins AND see N shared pins on top. Shared pins render in a separate "Pinned by your team" section on Overview.
-- **b) Shared pins DO count against the cap** — keeps the dashboard from overflowing but means shared pins can silently "evict" personal ones, which is bad UX.
-- **c) Separate cap for shared pins** (e.g., 6 shared + 12 personal) — adds a second `enforce_*_cap` trigger. Defensible but adds policy surface.
+**`src/pages/PortalOverview.tsx`**:
+- Two sections: **Pinned by your team** (read-only, subtle "Team" badge) and **Your pins** (existing reorder + unpin controls).
+- Team section omitted entirely when empty.
 
-**3. Who can publish shared pins**
+### Documentation & Policy (same response as code, per SSOT)
 
-- **a) `super_admin` + workspace `admin` (via `can_manage_profit_center`)** *(default)* — reuses existing permission helper. No new `permission_grants` rows needed.
-- **b) Add a new `kpi_pin` resource to `permission_grants`** with `share` action — more granular, future-proof, but adds a row to the permissions matrix and a new helper.
+- `DOCUMENTATION.md`: new `kpi_pins.scope` + `created_by` semantics, partial unique indexes, share/unshare contracts, audit entry shapes, revised cap-trigger behavior. Bump Version History.
+- `POLICY.md`: new **Shared Pin Governance** section covering: who can share (admin only), workspace scope, separate cap (shared pins not counted), no per-user hide, mandatory audit trail on share/unshare.
 
-**4. Can a user "hide" a shared pin from their own Overview?**
+### Tests (`src/test/example.test.tsx`) — 5–7 new
 
-- **a) No** *(default, simpler)* — shared pins are mandatory. If you don't want to see it, the admin shouldn't have shared it. One source of truth, no per-user state to maintain.
-- **b) Yes, via a `hidden_shared_pins` table** — respects user autonomy but adds a join on every Overview render and complicates the "did the admin's change reach everyone?" mental model.
+- `canShareKpiPin` returns true for super_admin and workspace admin, false otherwise.
+- `splitPinsByScope` partitions correctly (mixed, all-personal, all-shared, empty).
+- `enforceMaxPins` ignores `scope='shared'` rows when counting against the 12 cap.
+- `reorderPins` operates only on personal pins (shared pins untouched in result).
+- Audit payload shape for `share` / `unshare` matches contract.
 
----
+### Pre-Implementation Risk Recap
 
-### Pre-Implementation Risk & Impact Report
-
-**Data Impact**
-- New column on `kpi_pins`: `scope text NOT NULL DEFAULT 'personal' CHECK (scope IN ('personal','shared'))`. Existing rows backfill to `'personal'` — zero data loss.
-- `user_id` becomes nullable when `scope='shared'` (a shared pin has no owner; it belongs to the workspace). Add CHECK: `(scope='personal' AND user_id IS NOT NULL) OR (scope='shared' AND user_id IS NULL)`.
-- New column: `created_by uuid` to record the admin who published a shared pin (audit trail; personal pins can leave it null or mirror `user_id`).
-- Existing unique key (if any) on `(user_id, profit_center_id, kpi_definition_id)` needs to become a partial index scoped to `scope='personal'`, plus a new partial unique on `(profit_center_id, kpi_definition_id) WHERE scope='shared'` to prevent duplicate shared pins for the same KPI.
-
-**RLS Impact**
-- SELECT policy must be split: users see their own `personal` pins **OR** any `shared` pin in workspaces they have access to.
-- INSERT/UPDATE/DELETE for `shared` pins gated by `has_role(super_admin) OR can_manage_profit_center`.
-- INSERT/UPDATE/DELETE for `personal` pins remain `user_id = auth.uid()`.
-- The existing `enforce_kpi_pin_cap` trigger must skip `scope='shared'` rows on count (decision 2a) or apply a separate count (decision 2c).
-
-**Workflow Impact**
-- New "Share" / "Unshare" action on KPI cards in `PortalReports.tsx`, visible only to admins. A pinned KPI can be promoted from personal → shared (or simply published as shared without a personal precursor).
-- `PortalOverview.tsx` gets a second section: "Pinned by your team" (read-only — no reorder, no unpin) above or below the personal pins. Personal section keeps reorder.
-- Audit log entry on every share/unshare with `entity_type='kpi_pin'`, `action IN ('share','unshare')`, capturing `kpi_definition_id` and `profit_center_id`.
-
-**UI/UX Impact**
-- Two visually distinct sections on Overview: "Pinned by your team" (subtle badge, no controls) and "Your pins" (existing reorder + unpin).
-- KPI cards in Reports gain a second toggle / menu item: pin (personal) vs. share (workspace). Non-admins see only pin.
-- Cap indicator ("X / 12 pinned") only counts personal pins, with a tooltip clarifying that team pins are separate.
-
-**Regression Risk**
-- The `kpi_pins` SELECT policy change is the single biggest risk: a wrong policy could either leak pins across users or hide them. Mitigation: explicit unit tests for both shapes (personal-only user, admin-with-shared-pins user) plus a manual `read_query` smoke test post-migration.
-- The cap trigger change can silently break existing pin inserts if the WHERE clause is wrong. Mitigation: trigger preserves existing behavior for `scope='personal'` rows, no change for legacy data.
-- `reorderPins` / `persistPinOrder` already filter by `user_id=auth.uid()` — they will naturally ignore shared pins. No regression expected, but add a test to lock it in.
-- Forecast tab and bulk-action surfaces are untouched.
-
-**Mitigation Plan**
-- Migration is additive (new columns, new policies); no destructive changes to existing rows.
-- Helper `canShareKpiPin(role, profitCenterId)` in `src/lib/reporting.ts` centralizes the admin gate so UI and tests share one source of truth.
-- New tests for: scope CHECK constraint logic (helper-side), cap trigger ignoring shared rows, share/unshare audit trail shape, and Overview rendering (helper that splits pins into `{ personal, shared }`).
-- Documentation and Policy updates land in the **same response** as the code change, per SSOT.
-
----
-
-### Files to be Created/Modified
-
-- **New**: `supabase/migrations/<phase10>.sql` — `kpi_pins.scope` + `kpi_pins.created_by` columns, updated CHECK + partial uniques, revised RLS policies, revised `enforce_kpi_pin_cap` trigger.
-- **Modified**: 
-  - `src/lib/reporting.ts` — `shareKpiPin`, `unshareKpiPin`, `canShareKpiPin`, `splitPinsByScope` helpers; existing `pinKpi`/`unpinKpi`/`reorderPins` get a `scope` parameter where relevant.
-  - `src/pages/PortalReports.tsx` — admin-only Share/Unshare action on KPI cards; cap indicator counts personal only.
-  - `src/pages/PortalOverview.tsx` — split into "Pinned by your team" (read-only) and "Your pins" (existing controls).
-  - `DOCUMENTATION.md` — `kpi_pins.scope` semantics, share/unshare RPC contracts, audit trail entries.
-  - `POLICY.md` — Shared Pin Governance section (who can share, cap interaction, hide-prevention rationale, audit requirements).
-  - `src/test/example.test.tsx` — 5–7 new tests covering helpers and split logic.
+- **Highest risk**: rewritten `kpi_pins` SELECT policy. Mitigation = explicit policy tests via `read_query` post-migration plus unit tests on the helper-side split logic.
+- **Second risk**: cap trigger silently changing semantics. Mitigation = trigger short-circuits on `scope='shared'`; `scope='personal'` path is identical to today.
+- **Additive migration only** — no destructive ops; existing rows backfill to `'personal'`.
 
 ### Out of Scope (deferred)
 
-- Per-user "hide this shared pin" (decision 4b) — explicitly deferred.
-- Role-scoped shared pins (decision 1b) — explicitly deferred.
-- Drag-and-drop reorder UI (still Phase 11 candidate).
-- Forecast hardening (Phase 11 candidate).
-- Pin sharing across workspaces (out of scope; pins stay per-`profit_center_id`).
+- Per-user hide of shared pins.
+- Role-targeted shared pins.
+- Drag-and-drop reorder UI.
+- Forecast hardening.
+- Cross-workspace pin sharing.
 
-### Pushback / Trade-offs to Acknowledge
+### Files Touched
 
-- **Decision 4a (no per-user hide) is opinionated**: it treats shared pins as a workspace policy artifact, not a suggestion. If your operators have very different workflows, decision 4b is more humane — but it doubles the storage model and makes "did everyone see this?" harder to answer. I lean **a** unless you have a known use case for hiding.
-- **Decision 1a (workspace-scoped only) is the simplest correct path**. Role-scoping (1b) sounds attractive but introduces a many-to-many surface (a pin shown to both `operator` and `manager` needs duplicate rows or a `target_roles text[]`), and you don't have a stated need for it yet. If a real use case appears in Phase 11, we add it then — schema is forward-compatible because `scope` is a text enum we can extend.
-- **The cap question (decision 2) genuinely matters for UX**. Default 2a keeps personal pins sacred. If admins routinely share 10+ KPIs, users may end up with overcrowded Overviews — but that's a layout problem (responsive grid, collapse, etc.) we solve in UI, not by capping.
+- New: `supabase/migrations/<phase10>.sql`
+- Modified: `src/lib/reporting.ts`, `src/pages/PortalReports.tsx`, `src/pages/PortalOverview.tsx`, `DOCUMENTATION.md`, `POLICY.md`, `src/test/example.test.tsx`
 
-**Please confirm the 4 decisions above (or say "use defaults") before I proceed.**
+**Approve to proceed?**

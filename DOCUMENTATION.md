@@ -172,6 +172,7 @@ SteelFlow ERP now uses a configuration-first workspace foundation for steel and 
 
 - 2026-04-24: Implemented Phase 8 — personal pinned KPIs with `kpi_pins` table (hard cap of 12 enforced by trigger), pinned KPIs section on `/portal/overview`, pin/unpin toggles on `/portal/reports` cards, atomic bulk void (`bulk_void_heat_logs`) and bulk reverse (`bulk_reverse_inventory_ledger`) RPCs with shared `audit_logs.batch_id`, plus checkbox + bulk action bar UI on the production and inventory ledger pages.
 - 2026-04-24: Implemented Phase 9 — closed Phase 8 deferrals and added a minimal forecasting groundwork: bulk-select + bulk action bar inside `KpiDetailDrawer` rows table, ↑/↓ reorder controls for pinned KPIs on `/portal/overview` (optimistic UI persisted via `kpi_pins.sort_order`), and a "Show forecast" toggle on the drawer's new Trend tab that renders a 7-day client-side linear projection. No schema changes.
+- 2026-04-24: Implemented Phase 10 — workspace-shared KPI pins. `kpi_pins` extended with `scope` (`personal` | `shared`) and `created_by`; `user_id` is now nullable for shared rows. Two partial unique indexes replace the legacy single unique. Cap trigger short-circuits on shared inserts so personal cap stays at 12 and shared pins are unbounded. RLS split into per-scope read/write policies. Reports page gains an admin-only Share toggle; Overview renders a separate "Pinned by your team" section above the user's personal pins.
 
 ## Phase 9 — Drawer Bulk-Select, Pin Reorder, Linear Forecast
 - `KpiDetailDrawer` rows table now supports the same checkbox + bulk action bar pattern as `/portal/inventory/ledger` and `/portal/production`. The bar dispatches `bulkVoidHeatLogs` when the drilldown source is `heat_logs` and `bulkReverseInventoryLedger` when the source is `inventory_ledger`. Permission gating reuses `userCanAct` — the bar never appears for users without the relevant void/reverse grant.
@@ -180,3 +181,32 @@ SteelFlow ERP now uses a configuration-first workspace foundation for steel and 
 - `persistPinOrder(pins)` — new helper in `src/lib/reporting.ts`. Updates `kpi_pins.sort_order` for the supplied rows. Used by `/portal/overview` after `reorderPins` produces an optimistic local order; the page reverts on failure.
 - Portal `/portal/overview`: each pinned card now renders ↑ / ↓ icon buttons disabled at list boundaries. Click triggers `reorderPins` for an optimistic update, then `persistPinOrder` for only the two pins whose `sort_order` actually changed.
 - No new tables or DB functions. No new dependencies. Drag-and-drop reordering, server-side anomaly detection, configurable forecast horizons, and pin sharing remain deferred to a future phase.
+
+## Phase 10 — Shared/Team KPI Pins
+- `kpi_pins` schema extended:
+  - `scope text NOT NULL DEFAULT 'personal'` with `CHECK (scope IN ('personal','shared'))`. Existing rows backfill to `'personal'`.
+  - `created_by uuid` records the admin who published a shared pin (null for personal).
+  - `user_id uuid` is now nullable. CHECK constraint `kpi_pins_owner_by_scope` enforces `(scope='personal' AND user_id IS NOT NULL) OR (scope='shared' AND user_id IS NULL)`.
+  - The legacy unique on `(user_id, profit_center_id, kpi_definition_id)` is replaced by two partial unique indexes: `kpi_pins_personal_unique` (same triple, `WHERE scope='personal'`) and `kpi_pins_shared_unique` on `(profit_center_id, kpi_definition_id) WHERE scope='shared'` to prevent duplicate workspace shares of the same KPI.
+- `enforce_kpi_pin_cap()` trigger updated: short-circuits with `RETURN NEW` when `NEW.scope='shared'` (shared pins are uncapped), and counts only `scope='personal'` rows when evaluating the 12-pin personal cap. Personal-pin behavior is unchanged for legacy callers.
+- RLS on `kpi_pins` is now split per scope:
+  - SELECT: a user sees their own personal pins **and** any shared pin in workspaces they have access to (`has_profit_center_access`).
+  - Personal INSERT/UPDATE/DELETE: unchanged — `user_id = auth.uid()` plus workspace access. Policies require `scope = 'personal'`.
+  - Shared INSERT/UPDATE/DELETE: `scope = 'shared'` plus `has_role(super_admin) OR can_manage_profit_center(auth.uid(), profit_center_id)`. INSERT additionally requires `created_by = auth.uid()`.
+- Client helpers added in `src/lib/reporting.ts`:
+  - `KpiPinScope` type and extended `KpiPin` (now includes `scope` and `createdBy`; `userId` is `string | null`).
+  - `splitPinsByScope(pins)` — pure helper returning `{ personal, shared }`.
+  - `canShareKpiPin({ isSuperAdmin, isAdmin, profitCenterId, managedProfitCenterIds })` — pure UI gate that mirrors the RLS rule.
+  - `shareKpiPin({ actorUserId, profitCenterId, kpiDefinitionId, sortOrder? })` — inserts a `scope='shared'` row and writes an `audit_logs` entry (`entity_type='kpi_pin'`, `action='share'`).
+  - `unshareKpiPin({ actorUserId, profitCenterId, kpiDefinitionId })` — looks up and deletes the shared row, then writes an `audit_logs` entry (`action='unshare'`). No-op when the row does not exist.
+  - `fetchKpiPins(userId, profitCenterId)` now returns the union of personal-owned-by-user and shared rows for the workspace, ordered by `sort_order`.
+- Portal `/portal/reports`:
+  - KPI cards gain an admin-only Share/Unshare button alongside the existing pin/unpin button. Visibility is controlled by `canShareKpiPin`.
+  - Pin counter chip now reads `N / 12 personal pinned · M team` and a tooltip clarifies that team pins do not count toward the personal cap.
+  - Personal pin/unpin and cap enforcement now operate against `personalPins` (the personal subset of the fetched pins).
+- Portal `/portal/overview`:
+  - New "Pinned by your team" section appears above "Your pins" when at least one shared pin exists for the workspace. Team pins render with a subtle "team" badge and have **no** reorder or unpin controls.
+  - Personal section still uses ↑/↓ reorder; reorder is now scoped to personal pins only and shared pins are never persisted with new sort orders.
+- Audit trail: every `share` and `unshare` action appends one `audit_logs` row (`entity_type='kpi_pin'`, `change_summary` includes `kpi_definition_id` and `profit_center_id`). Personal pin/unpin actions remain unaudited (personal preference, not configuration).
+- No changes to `compute_kpi`, `compute_kpi_consolidated`, drilldown, subscriptions, deliveries, or any bulk RPC.
+- Deferred (out of scope for Phase 10): per-user "hide this shared pin", role-targeted shared pins (`target_role`), drag-and-drop reorder UI, forecast hardening, cross-workspace pin sharing.

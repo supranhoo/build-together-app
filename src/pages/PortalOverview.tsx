@@ -1,6 +1,7 @@
-import { useEffect, useState } from "react";
-import { ArrowDown, ArrowUp, BarChart3, Factory, Gauge, MapPin, Pin, Warehouse } from "lucide-react";
+import { useEffect, useMemo, useState } from "react";
+import { ArrowDown, ArrowUp, BarChart3, Factory, Gauge, MapPin, Pin, Users, Warehouse } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { useToast } from "@/hooks/use-toast";
 import { useAuth } from "@/hooks/use-auth";
@@ -12,6 +13,7 @@ import {
   fetchKpiPins,
   persistPinOrder,
   reorderPins,
+  splitPinsByScope,
   type KpiDefinition,
   type KpiPin,
 } from "@/lib/reporting";
@@ -68,26 +70,41 @@ export default function PortalOverview() {
     return () => { cancelled = true; };
   }, [activeProfitCenter, session?.user?.id]);
 
+  const { personalCards, sharedCards } = useMemo(() => {
+    const split = splitPinsByScope(pinned.map((c) => c.pin));
+    const personalIds = new Set(split.personal.map((p) => p.id));
+    const sharedIds = new Set(split.shared.map((p) => p.id));
+    return {
+      personalCards: pinned.filter((c) => personalIds.has(c.pin.id)),
+      sharedCards: pinned.filter((c) => sharedIds.has(c.pin.id)),
+    };
+  }, [pinned]);
+
   const movePin = async (pinId: string, direction: -1 | 1) => {
     if (reordering) return;
-    const currentIdx = pinned.findIndex((c) => c.pin.id === pinId);
-    if (currentIdx === -1) return;
-    const targetIdx = currentIdx + direction;
-    if (targetIdx < 0 || targetIdx >= pinned.length) return;
+    // Operate only on personal pins; shared pins are not user-reorderable.
+    const personalIdx = personalCards.findIndex((c) => c.pin.id === pinId);
+    if (personalIdx === -1) return;
+    const targetIdx = personalIdx + direction;
+    if (targetIdx < 0 || targetIdx >= personalCards.length) return;
 
     const previous = pinned;
-    const reorderedPins = reorderPins(pinned.map((c) => c.pin), pinId, targetIdx);
-    const cardById = new Map(pinned.map((c) => [c.pin.id, c]));
-    const optimistic = reorderedPins.map((p) => {
+    const reorderedPersonal = reorderPins(personalCards.map((c) => c.pin), pinId, targetIdx);
+    const cardById = new Map(personalCards.map((c) => [c.pin.id, c]));
+    const optimisticPersonal = reorderedPersonal.map((p) => {
       const card = cardById.get(p.id)!;
       return { ...card, pin: { ...card.pin, sortOrder: p.sortOrder } };
     });
+    // Recompose: shared cards keep their position, personal section is replaced.
+    const optimistic = [
+      ...optimisticPersonal,
+      ...sharedCards,
+    ];
     setPinned(optimistic);
     setReordering(true);
     try {
-      // Persist only the two pins whose sort_order actually changed.
-      const changed = reorderedPins.filter((p) => {
-        const before = previous.find((c) => c.pin.id === p.id)?.pin.sortOrder;
+      const changed = reorderedPersonal.filter((p) => {
+        const before = personalCards.find((c) => c.pin.id === p.id)?.pin.sortOrder;
         return before !== p.sortOrder;
       });
       await persistPinOrder(changed.map((p) => ({ id: p.id, sortOrder: p.sortOrder })));
@@ -110,17 +127,75 @@ export default function PortalOverview() {
     { label: "Workspace status", value: activeProfitCenter?.isActive ? "Active" : "Pending", detail: activeProfitCenter?.code || "No workspace", icon: BarChart3 },
   ];
 
+  const renderPinnedCard = (
+    card: PinnedKpiCard,
+    options: { isShared: boolean; idx?: number; total?: number },
+  ) => (
+    <Card key={card.pin.id} className="border-border bg-card">
+      <CardHeader className="pb-3">
+        <div className="flex items-start justify-between gap-2">
+          <p className="text-xs text-muted-foreground">{card.definition.displayName}</p>
+          {options.isShared ? (
+            <Badge variant="outline" className="gap-1 text-[10px]">
+              <Users className="h-2.5 w-2.5" /> team
+            </Badge>
+          ) : (
+            <div className="flex shrink-0 items-center gap-0.5">
+              <Button
+                size="icon"
+                variant="ghost"
+                className="h-6 w-6"
+                aria-label="Move pin up"
+                disabled={options.idx === 0 || reordering}
+                onClick={() => void movePin(card.pin.id, -1)}
+              >
+                <ArrowUp className="h-3.5 w-3.5" />
+              </Button>
+              <Button
+                size="icon"
+                variant="ghost"
+                className="h-6 w-6"
+                aria-label="Move pin down"
+                disabled={options.idx === (options.total ?? 0) - 1 || reordering}
+                onClick={() => void movePin(card.pin.id, 1)}
+              >
+                <ArrowDown className="h-3.5 w-3.5" />
+              </Button>
+            </div>
+          )}
+        </div>
+        <CardTitle className="text-2xl">
+          {card.value == null ? "—" : Number(card.value).toLocaleString(undefined, { maximumFractionDigits: 2 })}
+          {card.definition.unit ? <span className="ml-1 text-sm font-normal text-muted-foreground">{card.definition.unit}</span> : null}
+        </CardTitle>
+        <p className="text-[11px] text-muted-foreground">Today</p>
+      </CardHeader>
+    </Card>
+  );
+
   return (
     <div className="space-y-6">
+      {activeProfitCenter && sharedCards.length > 0 && (
+        <section>
+          <div className="mb-3 flex items-center gap-2">
+            <Users className="h-4 w-4 text-primary" />
+            <h2 className="text-sm font-semibold uppercase tracking-[0.18em] text-muted-foreground">Pinned by your team</h2>
+          </div>
+          <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
+            {sharedCards.map((card) => renderPinnedCard(card, { isShared: true }))}
+          </div>
+        </section>
+      )}
+
       {activeProfitCenter && (
         <section>
           <div className="mb-3 flex items-center gap-2">
             <Pin className="h-4 w-4 text-primary" />
-            <h2 className="text-sm font-semibold uppercase tracking-[0.18em] text-muted-foreground">Pinned KPIs</h2>
+            <h2 className="text-sm font-semibold uppercase tracking-[0.18em] text-muted-foreground">Your pins</h2>
           </div>
           {pinnedLoading ? (
             <p className="text-sm text-muted-foreground">Loading pinned KPIs…</p>
-          ) : pinned.length === 0 ? (
+          ) : personalCards.length === 0 ? (
             <Card className="border-dashed border-border bg-card">
               <CardContent className="py-6 text-center text-sm text-muted-foreground">
                 Pin KPIs from the Reports page to see them here.
@@ -128,42 +203,7 @@ export default function PortalOverview() {
             </Card>
           ) : (
             <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
-              {pinned.map((card, idx) => (
-                <Card key={card.pin.id} className="border-border bg-card">
-                  <CardHeader className="pb-3">
-                    <div className="flex items-start justify-between gap-2">
-                      <p className="text-xs text-muted-foreground">{card.definition.displayName}</p>
-                      <div className="flex shrink-0 items-center gap-0.5">
-                        <Button
-                          size="icon"
-                          variant="ghost"
-                          className="h-6 w-6"
-                          aria-label="Move pin up"
-                          disabled={idx === 0 || reordering}
-                          onClick={() => void movePin(card.pin.id, -1)}
-                        >
-                          <ArrowUp className="h-3.5 w-3.5" />
-                        </Button>
-                        <Button
-                          size="icon"
-                          variant="ghost"
-                          className="h-6 w-6"
-                          aria-label="Move pin down"
-                          disabled={idx === pinned.length - 1 || reordering}
-                          onClick={() => void movePin(card.pin.id, 1)}
-                        >
-                          <ArrowDown className="h-3.5 w-3.5" />
-                        </Button>
-                      </div>
-                    </div>
-                    <CardTitle className="text-2xl">
-                      {card.value == null ? "—" : Number(card.value).toLocaleString(undefined, { maximumFractionDigits: 2 })}
-                      {card.definition.unit ? <span className="ml-1 text-sm font-normal text-muted-foreground">{card.definition.unit}</span> : null}
-                    </CardTitle>
-                    <p className="text-[11px] text-muted-foreground">Today</p>
-                  </CardHeader>
-                </Card>
-              ))}
+              {personalCards.map((card, idx) => renderPinnedCard(card, { isShared: false, idx, total: personalCards.length }))}
             </div>
           )}
         </section>
