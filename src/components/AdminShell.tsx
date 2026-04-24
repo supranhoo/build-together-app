@@ -1,4 +1,4 @@
-import { ClipboardList, Clock, Cog, Factory, KeyRound, LayoutDashboard, LogOut, Map, Package, ScrollText, ShieldCheck, Warehouse } from "lucide-react";
+import { BarChart3, ClipboardList, Clock, Cog, Factory, KeyRound, LayoutDashboard, LogOut, Map, Package, ScrollText, ShieldCheck, Warehouse } from "lucide-react";
 import { Outlet, useLocation } from "react-router-dom";
 import { BFCLLogo } from "@/components/BFCLLogo";
 import { NavLink } from "@/components/NavLink";
@@ -17,6 +17,7 @@ const adminNavItems = [
   { label: "Shifts", to: "/admin/shifts", icon: Clock },
   { label: "Materials", to: "/admin/materials", icon: Package },
   { label: "Stock Locations", to: "/admin/stock-locations", icon: Warehouse },
+  { label: "KPIs", to: "/admin/kpis", icon: BarChart3 },
   { label: "Roles & Permissions", to: "/admin/roles", icon: KeyRound },
   { label: "Audit", to: "/admin/audit", icon: ScrollText },
 ];
