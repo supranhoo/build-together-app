@@ -263,6 +263,13 @@ export default function AdminKpis() {
             <DialogContent className="max-w-2xl">
               <DialogHeader><DialogTitle>{form.id ? "Edit KPI" : "New KPI"}</DialogTitle></DialogHeader>
               <div className="grid gap-3 md:grid-cols-2">
+                <div className="md:col-span-2">
+                  <ProfitCenterSelectField
+                    value={form.profitCenterId}
+                    onChange={(v) => setForm({ ...form, profitCenterId: v })}
+                    disabled={Boolean(form.id)}
+                  />
+                </div>
                 <div><Label>Key</Label><Input value={form.key} onChange={(e) => setForm({ ...form, key: e.target.value })} placeholder="heats_per_day" /></div>
                 <div><Label>Display name</Label><Input value={form.displayName} onChange={(e) => setForm({ ...form, displayName: e.target.value })} /></div>
                 <div><Label>Unit</Label><Input value={form.unit} onChange={(e) => setForm({ ...form, unit: e.target.value })} placeholder="MT, kWh/MT, %" /></div>
