@@ -44,6 +44,24 @@ interface Props {
   onSubscriptionsChanged: () => Promise<void> | void;
 }
 
+interface Props {
+  open: boolean;
+  onOpenChange: (open: boolean) => void;
+  definition: KpiDefinition | null;
+  profitCenterId: string;
+  userId: string;
+  range: DateRange;
+  subscriptions: KpiSubscription[];
+  onSubscriptionsChanged: () => Promise<void> | void;
+  /** Optional per-workspace breakdown rendered above Rows (consolidated mode). */
+  perWorkspace?: Array<{ profitCenterId: string; name: string; value: number | null; error?: string }>;
+}
+
+type PendingAction =
+  | { kind: "void_heat_log"; id: string; label: string }
+  | { kind: "reverse_inventory"; id: string; label: string }
+  | null;
+
 export function KpiDetailDrawer({
   open,
   onOpenChange,
@@ -53,11 +71,16 @@ export function KpiDetailDrawer({
   range,
   subscriptions,
   onSubscriptionsChanged,
+  perWorkspace,
 }: Props) {
   const { toast } = useToast();
   const [drill, setDrill] = useState<KpiDrilldownResult | null>(null);
   const [loading, setLoading] = useState(false);
   const [busy, setBusy] = useState(false);
+  const [canVoidHeat, setCanVoidHeat] = useState(false);
+  const [canReverseInv, setCanReverseInv] = useState(false);
+  const [pending, setPending] = useState<PendingAction>(null);
+  const [reason, setReason] = useState("");
 
   useEffect(() => {
     if (!open || !definition) return;
@@ -75,6 +98,23 @@ export function KpiDetailDrawer({
     })();
     return () => { cancelled = true; };
   }, [open, definition, profitCenterId, range, toast]);
+
+  // Probe void permissions (cheap RPC, only when drawer opens)
+  useEffect(() => {
+    if (!open || !userId) return;
+    let cancelled = false;
+    (async () => {
+      const [a, b] = await Promise.all([
+        userCanAct(userId, "heat_log", "void"),
+        userCanAct(userId, "inventory", "void"),
+      ]);
+      if (!cancelled) {
+        setCanVoidHeat(a);
+        setCanReverseInv(b);
+      }
+    })();
+    return () => { cancelled = true; };
+  }, [open, userId]);
 
   if (!definition) return null;
 
