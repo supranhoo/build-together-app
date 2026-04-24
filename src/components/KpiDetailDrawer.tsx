@@ -116,6 +116,8 @@ export function KpiDetailDrawer({
     return () => { cancelled = true; };
   }, [open, userId]);
 
+  const headers = useMemo(() => (drill && drill.rows[0] ? Object.keys(drill.rows[0]) : []), [drill]);
+
   if (!definition) return null;
 
   const dailySub = subscriptions.find((s) => s.kpiDefinitionId === definition.id && s.cadence === "daily");
@@ -148,8 +150,6 @@ export function KpiDetailDrawer({
     }
     downloadCsv(`${definition.key}-drilldown.csv`, csv);
   };
-
-  const headers = useMemo(() => (drill && drill.rows[0] ? Object.keys(drill.rows[0]) : []), [drill]);
 
   const rowAction = (row: Record<string, unknown>): PendingAction => {
     if (drill?.source === "heat_logs" && canVoidHeat) {
