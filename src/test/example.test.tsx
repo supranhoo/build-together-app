@@ -8,6 +8,7 @@ import { PortalShell } from "@/components/PortalShell";
 import AdminAudit from "@/pages/AdminAudit";
 import { canEditHeatLogClient, describeRule, userRoleAllows, type PermissionGrant } from "@/lib/permissions";
 import { computeStockBalances, type InventoryLedgerEntry } from "@/lib/inventory";
+import { buildDateRange, exportKpiCsv } from "@/lib/reporting";
 
 const navigateMock = vi.fn();
 const logoutMock = vi.fn();
@@ -387,5 +388,47 @@ describe("Inventory helpers (Phase 4)", () => {
       baseEntry({ id: "1", quantity: -5, movementType: "consumption" }),
     ];
     expect(computeStockBalances(negativeOnly)[0].quantity).toBe(-5);
+  });
+});
+
+describe("Reporting helpers (Phase 5)", () => {
+  const fixedNow = new Date("2026-04-24T12:00:00Z");
+
+  it("builds today preset as same-day window", () => {
+    const r = buildDateRange("today", undefined, fixedNow);
+    expect(r.from.getDate()).toBe(r.to.getDate());
+    expect(r.from.getHours()).toBe(0);
+  });
+
+  it("builds 7d preset spanning seven days", () => {
+    const r = buildDateRange("7d", undefined, fixedNow);
+    const days = (r.to.getTime() - r.from.getTime()) / (1000 * 60 * 60 * 24);
+    expect(Math.round(days)).toBe(7);
+  });
+
+  it("uses custom range when provided", () => {
+    const from = new Date("2026-01-01T00:00:00Z");
+    const to = new Date("2026-01-31T23:59:59Z");
+    const r = buildDateRange("custom", { from, to }, fixedNow);
+    expect(r.from).toBe(from);
+    expect(r.to).toBe(to);
+  });
+
+  it("serializes a KPI series to CSV with header and rows", () => {
+    const csv = exportKpiCsv("Heats per day", "heats", [
+      { day: "2026-04-22", value: 12 },
+      { day: "2026-04-23", value: null },
+      { day: "2026-04-24", value: 9.5 },
+    ]);
+    const lines = csv.split("\n");
+    expect(lines[0]).toBe("Date,Heats per day (heats)");
+    expect(lines[1]).toBe("2026-04-22,12");
+    expect(lines[2]).toBe("2026-04-23,");
+    expect(lines[3]).toBe("2026-04-24,9.5");
+  });
+
+  it("omits the unit suffix when KPI has no unit", () => {
+    const csv = exportKpiCsv("Count", "", [{ day: "2026-04-24", value: 1 }]);
+    expect(csv.split("\n")[0]).toBe("Date,Count");
   });
 });
