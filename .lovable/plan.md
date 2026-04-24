@@ -1,81 +1,90 @@
 
-## Phase 5 — Reporting & KPI Aggregation
+## Phase 6 — Drill-down, Scheduled Reports & Operational Polish
 
-Build the first reporting surface that turns Phase 3 production data and Phase 4 inventory data into operational KPIs. Formulas live in `profit_center_settings` (zero-hardcoding rule), so each workspace can define its own recovery/yield calculations without code changes.
+Build on Phase 5's KPI engine to give operators investigative power (click a KPI → see the rows behind the number) and give managers automated awareness (scheduled email summaries). Also closes the Phase 5 deferred items.
 
 ### Decisions Needed Before Build
 
-1. **KPI scope for v1** — start with the four most universally requested (Heats/day, Avg tap weight, Specific power kWh/MT, Material yield %), or pick a different starter set?
-2. **Formula storage** — store formulas as JSON expressions in `profit_center_settings` (e.g. `{"numerator":"sum(weight_mt)","denominator":"sum(consumption.kg)/1000"}`) evaluated server-side, or as named SQL views per workspace?
-   - Recommendation: JSON expressions evaluated by a small SQL function. Avoids per-workspace DDL and keeps everything admin-editable.
-3. **Time window controls** — fixed presets (Today / 7d / 30d / This shift) only, or also custom date range?
-4. **Export** — CSV download in v1, or view-only and defer export to Phase 6?
+1. **Drill-down scope** — clicking a KPI card opens a drawer showing the underlying rows (heat_logs, material_consumption, inventory_ledger). v1: read-only table with CSV export, or also inline edit/void links to the source record?
+2. **Scheduled reports delivery** — daily/weekly email digest of selected KPIs per workspace via Resend (already a common Lovable integration), or in-app notification only?
+3. **Recipients model** — workspace-scoped subscription (any member can subscribe themselves), or admin-managed distribution lists?
+4. **Schedule granularity** — fixed presets (daily 7am, weekly Monday 7am workspace TZ), or full cron expression?
 
 Default recommendation if you say "use defaults":
-- Four starter KPIs above
-- JSON formulas in `profit_center_settings`, evaluated by a `compute_kpi(...)` SQL function
-- Presets + custom range
-- CSV export included (low cost, high operator value)
+- Read-only drill-down drawer with CSV export (no inline edits — keeps audit trail clean)
+- Email digest via Resend (requires `RESEND_API_KEY` secret)
+- Self-subscription per user per KPI per workspace
+- Fixed presets: daily 07:00 + weekly Monday 07:00 in workspace timezone
 
 ### Pre-Implementation Risk & Impact Report
-- **Data Impact**: 1 new table (`kpi_definitions`) + seeded rows in `profit_center_settings` for default formulas. No changes to Phase 3/4 tables. Read-only aggregation.
-- **Workflow Impact**: New portal module `reports`. New admin page `/admin/kpis` for super_admin to manage formulas.
-- **UI/UX Impact**: New `/portal/reports` with KPI cards + a Recharts time series. Admin gains KPI definition editor.
-- **Regression Risk**: Very low. All read-only against existing tables.
-- **Mitigation**: KPI formulas validated before save; division-by-zero guarded in SQL; module hidden until enabled per workspace via `/admin/modules`.
+- **Data Impact**: 2 new tables (`kpi_subscriptions`, `report_deliveries`). No changes to Phase 3/4/5 tables. Drill-down is read-only against existing data.
+- **Workflow Impact**: New drawer UI on `/portal/reports`. New "Subscribe" toggle per KPI. New admin view of delivery history. New scheduled edge function.
+- **UI/UX Impact**: KPI cards become clickable. New drawer component. New "Subscriptions" tab on reports page. New `/admin/report-deliveries` log.
+- **Regression Risk**: Low. Drill-down is read-only. Email scheduling is isolated in an edge function — failures don't impact UI.
+- **Mitigation**: Drill-down respects existing RLS (no new exposure). Email function failures logged to `report_deliveries` with status; retry logic capped at 3. Cron protected by `SUPABASE_SERVICE_ROLE_KEY` validation.
 
 ### Schema (workspace-scoped, RLS-enabled)
 
-**`kpi_definitions`** — admin-managed catalog of KPIs available per workspace
-- `id`, `profit_center_id` (FK, nullable for global defaults), `key` (e.g. `heats_per_day`), `display_name`, `unit` (e.g. `MT`, `kWh/MT`, `%`), `formula` (jsonb), `sort_order`, `is_active`, timestamps
-- Unique: `(profit_center_id, key)` (NULL profit_center_id = global default)
-- RLS: SELECT for workspace members; manage by `can_manage_profit_center` or super_admin
+**`kpi_subscriptions`**
+- `id`, `user_id`, `profit_center_id`, `kpi_definition_id`, `cadence` (`daily`|`weekly`), `is_active`, timestamps
+- Unique: `(user_id, kpi_definition_id, cadence)`
+- RLS: user manages own; admins view workspace-wide
 
-**Seeded global defaults** (profit_center_id = NULL):
-- `heats_per_day` → `{"source":"heat_logs","agg":"count","group_by":"day"}`
-- `avg_tap_weight_mt` → `{"source":"heat_logs","agg":"avg","field":"weight_mt"}`
-- `specific_power_kwh_per_mt` → `{"numerator":{"source":"heat_logs","agg":"sum","field":"power_mwh","scale":1000},"denominator":{"source":"heat_logs","agg":"sum","field":"weight_mt"}}`
-- `material_yield_pct` → `{"numerator":{"source":"heat_logs","agg":"sum","field":"weight_mt","scale":1000},"denominator":{"source":"material_consumption","agg":"sum","field":"quantity"},"scale":100}`
+**`report_deliveries`** (immutable log)
+- `id`, `profit_center_id`, `user_id`, `kpi_definition_id`, `cadence`, `delivered_at`, `status` (`sent`|`failed`|`skipped`), `error_message`, `payload` (jsonb snapshot of values)
+- RLS: user views own; admins view workspace-wide; INSERT only via service role
 
-**DB function** `compute_kpi(_profit_center_id uuid, _key text, _from timestamptz, _to timestamptz) returns jsonb` — single source of truth, returns `{"value": numeric, "series": [{day, value}]}`. Used by both portal and admin preview.
+### DB Functions
+
+- `compute_kpi_drilldown(_profit_center_id, _key, _from, _to)` — returns the raw rows from the formula's `source` table within the range, respecting RLS via `security invoker`. For ratio KPIs, returns rows from the numerator source.
 
 ### UI Slice
 
-**Portal — new module `reports`** (seeded in `app_modules`, hidden until enabled)
-- `/portal/reports` — KPI card grid (one card per active definition) + a chart panel for the selected KPI's time series.
-- Filters: date range (Today / 7d / 30d / Custom), optional furnace/shift filters.
-- "Export CSV" button per chart.
+**Portal — `/portal/reports`** (extended)
+- KPI cards become clickable → opens `<Sheet>` drawer with:
+  - Header: KPI name, current value, applied filters
+  - Tabs: "Rows" (paginated table with CSV export) | "Series" (existing chart, larger)
+  - "Subscribe" toggle (daily / weekly checkboxes)
+- New "My subscriptions" section listing active subscriptions with quick unsubscribe.
 
-**Admin — new page**
-- `/admin/kpis` — table of KPI definitions for active workspace (plus inherited globals). Create/edit form with formula JSON editor + live preview using `compute_kpi`. Audit log on save.
+**Admin — `/admin/report-deliveries`** (new page)
+- Table of recent deliveries for active workspace: when, KPI, recipient, status, error.
+- Filter by date / status. Read-only.
+
+### Edge Function
+
+**`scheduled-report-digest`** — invoked by `pg_cron` at 07:00 UTC daily.
+- For each `kpi_subscriptions` row matching today's cadence, compute KPI for the appropriate window (last 24h / last 7d), send email via Resend, write `report_deliveries` row.
+- Idempotent: skips if a `sent` row already exists for today's cadence+sub.
 
 ### Implementation Steps → Verification
 
-1. **Migration** — create `kpi_definitions` + RLS, `compute_kpi` SQL function, seed global defaults, seed `app_modules.reports` row.
-   → Linter clean; cross-workspace RLS test passes; division-by-zero returns null not error.
-2. **`src/lib/reporting.ts`** — typed fetchers: `fetchKpiDefinitions`, `computeKpi`, `exportKpiCsv`. Pure helper `buildDateRange(preset)` for filter logic.
-   → Unit tests for date ranges + CSV serialization.
-3. **`PortalReports.tsx`** — KPI card grid, Recharts line chart, date filters, CSV export.
-   → Tests for: empty state, filter changes refetch, CSV content shape.
-4. **`AdminKpis.tsx`** — list + create/edit dialog with JSON formula editor and "Preview" button calling `compute_kpi`. Audit log on save.
-   → Tests for save + audit write + preview path.
-5. **Wire navigation** — `reports` in portal sidebar via existing `/admin/modules`; KPIs entry in `AdminShell` nav (super_admin only).
-   → Nav renders only for permitted roles.
-6. **Docs + Policy + Tests**:
-   - `DOCUMENTATION.md`: Phase 5 section, new table, new routes, formula schema reference.
-   - `POLICY.md`: KPI governance — formulas managed by super_admin only at global scope, by workspace admin at workspace scope; CSV exports written to `audit_logs` with row count.
-   - `src/test/example.test.tsx`: extend with reporting helper + KPI definition tests.
+1. **Migration** — create `kpi_subscriptions`, `report_deliveries`, `compute_kpi_drilldown` SQL function, RLS policies, schedule pg_cron job.
+   → Linter clean; cross-workspace RLS test; idempotency check.
+2. **`src/lib/reporting.ts`** — extend with `fetchKpiDrilldown`, `subscribeToKpi`, `unsubscribeFromKpi`, `fetchMySubscriptions`.
+   → Unit tests for subscription toggle logic and CSV row serialization.
+3. **`PortalReports.tsx`** — add `<KpiDetailDrawer>` component, subscription toggles, "My subscriptions" section.
+   → Tests for: drawer opens with correct rows, subscribe writes correct row, unsubscribe deletes.
+4. **`AdminReportDeliveries.tsx`** — new admin page wired into nav.
+   → Tests for filter + empty state.
+5. **Edge function `scheduled-report-digest`** — Resend integration, idempotent dispatcher.
+   → Test with `supabase--test_edge_functions`: simulate 1 sub, verify delivery row + outbound payload shape.
+6. **Secret + connector** — add `RESEND_API_KEY` via `secrets--add_secret`. Verify domain in Resend dashboard (user action required).
+7. **Docs + Policy + Tests**:
+   - `DOCUMENTATION.md`: Phase 6 section, new tables, drilldown function, edge function contract.
+   - `POLICY.md`: subscription governance (self-managed, admin-visible), delivery log retention (immutable, 90 days), email content scope.
+   - `src/test/example.test.tsx`: extend with subscription helper, drilldown CSV, delivery log filter tests.
    → SSOT lockstep, all tests pass.
 
 ### Out of Scope (deferred)
-- Drill-down from KPI card into raw rows — Phase 6.
-- Scheduled email reports — Phase 6.
-- Cross-workspace consolidation views — Phase 7.
-- PDF export — deferred.
-- Custom dashboards / widget arrangement — Phase 7.
+- Inline edit/void from drilldown — Phase 7.
+- PDF email attachments — deferred.
+- Cross-workspace consolidated digests — Phase 7.
+- Slack/Teams delivery — deferred.
+- Custom dashboards — Phase 7.
 
 ### Files to be Created/Modified
-- **New**: `supabase/migrations/<phase5>.sql`, `src/lib/reporting.ts`, `src/pages/PortalReports.tsx`, `src/pages/AdminKpis.tsx`
-- **Modified**: `src/App.tsx` (routes), `src/components/AdminShell.tsx` (nav), `src/pages/ModulePlaceholder.tsx` (reports route), `DOCUMENTATION.md`, `POLICY.md`, `src/test/example.test.tsx`
+- **New**: `supabase/migrations/<phase6>.sql`, `src/components/KpiDetailDrawer.tsx`, `src/pages/AdminReportDeliveries.tsx`, `supabase/functions/scheduled-report-digest/index.ts`
+- **Modified**: `src/lib/reporting.ts`, `src/pages/PortalReports.tsx`, `src/components/AdminShell.tsx`, `src/App.tsx`, `DOCUMENTATION.md`, `POLICY.md`, `src/test/example.test.tsx`
 
-**Please confirm the 4 decisions above (or say "use defaults") before I proceed.**
+**Please confirm the 4 decisions above (or say "use defaults") before I proceed. Note: if email delivery is approved, I'll need you to provide a `RESEND_API_KEY` and verify a sender domain in Resend.**
