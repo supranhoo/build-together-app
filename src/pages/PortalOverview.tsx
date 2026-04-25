@@ -35,6 +35,7 @@ export default function PortalOverview() {
   const [pinned, setPinned] = useState<PinnedKpiCard[]>([]);
   const [pinnedLoading, setPinnedLoading] = useState(false);
   const [reordering, setReordering] = useState(false);
+  const [lowStockCount, setLowStockCount] = useState<number | null>(null);
   const workspaceCardRef = useRef<HTMLDivElement | null>(null);
   const modulesGridRef = useRef<HTMLDivElement | null>(null);
 
