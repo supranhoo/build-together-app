@@ -82,6 +82,7 @@ export function POTab() {
   const [pos, setPos] = useState<PurchaseOrder[]>([]);
   const [suppliers, setSuppliers] = useState<Supplier[]>([]);
   const [materials, setMaterials] = useState<Material[]>([]);
+  const [stockLocations, setStockLocations] = useState<StockLocation[]>([]);
   const [currencies, setCurrencies] = useState<Currency[]>([]);
   const [approvedPrs, setApprovedPrs] = useState<PurchaseRequisition[]>([]);
   const [loading, setLoading] = useState(false);
@@ -101,6 +102,13 @@ export function POTab() {
   const [detailFor, setDetailFor] = useState<PurchaseOrder | null>(null);
   const [detailLines, setDetailLines] = useState<PoLine[]>([]);
   const [cancelReason, setCancelReason] = useState("");
+
+  // Receive dialog state (PO ↔ inventory linkage)
+  const [receiveLine, setReceiveLine] = useState<PoLine | null>(null);
+  const [receiveQty, setReceiveQty] = useState("");
+  const [receiveLocation, setReceiveLocation] = useState("");
+  const [receiveNotes, setReceiveNotes] = useState("");
+  const [receiving, setReceiving] = useState(false);
 
   const materialMap = useMemo(() => new Map(materials.map((m) => [m.id, m])), [materials]);
   const supplierMap = useMemo(() => new Map(suppliers.map((s) => [s.id, s])), [suppliers]);
