@@ -1,104 +1,77 @@
-## Ferro Alloys Division — Build Plan (Phase 2)
+# Production Entry – FAD (separate module)
 
-This builds on the existing SSOT (Production heat logs, Inventory ledger, Master Data, Furnaces, Materials, Shifts, KPIs). No existing tables are duplicated; all new data is profit-center scoped with RLS.
+Build the uploaded `ProductionEntryFAD.tsx` as a **new, standalone route** at `/portal/production-fad`. The existing `/portal/production` dialog stays untouched.
 
-### What already exists (kept as-is)
-- `heat_logs` + `material_consumption` (heat-linked) — Production
-- `inventory_ledger` (receipts/consumption/adjustments/transfers) — Inventory
-- `materials` (with `type`, `group_name`, `std_cost`, `min_level`, `max_level`, `reorder_level`, `specs` jsonb) — Master
-- `cost_rates` (date-effective, append-only) — Master
-- `furnaces` (with `machine_type`, `power_rating_kw`)
-- KPI engine + Reports page
+## What the user gets
 
-### New scope (this phase)
+A new sidebar/menu item **"Production Entry – FAD"** opening a full-page screen with the exact layout from the upload:
 
-#### 1. Database (one migration)
-- **`grn_logs`** — header for receipts that need quality data
-  - `id, profit_center_id, inventory_ledger_id (uuid, unique), vendor text, invoice_no text, mn_pct numeric, fe_pct numeric, moisture_pct numeric, created_by, created_at`
-  - RLS: select via `has_profit_center_access`; insert by users with `inventory.receipt`; admins manage. No update/delete.
-- **`profit_center_settings`** rows for `costing.power_rate_per_mwh` and `costing.fixed_cost_per_day` (uses existing table — no schema change).
-- No other schema changes. Min/max already on `materials`.
+- **Header**: title + active profit center badge.
+- **Top tab bar** (4 tabs): Data Entry & Preview · Heat-wise Results · Furnace Summary · Monthly Summary.
+- **Data Entry & Preview** (2-col grid):
+  - Left (2/3): Heat Details card → Power card → 4-step inner tab (Mn Ore · Reductant · Fluxes/Paste · Output) with the exact tables and inline formulas (dry qty, Mn input, FC input, etc.).
+  - Right (1/3): sticky **Live Mn Balance** card showing Mn in/out, recovery %, slag/dust loss %, FC/MT, fuel mix bar, paste Kg/MT, balance check %, plus **Save Draft** and **Submit to Plant Head** buttons.
+- **Heat-wise / Furnace / Monthly** tabs: read-only roll-ups computed from the data we just stored.
 
-#### 2. Inventory restructure (existing `PortalInventory` becomes a 7-tab host)
-Tabs (route children under `/portal/inventory/...`):
-- `dashboard` — KPI cards (stock value, items below min, today receipts/issues), low-stock alerts table.
-- `stock-ledger` — replaces existing default; keeps current stock-on-hand table + filters.
-- `grn` — list of receipts joined with `grn_logs`; "New GRN" dialog adds quality fields and writes both rows in one transaction (RPC).
-- `issue` — non-heat consumption/issue dialog (movement_type=`consumption`, reference_type=`manual_issue`).
-- `transfers` — paired `transfer_out`/`transfer_in` between locations via RPC.
-- `min-max` — table of materials with current stock vs min/max/reorder; inline edit thresholds (already supported by master).
-- `reports` — links + Excel export buttons (see #6).
+UI styling, spacing, colors, badges, alert thresholds (red <70 % recovery, amber moisture, etc.) match the upload exactly.
 
-Stock valuation: `stock_value = qty × latest cost_rate (effective <= today)` computed client-side from existing fetches.
+## Data model — no schema changes
 
-#### 3. Production additions
-- **`heatwise-view` tab** in `PortalProduction`: groups `material_consumption` by `heat_log_id`, shows materials, qty, UOM, location.
-- **Furnace summary tab**: per-furnace heats, total weight MT, total power MWh, avg recovery (current period).
-- **Monthly summary tab**: by-month rollup from heat_logs.
-- New `src/lib/ferro-alloys.ts` with pure functions:
-  - `mnInput(rows, materials)` = Σ(qty × Mn% × (1 − Moisture%)) using `materials.specs` jsonb keys `mn_pct`, `moisture_pct`
-  - `mnOutput(productionMt, gradeMnPct)` = production × Mn%
-  - `recoveryPct(input, output)` with divide-by-zero guard
-  - `slagMn(slagQty, mnoPct)` = (slagQty × mnoPct) / 1.29
+Reuse existing tables (zero migrations):
 
-#### 4. Costing Engine (new page `PortalCosting`, route `/portal/costing`)
-Inputs (no hardcoding):
-- Material consumption from `material_consumption` filtered by date + furnace.
-- Rates from `cost_rates` (latest effective per material).
-- Power MWh from `heat_logs.power_mwh` × `costing.power_rate_per_mwh` setting.
-- Fixed cost from `costing.fixed_cost_per_day` setting × days in range.
-- Production from `heat_logs.weight_mt`.
+- `heat_logs` — one row per heat (heat_number, furnace, shift, tap_time, weight_mt, power_mwh, notes).
+- `material_consumption` (+ auto `inventory_ledger` via existing trigger) — one row per Mn-ore / reductant / flux / paste line.
+- `heat_metallurgy` — product, grade, tapping/batch no, FG Mn %, slag qty/MnO %, dust qty/Mn %, power split, status (`draft` / `submitted`).
+- `materials` — used to populate Mn-ore, reductant, flux, paste pickers + default Mn %, FC %, moisture from `specs` JSON.
+- `furnaces`, `shifts` — pickers (no SAF-1/SAF-2 hardcoding).
+- `profit_center_settings.setting_key = 'production.alerts'` — recovery / FC-per-MT / moisture / slag-MnO thresholds (already wired via `fetchProductionAlertThresholds`).
+- `profit_center_settings.setting_key = 'production.formulas'` *(new key, no schema change — JSON in existing settings table)* — overrides for `metalMn`, `slagMn`, `dustMn`, `mnRecovery`, `slagLoss`, `dustLoss`, `diffusionLoss`, `mnoToMnFactor`, `fgMnDefault`, `slagMnoDefault`, `dustMnDefault`. Falls back to authoritative defaults from `src/lib/ferro-alloys.ts`.
 
-Outputs (date + furnace filters, table + KPI cards):
-- Material cost, Conversion cost, Total cost
-- Cost / MT = Total / Production
-- Cost / Mn % = (Cost/MT) / (avg grade Mn% / 100), with admin-set target grade in `profit_center_settings`
-- Variance vs target (target stored in settings)
+## Routing & nav
 
-Pure logic in `src/lib/costing.ts` with full unit tests.
+- `src/App.tsx` — add `<Route path="production-fad" element={<PortalProductionFAD />} />` under the `/portal` shell.
+- Sidebar: add "Production Entry – FAD" item next to "Production".
 
-#### 5. Min-Max alerts surfaced on Portal Overview
-- New small section: count of materials below `min_level` per workspace (read from existing `materials` + `inventory_ledger` sums).
+## New / modified files
 
-#### 6. Excel export
-- Add `xlsx` dependency.
-- New `src/lib/excel-export.ts` with `exportRows(filename, sheets)`.
-- Buttons on Reports + Inventory/Reports tab + Costing page → exports current filtered view.
+**New**
+- `src/pages/PortalProductionFAD.tsx` — the page (mirrors uploaded structure but uses `useWorkspace`, `useAuth`, shadcn imports, Supabase services).
+- `src/lib/production-formulas.ts` — fetch + evaluate workspace formula overrides; default values come from `ferro-alloys.ts` (no hardcoded business numbers in the page).
+- `src/lib/production-entry-fad.ts` — orchestrates one atomic submit:
+  1. `createHeatLog(...)`
+  2. for each Mn-ore / reductant / flux / paste line → `recordHeatConsumption(...)` (writes `material_consumption` + ledger via trigger)
+  3. `upsertMetallurgy(...)` with status `draft` or `submitted`
+  4. on partial failure: surface error, do not silently swallow.
+- `src/test/production-entry-fad.test.ts` — unit tests for the orchestrator + Mn balance & FC-per-MT calculations against the existing `mnBalance` helper.
 
-#### 7. Tests (mandatory per Policy §11)
-- `src/test/ferro-alloys.test.ts` — recovery, slag Mn, edge cases (zero, missing specs)
-- `src/test/costing.test.ts` — material/conversion/total/per-MT/per-Mn, divide-by-zero, no-rate-found
-- `src/test/grn.test.ts` — GRN insert payload shape, quality validation
-- `src/test/inventory-min-max.test.ts` — alert classification
-- Existing 98 tests must continue to pass.
+**Modified**
+- `src/App.tsx` — register route.
+- `src/components/PortalShell.tsx` (or wherever portal nav lives) — add menu entry.
+- `DOCUMENTATION.md` + `POLICY.md` — Phase 18 entry: new route, formula-override key, draft → submitted workflow, audit via existing `heat_log_events` trigger.
 
-#### 8. Documentation (Policy §5 — atomic with code)
-- `DOCUMENTATION.md`: new "Ferro Alloys" section covering Costing, GRN, Heat-wise, Min-Max, Excel export, settings keys.
-- `POLICY.md` Phase 16: cost rates remain append-only; GRN quality immutable after insert; min-max thresholds editable by admins only; Mn recovery formulas authoritative.
+**Untouched**
+- `src/pages/PortalProduction.tsx` and the dialog flow (per user instruction "do not add in production").
 
-### Files to create
-- `supabase/migrations/<ts>_grn_logs.sql`
-- `src/lib/ferro-alloys.ts`, `src/lib/costing.ts`, `src/lib/excel-export.ts`, `src/lib/grn.ts`
-- `src/pages/PortalCosting.tsx`
-- `src/pages/PortalInventoryDashboard.tsx`, `PortalInventoryGrn.tsx`, `PortalInventoryIssue.tsx`, `PortalInventoryTransfers.tsx`, `PortalInventoryMinMax.tsx`, `PortalInventoryReports.tsx`
-- `src/pages/PortalProductionHeatwise.tsx`, `PortalProductionFurnaceSummary.tsx`, `PortalProductionMonthly.tsx`
-- 4 test files above
+## Behavior details
 
-### Files to edit
-- `src/App.tsx` — add `/portal/costing`; nest new inventory + production children
-- `src/pages/PortalInventory.tsx` — switch to 7-tab strip + Outlet
-- `src/pages/PortalProduction.tsx` — add 4-tab strip (Data Entry / Heat-wise / Furnace summary / Monthly)
-- `src/pages/PortalOverview.tsx` — add Min-Max alert section
-- `src/lib/inventory.ts` — add `fetchGrnForReceipts`, transfer pair helper, latest-rate join helper
-- `DOCUMENTATION.md`, `POLICY.md`
+- **Heat number**: auto-suggest `H-YYYYMMDD-NN` from same-day count for selected furnace; user can edit; duplicates blocked client-side and by future server check.
+- **Material pickers**: pulled from `materials` filtered by `group_name` mapped in workspace settings (`production.material_groups` JSON: `{ ore: ['Mn Ore'], reductant: ['Reductant'], flux: ['Flux'], paste: ['Paste'] }`). Falls back to category text match.
+- **Live calculations**: use existing `mnBalance` from `src/lib/ferro-alloys.ts` so numbers match the rest of the app.
+- **Submit to Plant Head** = `heat_metallurgy.status = 'submitted'` (immutable per existing RLS).
+- **Save Draft** = `status = 'draft'` (editable per existing RLS).
+- **Heat-wise / Furnace / Monthly tabs** inside this page query `heat_logs` + `heat_metallurgy` + `material_consumption` for the active workspace and aggregate client-side, mirroring the upload's columns. Excel export via existing `exportRows`.
+- **Real-time**: Supabase channel on `heat_logs` & `heat_metallurgy` filtered by `profit_center_id` to refresh the right-hand reports tabs.
+- **Audit trail**: already covered by `log_heat_log_event` trigger; metallurgy status changes go to `audit_logs` from the orchestrator.
 
-### Out of scope (explicit)
-- Real-time websocket dashboards, AI variance highlighting, mobile-specific layouts, multi-tenant tenant switching beyond existing profit_center scoping. (Defer — not justified by current data volume; would violate Simplicity-First.)
-- Item Master / UOM / Furnace Master UIs — already exist under Admin → Master Data.
-- Auth/role infra — already in place (`user_roles`, `permission_grants`, RLS).
+## Risk & impact
 
-### Risk & impact
-- Data: one new table (`grn_logs`), one new settings key family. No backfill needed.
-- Workflow: Inventory route default changes from a single page to a Dashboard tab — bookmarks to `/portal/inventory` still work (tab strip drives content).
-- Regression: Production page UI gains tabs but existing "New heat log" dialog and consumption flow remain identical (Data Entry tab).
-- Mitigation: full test suite + new tests; cost rates and ledger remain append-only.
+- **Data**: no schema changes. New rows only. SSOT preserved (inventory still flows through `material_consumption` → ledger).
+- **Workflow**: parallel to existing dialog. Both flows write to the same tables, so Heat-wise / Furnace / Monthly views in *both* pages stay consistent.
+- **UI**: net-new page; existing `/portal/production` UI unchanged.
+- **Regression**: low — orchestrator is additive; failures during multi-row insert surfaced with clear toast; partial-write cleanup left to a follow-up only if user requests transactional rollback.
+
+## Out of scope (call out, don't build)
+
+- Server-side duplicate-heat enforcement (currently client-side + DB unique would need migration).
+- Approval workflow beyond `draft` → `submitted` (e.g., reviewer signoff, rejection reasons).
+- Mobile-specific layout polish beyond the responsive grid the upload already uses.
