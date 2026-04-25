@@ -332,5 +332,20 @@ SteelFlow ERP now uses a configuration-first workspace foundation for steel and 
 - The Avg Recovery card flips to destructive border + red number when below `profit_center_settings.production.alerts.recoveryMinPct` (defaults to 70%). Threshold source unchanged from Phase 17.
 - Tests: `src/test/production-rollups.test.ts` (7 tests — empty input, voided exclusion, kWh/MT math, weighted recovery, missing-fgMnPct case, kwh deviation symmetry). Total suite now 160 passing.
 
+## Production read-only analytics tabs (Phase 20)
+- `src/pages/PortalProduction.tsx` now exposes three additional read-only tabs alongside the existing entry/heat-wise/furnace/monthly tabs: **Energy**, **Quality**, **Consumption**. The existing Data Entry dialog, KPI strip, and FAD entry surface (`/portal/production-fad`) are unchanged.
+- New page components — each is a thin shell that fetches via existing lib functions and classifies via pure helpers:
+  - `src/pages/PortalProductionEnergy.tsx` — per-heat kWh/MT classified vs the workspace `kwhPerMtTarget` from `profit_center_settings.production.alerts`. Uses `fetchHeatLogs` + `fetchFurnaces`.
+  - `src/pages/PortalProductionQuality.tsx` — per-heat FG Mn% classified vs `recoveryMinPct`. Uses `fetchHeatLogs` + `fetchMetallurgyByPC`.
+  - `src/pages/PortalProductionConsumption.tsx` — latest 1000 `material_consumption` rows joined client-side with materials/locations/heats. Uses `fetchWorkspaceConsumption`.
+- New pure helpers in `src/lib/production-rollups.ts` (no I/O, fully unit-tested):
+  - `classifyEnergy(actualKwhPerMt, target)` → `optimal | near_limit | high | unknown` (5% near-limit band).
+  - `heatKwhPerMt(log)` → `power_mwh × 1000 / weight_mt`, null when unusable.
+  - `classifyQuality(metallurgy, recoveryMinPct)` → `passed | failed | pending`.
+- New threshold added to `src/lib/production-alerts.ts`: `kwhPerMtTarget` (default 4000), sourced from the same `profit_center_settings.production.alerts` JSON. Defaults only — never policy.
+- SSOT enforced (per POLICY §19): no new tables, no forked schema, no new services, no client-side RBAC. All three tabs are workspace-scoped through existing RLS on `heat_logs` / `heat_metallurgy` / `material_consumption`. No mock data.
+- Tests: `src/test/production-rollups.test.ts` extended with 7 new cases covering `classifyEnergy`, `heatKwhPerMt`, `classifyQuality`. Total suite now **167 passing** (was 160).
+
 ## Version History
 - 2026-04-25 (Phase 19): Production KPI strip on PortalProduction reading SSOT (`heat_logs` + `heat_metallurgy`); new `production-rollups.ts` lib + 7 tests; FAD entry remains the single metallurgical entry surface, linked from the strip. No new tables, no forked schema, no UI changes to existing tabs/dialog.
+- 2026-04-25 (Phase 20): Three additional read-only tabs in PortalProduction (Energy, Quality, Consumption) using existing lib functions and three new pure classification helpers. New `kwhPerMtTarget` threshold in `profit_center_settings.production.alerts`. 7 new tests; suite at 167 passing. No schema changes, no new entry surfaces, FAD entry unchanged.
