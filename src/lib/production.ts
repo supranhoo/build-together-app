@@ -1,11 +1,15 @@
 import { supabase } from "@/integrations/supabase/client";
 
+export type FurnaceMachineType = "FAD" | "CLU" | "DRI";
+
 export interface Furnace {
   id: string;
   profitCenterId: string;
   code: string;
   name: string;
   capacityMt: number | null;
+  machineType: FurnaceMachineType | null;
+  powerRatingKw: number | null;
   isActive: boolean;
 }
 
@@ -46,6 +50,8 @@ function toFurnace(row: any): Furnace {
     code: row.code,
     name: row.name,
     capacityMt: row.capacity_mt !== null && row.capacity_mt !== undefined ? Number(row.capacity_mt) : null,
+    machineType: (row.machine_type ?? null) as FurnaceMachineType | null,
+    powerRatingKw: row.power_rating_kw !== null && row.power_rating_kw !== undefined ? Number(row.power_rating_kw) : null,
     isActive: Boolean(row.is_active),
   };
 }
@@ -86,7 +92,7 @@ function toHeatLog(row: any): HeatLog {
 export async function fetchFurnaces(profitCenterId: string): Promise<Furnace[]> {
   const { data, error } = await client
     .from("furnaces")
-    .select("id, profit_center_id, code, name, capacity_mt, is_active")
+    .select("id, profit_center_id, code, name, capacity_mt, machine_type, power_rating_kw, is_active")
     .eq("profit_center_id", profitCenterId)
     .order("code");
   if (error) throw error;
@@ -99,6 +105,8 @@ export async function upsertFurnace(input: {
   code: string;
   name: string;
   capacityMt: number | null;
+  machineType: FurnaceMachineType | null;
+  powerRatingKw: number | null;
   isActive: boolean;
 }) {
   const payload = {
@@ -106,6 +114,8 @@ export async function upsertFurnace(input: {
     code: input.code,
     name: input.name,
     capacity_mt: input.capacityMt,
+    machine_type: input.machineType,
+    power_rating_kw: input.powerRatingKw,
     is_active: input.isActive,
   };
   if (input.id) {

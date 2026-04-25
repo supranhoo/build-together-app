@@ -9,12 +9,15 @@ import { Label } from "@/components/ui/label";
 import { useWorkspace } from "@/hooks/use-workspace";
 import { useAuth } from "@/hooks/use-auth";
 import { useToast } from "@/hooks/use-toast";
-import { fetchFurnaces, upsertFurnace, type Furnace } from "@/lib/production";
+import { fetchFurnaces, upsertFurnace, type Furnace, type FurnaceMachineType } from "@/lib/production";
 import { createAuditLog } from "@/lib/workspace";
 import { ProfitCenterSelectField } from "@/components/ProfitCenterSelectField";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 
-interface FormState { id?: string; profitCenterId: string; code: string; name: string; capacityMt: string; isActive: boolean; }
-const empty: FormState = { profitCenterId: "", code: "", name: "", capacityMt: "", isActive: true };
+const MACHINE_TYPES: FurnaceMachineType[] = ["FAD", "CLU", "DRI"];
+
+interface FormState { id?: string; profitCenterId: string; code: string; name: string; capacityMt: string; machineType: FurnaceMachineType | ""; powerRatingKw: string; isActive: boolean; }
+const empty: FormState = { profitCenterId: "", code: "", name: "", capacityMt: "", machineType: "", powerRatingKw: "", isActive: true };
 
 export default function AdminFurnaces() {
   const { activeProfitCenter, selectProfitCenter } = useWorkspace();
@@ -34,7 +37,7 @@ export default function AdminFurnaces() {
 
   const openNew = () => { setForm({ ...empty, profitCenterId: activeProfitCenter?.id ?? "" }); setOpen(true); };
   const openEdit = (f: Furnace) => {
-    setForm({ id: f.id, profitCenterId: f.profitCenterId ?? activeProfitCenter?.id ?? "", code: f.code, name: f.name, capacityMt: f.capacityMt?.toString() ?? "", isActive: f.isActive });
+    setForm({ id: f.id, profitCenterId: f.profitCenterId ?? activeProfitCenter?.id ?? "", code: f.code, name: f.name, capacityMt: f.capacityMt?.toString() ?? "", machineType: f.machineType ?? "", powerRatingKw: f.powerRatingKw?.toString() ?? "", isActive: f.isActive });
     setOpen(true);
   };
 
@@ -56,6 +59,8 @@ export default function AdminFurnaces() {
         code: form.code,
         name: form.name,
         capacityMt: form.capacityMt ? Number(form.capacityMt) : null,
+        machineType: form.machineType === "" ? null : form.machineType,
+        powerRatingKw: form.powerRatingKw ? Number(form.powerRatingKw) : null,
         isActive: form.isActive,
       });
       await createAuditLog({
@@ -105,6 +110,16 @@ export default function AdminFurnaces() {
               <div><Label>Code</Label><Input value={form.code} onChange={(e) => setForm({ ...form, code: e.target.value })} /></div>
               <div><Label>Name</Label><Input value={form.name} onChange={(e) => setForm({ ...form, name: e.target.value })} /></div>
               <div><Label>Capacity (MT)</Label><Input type="number" step="0.001" value={form.capacityMt} onChange={(e) => setForm({ ...form, capacityMt: e.target.value })} /></div>
+              <div>
+                <Label>Machine type</Label>
+                <Select value={form.machineType} onValueChange={(v) => setForm({ ...form, machineType: v as FurnaceMachineType })}>
+                  <SelectTrigger><SelectValue placeholder="Select machine type" /></SelectTrigger>
+                  <SelectContent>
+                    {MACHINE_TYPES.map((m) => <SelectItem key={m} value={m}>{m}</SelectItem>)}
+                  </SelectContent>
+                </Select>
+              </div>
+              <div><Label>Power rating (kW)</Label><Input type="number" step="0.01" value={form.powerRatingKw} onChange={(e) => setForm({ ...form, powerRatingKw: e.target.value })} /></div>
               <div className="flex items-center justify-between rounded-md border border-border bg-panel px-4 py-3">
                 <span>Active</span>
                 <Switch checked={form.isActive} onCheckedChange={(v) => setForm({ ...form, isActive: v })} />

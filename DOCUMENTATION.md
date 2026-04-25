@@ -24,7 +24,7 @@ SteelFlow ERP now uses a configuration-first workspace foundation for steel and 
 ## Admin Settings Consolidation
 - The admin sidebar exposes only two destinations: `Overview` and `Admin Settings`.
 - `/admin/settings` is the single host page for every administrative configuration section. It uses URL-driven tabs (`?tab=<key>`) so deep links are stable and bookmarkable.
-- Tab keys: `workspaces`, `modules`, `access`, `settings`, `furnaces`, `shifts`, `materials`, `stock-locations`, `kpis`, `report-deliveries`, `roles`, `audit`. Unknown keys fall back to the first tab.
+- Tab keys: `workspaces`, `modules`, `users`, `master-data`, `access`, `settings`, `furnaces`, `shifts`, `materials`, `stock-locations`, `kpis`, `report-deliveries`, `roles`, `audit`. Unknown keys fall back to the first tab. The `master-data` tab uses a nested `?md=<key>` param (`items`, `groups`, `furnaces`, `cost-rates`, `uom`, `locations`, `kpis`).
 - Each tab renders the unchanged page component for that section, so RLS, audit logging, and validation behavior are preserved.
 - Legacy paths (`/admin/workspaces`, `/admin/furnaces`, …) remain registered and redirect to the equivalent `/admin/settings?tab=<key>` so existing bookmarks and audit entries continue to work.
 
@@ -78,6 +78,7 @@ SteelFlow ERP now uses a configuration-first workspace foundation for steel and 
 - Phase 6 — Drill-down, subscriptions, scheduled report digests: complete (email delivery active when `RESEND_API_KEY` is configured).
 - Phase 7 — Cross-workspace consolidation and operational editing (void / reversal): complete.
 - Phase 8 — Advanced admin and process workflow builder: not started.
+- Phase 9 — Master Data SSOT (Phase 1): complete. Extends `materials` (type, group, std_cost, specs, stock thresholds) and `furnaces` (machine_type, power_rating_kw); adds `material_groups`, `uom_conversions`, `cost_rates` (append-only). Surfaced as a single `Master Data` tab in `/admin/settings` with nested sub-tabs that reuse the existing Furnaces, Stock Locations and KPIs editors — no duplicate entities. Out of scope for this phase: Grade Master, Process Mapping, Excel import, separate Validation Rules engine.
 
 ## Phase 3 — Production Foundation
 - New tables: `furnaces`, `shifts`, `heat_logs`, `heat_log_events`, `permission_grants`. All workspace-scoped (except `permission_grants` which is global) and RLS-protected.

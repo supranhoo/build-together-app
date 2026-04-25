@@ -1,0 +1,64 @@
+import { useMemo } from "react";
+import { useSearchParams } from "react-router-dom";
+import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
+import AdminMasterItems from "./AdminMasterItems";
+import AdminMaterialGroups from "./AdminMaterialGroups";
+import AdminFurnaces from "./AdminFurnaces";
+import AdminCostRates from "./AdminCostRates";
+import AdminUomConversions from "./AdminUomConversions";
+import AdminStockLocations from "./AdminStockLocations";
+import AdminKpis from "./AdminKpis";
+
+/**
+ * Master Data — single SSOT host for workspace-scoped reference data.
+ * Each sub-tab is the existing or new admin page; nothing is duplicated.
+ */
+export const MASTER_DATA_TABS = [
+  { key: "items", label: "Item Master", Component: AdminMasterItems },
+  { key: "groups", label: "Group & Hierarchy", Component: AdminMaterialGroups },
+  { key: "furnaces", label: "Furnace / Machine", Component: AdminFurnaces },
+  { key: "cost-rates", label: "Rate & Cost Pool", Component: AdminCostRates },
+  { key: "uom", label: "UOM & Conversion", Component: AdminUomConversions },
+  { key: "locations", label: "Location & Warehouse", Component: AdminStockLocations },
+  { key: "kpis", label: "Master KPIs", Component: AdminKpis },
+] as const;
+
+export type MasterDataTabKey = (typeof MASTER_DATA_TABS)[number]["key"];
+
+export function resolveMasterDataTab(raw: string | null | undefined): MasterDataTabKey {
+  const valid = MASTER_DATA_TABS.map((t) => t.key);
+  return (valid as readonly string[]).includes(raw ?? "")
+    ? (raw as MasterDataTabKey)
+    : MASTER_DATA_TABS[0].key;
+}
+
+export default function AdminMasterData() {
+  const [params, setParams] = useSearchParams();
+  const active = useMemo(() => resolveMasterDataTab(params.get("md")), [params]);
+
+  const handleChange = (next: string) => {
+    setParams((current) => {
+      const updated = new URLSearchParams(current);
+      updated.set("tab", "master-data");
+      updated.set("md", next);
+      return updated;
+    }, { replace: true });
+  };
+
+  return (
+    <Tabs value={active} onValueChange={handleChange} className="space-y-4">
+      <TabsList className="flex h-auto w-full flex-wrap justify-start gap-1 bg-muted/50 p-1">
+        {MASTER_DATA_TABS.map((tab) => (
+          <TabsTrigger key={tab.key} value={tab.key} className="data-[state=active]:bg-primary data-[state=active]:text-primary-foreground">
+            {tab.label}
+          </TabsTrigger>
+        ))}
+      </TabsList>
+      {MASTER_DATA_TABS.map(({ key, Component }) => (
+        <TabsContent key={key} value={key} className="mt-2">
+          <Component />
+        </TabsContent>
+      ))}
+    </Tabs>
+  );
+}
