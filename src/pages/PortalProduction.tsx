@@ -19,6 +19,10 @@ import {
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
 import { Trash2 } from "lucide-react";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import PortalProductionHeatwise from "./PortalProductionHeatwise";
+import PortalProductionFurnaceSummary from "./PortalProductionFurnaceSummary";
+import PortalProductionMonthly from "./PortalProductionMonthly";
 import { useWorkspace } from "@/hooks/use-workspace";
 import { useAuth } from "@/hooks/use-auth";
 import { useToast } from "@/hooks/use-toast";
