@@ -19,10 +19,6 @@ import {
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
 import { Trash2 } from "lucide-react";
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import PortalProductionHeatwise from "./PortalProductionHeatwise";
-import PortalProductionFurnaceSummary from "./PortalProductionFurnaceSummary";
-import PortalProductionMonthly from "./PortalProductionMonthly";
 import { useWorkspace } from "@/hooks/use-workspace";
 import { useAuth } from "@/hooks/use-auth";
 import { useToast } from "@/hooks/use-toast";
@@ -57,8 +53,6 @@ import {
 import { mnBalance, mnInput, type MaterialSpecLookup } from "@/lib/ferro-alloys";
 import { fetchProductionAlertThresholds, DEFAULT_PRODUCTION_ALERTS, type ProductionAlertThresholds } from "@/lib/production-alerts";
 import { computeProductionKpis, indexMetallurgyByHeat } from "@/lib/production-rollups";
-import { Link } from "react-router-dom";
-import { FlaskConical } from "lucide-react";
 
 
 interface FormState {
