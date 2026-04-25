@@ -138,3 +138,14 @@
 - The default value MUST be the user's active workspace. Cross-workspace creations remain possible but are intentionally a deliberate act, not a default. The audit log entry MUST include `profit_center_id` in `change_summary` for every cross-workspace creation.
 - When a user successfully creates a record in a Profit Center other than the active one, the application MUST automatically switch the active workspace to the destination PC so the new record is immediately visible. Silently saving a record into a workspace the list view does not show (creating the appearance of data loss) is forbidden. The auto-switch MUST respect normal access rules: only PCs the user can manage may be selected in the form, and the workspace switch must use the same `selectProfitCenter` path used by the manual workspace selector.
 - Admin tables MUST continue to filter by the active workspace only. We do NOT add a "Profit Center" column to admin tables — every visible row, by construction, belongs to the active workspace, and adding a constant column would mislead operators into thinking the table is multi-workspace when it is not.
+
+
+## Admin User Profile Governance (Phase 14)
+- Admins MAY edit only `display_name`, `department`, and `job_title` for users in their scope. Editing email, password, role, workspace assignments, or active/inactive status from the User Profile screen is forbidden — those flows live elsewhere (auth provider, `user_roles` direct DB access, `/admin/settings?tab=access`, respectively) and combining them in one screen creates unreviewed privilege-escalation paths.
+- Scope MUST be enforced server-side by RLS, not by client-side filtering. The policy `Admins can update manageable profiles` on `public.profiles` reuses `can_view_profile(viewer, target)` so that "who I can see" and "who I can edit" stay in lockstep. If view-scope policy changes, edit-scope automatically follows.
+- An admin MUST NOT edit their own profile through the admin path; the existing self-update policy handles self-edits. This prevents an admin from quietly changing their own display name to impersonate another operator while bypassing the self-edit audit trail.
+- Every successful profile edit MUST emit exactly one `audit_logs` row with `entity_type='profile'`, `action='profile.updated'`, and a `change_summary` containing `userId`, full `before` snapshot, and full `after` snapshot. No silent edits.
+- User creation, deactivation, and role changes remain explicitly out of scope. Adding any of these requires a new policy section and a new RLS migration — they are NOT implicit extensions of profile editing.
+
+## Policy Change Log
+- 2026-04-25: Phase 14 — added Admin User Profile Governance (admin-edit limited to display_name/department/job_title; scope enforced via existing `can_view_profile` helper; mandatory `profile.updated` audit; admin self-edit must use self-update policy; user creation/role/deactivation explicitly out of scope).

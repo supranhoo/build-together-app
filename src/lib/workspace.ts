@@ -378,6 +378,26 @@ export async function upsertProfitCenterSetting(input: {
   if (error) throw error;
 }
 
+export interface UpdateUserProfileInput {
+  userId: string;
+  displayName: string | null;
+  department: string | null;
+  jobTitle: string | null;
+}
+
+export async function updateUserProfile(input: UpdateUserProfileInput): Promise<void> {
+  const { error } = await client
+    .from("profiles")
+    .update({
+      display_name: input.displayName,
+      department: input.department,
+      job_title: input.jobTitle,
+    })
+    .eq("user_id", input.userId);
+
+  if (error) throw error;
+}
+
 export async function fetchManageableProfiles(): Promise<ManageableProfile[]> {
   const { data, error } = await client
     .from("profiles")
