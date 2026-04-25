@@ -191,6 +191,8 @@ export default function PortalProduction() {
   const openCreate = () => {
     setEditing(null);
     setForm({ ...emptyForm, tapTime: nowLocalForInput() });
+    setMetallurgy(emptyMetallurgy);
+    setExistingMetallurgy(null);
     setConsumption([]);
     setCreateOpen(true);
   };
@@ -207,6 +209,33 @@ export default function PortalProduction() {
       notes: log.notes ?? "",
     });
     setConsumption([]);
+    // Lazy-load metallurgy for the selected heat
+    setExistingMetallurgy(null);
+    setMetallurgy(emptyMetallurgy);
+    fetchMetallurgy(log.id)
+      .then((m) => {
+        if (!m) return;
+        setExistingMetallurgy(m);
+        setMetallurgy({
+          product: m.product ?? "",
+          grade: m.grade ?? "",
+          tappingNo: m.tappingNo ?? "",
+          batchNo: m.batchNo ?? "",
+          fgMnPct: m.fgMnPct?.toString() ?? "",
+          slagQtyMt: m.slagQtyMt?.toString() ?? "",
+          slagMnoPct: m.slagMnoPct?.toString() ?? "",
+          dustQtyMt: m.dustQtyMt?.toString() ?? "",
+          dustMnPct: m.dustMnPct?.toString() ?? "",
+          tappingPowerMwh: m.tappingPowerMwh?.toString() ?? "",
+          furnacePowerMwh: m.furnacePowerMwh?.toString() ?? "",
+          auxPowerMwh: m.auxPowerMwh?.toString() ?? "",
+          avgPowerFactor: m.avgPowerFactor?.toString() ?? "",
+          status: m.status,
+        });
+      })
+      .catch((e) =>
+        toast({ title: "Failed to load metallurgy", description: e instanceof Error ? e.message : "", variant: "destructive" }),
+      );
     setCreateOpen(true);
   };
 
