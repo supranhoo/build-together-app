@@ -1,133 +1,70 @@
-import { useEffect, useMemo, useState } from "react";
-import { Link, Outlet, useLocation, useNavigate } from "react-router-dom";
+import { useMemo } from "react";
+import { Outlet, useLocation, useNavigate } from "react-router-dom";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Button } from "@/components/ui/button";
-import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { useWorkspace } from "@/hooks/use-workspace";
-import { useToast } from "@/hooks/use-toast";
-import {
-  computeStockBalances,
-  fetchLedger,
-  fetchMaterials,
-  fetchStockLocations,
-  type InventoryLedgerEntry,
-  type Material,
-  type StockLocation,
-} from "@/lib/inventory";
 
-const INVENTORY_TABS: Array<{ value: string; label: string; path: string }> = [
-  { value: "stock", label: "Stock on hand", path: "/portal/inventory" },
-  { value: "receipts", label: "Receipts", path: "/portal/inventory/receipts" },
-  { value: "ledger", label: "Ledger", path: "/portal/inventory/ledger" },
+/**
+ * Inventory shell — 7 tabs (Dashboard, Stock Ledger, GRN, Issue, Transfers,
+ * Min-Max, Reports). Each tab is a nested route. Default index renders the
+ * Dashboard. Existing `/portal/inventory/receipts` and `/ledger` paths still
+ * work for backwards compatibility.
+ */
+const TABS: Array<{ value: string; label: string; path: string }> = [
+  { value: "dashboard", label: "Dashboard", path: "/portal/inventory" },
+  { value: "stock", label: "Stock Ledger", path: "/portal/inventory/stock" },
+  { value: "grn", label: "GRN (Inward)", path: "/portal/inventory/grn" },
+  { value: "issue", label: "Issue (Outward)", path: "/portal/inventory/issue" },
+  { value: "transfers", label: "Transfers", path: "/portal/inventory/transfers" },
+  { value: "min-max", label: "Min-Max", path: "/portal/inventory/min-max" },
+  { value: "reports", label: "Reports", path: "/portal/inventory/reports" },
 ];
 
 export default function PortalInventory() {
   const { activeProfitCenter } = useWorkspace();
-  const { toast } = useToast();
   const location = useLocation();
   const navigate = useNavigate();
-  const [materials, setMaterials] = useState<Material[]>([]);
-  const [locations, setLocations] = useState<StockLocation[]>([]);
-  const [ledger, setLedger] = useState<InventoryLedgerEntry[]>([]);
-  const [loading, setLoading] = useState(false);
 
-  const isNested = location.pathname !== "/portal/inventory";
   const activeTab = useMemo(() => {
-    const match = INVENTORY_TABS.find((t) => t.path === location.pathname);
-    return match?.value ?? "stock";
+    const exact = TABS.find((t) => t.path === location.pathname);
+    if (exact) return exact.value;
+    // Map legacy routes back to the closest tab so the strip still highlights.
+    if (location.pathname.endsWith("/receipts")) return "grn";
+    if (location.pathname.endsWith("/ledger")) return "stock";
+    return "dashboard";
   }, [location.pathname]);
 
-  useEffect(() => {
-    if (!activeProfitCenter) return;
-    if (isNested) return;
-    setLoading(true);
-    Promise.all([
-      fetchMaterials(activeProfitCenter.id),
-      fetchStockLocations(activeProfitCenter.id),
-      fetchLedger(activeProfitCenter.id),
-    ])
-      .then(([m, l, le]) => { setMaterials(m); setLocations(l); setLedger(le); })
-      .catch((e) => toast({ title: "Failed to load inventory", description: e instanceof Error ? e.message : "", variant: "destructive" }))
-      .finally(() => setLoading(false));
-  }, [activeProfitCenter?.id, isNested, toast]);
-
-  const balances = useMemo(() => computeStockBalances(ledger), [ledger]);
-  const materialLabel = (id: string) => {
-    const m = materials.find((x) => x.id === id);
-    return m ? `${m.code} — ${m.name} (${m.uom})` : id;
-  };
-  const locationLabel = (id: string) => locations.find((x) => x.id === id)?.code ?? id;
-
   if (!activeProfitCenter) {
-    return <Card><CardHeader><CardTitle>Inventory</CardTitle></CardHeader><CardContent className="text-muted-foreground">Select a workspace to view inventory.</CardContent></Card>;
-  }
-
-  const tabStrip = (
-    <Tabs
-      value={activeTab}
-      onValueChange={(value) => {
-        const next = INVENTORY_TABS.find((t) => t.value === value);
-        if (next) navigate(next.path);
-      }}
-    >
-      <TabsList>
-        {INVENTORY_TABS.map((tab) => (
-          <TabsTrigger key={tab.value} value={tab.value}>{tab.label}</TabsTrigger>
-        ))}
-      </TabsList>
-    </Tabs>
-  );
-
-  if (isNested) {
     return (
-      <div className="space-y-6">
-        {tabStrip}
-        <Outlet />
-      </div>
+      <Card>
+        <CardHeader><CardTitle>Inventory</CardTitle></CardHeader>
+        <CardContent className="text-muted-foreground">Select a workspace to view inventory.</CardContent>
+      </Card>
     );
   }
 
   return (
     <div className="space-y-6">
-      {tabStrip}
-      <Card className="border-border bg-card shadow-panel">
-        <CardHeader className="flex flex-row items-center justify-between gap-4">
-          <CardTitle>Stock on hand — {activeProfitCenter.name}</CardTitle>
-          <div className="flex gap-2">
-            <Button asChild variant="outline"><Link to="/portal/inventory/ledger">View ledger</Link></Button>
-            <Button asChild><Link to="/portal/inventory/receipts">New receipt</Link></Button>
-          </div>
-        </CardHeader>
-        <CardContent>
-          <Table>
-            <TableHeader>
-              <TableRow>
-                <TableHead>Material</TableHead>
-                <TableHead>Location</TableHead>
-                <TableHead className="text-right">Quantity</TableHead>
-              </TableRow>
-            </TableHeader>
-            <TableBody>
-              {balances.map((b) => (
-                <TableRow key={`${b.materialId}-${b.stockLocationId}`}>
-                  <TableCell className="font-medium">{materialLabel(b.materialId)}</TableCell>
-                  <TableCell>{locationLabel(b.stockLocationId)}</TableCell>
-                  <TableCell className={`text-right ${b.quantity < 0 ? "text-destructive" : ""}`}>{b.quantity.toFixed(3)}</TableCell>
-                </TableRow>
-              ))}
-              {balances.length === 0 && !loading && (
-                <TableRow><TableCell colSpan={3} className="text-muted-foreground">No stock movements yet.</TableCell></TableRow>
-              )}
-            </TableBody>
-          </Table>
-          {(materials.length === 0 || locations.length === 0) && (
-            <p className="mt-4 text-xs text-muted-foreground">
-              An admin must configure at least one material and one stock location for this workspace before receipts can be posted.
-            </p>
-          )}
-        </CardContent>
-      </Card>
+      <Tabs
+        value={activeTab}
+        onValueChange={(value) => {
+          const next = TABS.find((t) => t.value === value);
+          if (next) navigate(next.path);
+        }}
+      >
+        <TabsList className="flex h-auto w-full flex-wrap justify-start gap-1 bg-muted/50 p-1">
+          {TABS.map((tab) => (
+            <TabsTrigger
+              key={tab.value}
+              value={tab.value}
+              className="data-[state=active]:bg-primary data-[state=active]:text-primary-foreground"
+            >
+              {tab.label}
+            </TabsTrigger>
+          ))}
+        </TabsList>
+      </Tabs>
+      <Outlet />
     </div>
   );
 }
