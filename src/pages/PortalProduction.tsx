@@ -49,12 +49,16 @@ import { bulkVoidHeatLogs, userCanAct } from "@/lib/reporting";
 import { fetchMasterItems, type MasterItem } from "@/lib/master-data";
 import {
   fetchMetallurgy,
+  fetchMetallurgyByPC,
   upsertMetallurgy,
   type HeatMetallurgy,
   type HeatMetallurgyStatus,
 } from "@/lib/heat-metallurgy";
 import { mnBalance, mnInput, type MaterialSpecLookup } from "@/lib/ferro-alloys";
 import { fetchProductionAlertThresholds, DEFAULT_PRODUCTION_ALERTS, type ProductionAlertThresholds } from "@/lib/production-alerts";
+import { computeProductionKpis, indexMetallurgyByHeat } from "@/lib/production-rollups";
+import { Link } from "react-router-dom";
+import { FlaskConical } from "lucide-react";
 
 
 interface FormState {
@@ -110,6 +114,7 @@ export default function PortalProduction() {
   const [furnaces, setFurnaces] = useState<Furnace[]>([]);
   const [shifts, setShifts] = useState<Shift[]>([]);
   const [logs, setLogs] = useState<HeatLog[]>([]);
+  const [allMetallurgy, setAllMetallurgy] = useState<HeatMetallurgy[]>([]);
   const [grants, setGrants] = useState<PermissionGrant[]>([]);
   const [materials, setMaterials] = useState<Material[]>([]);
   const [stockLocations, setStockLocations] = useState<StockLocation[]>([]);
@@ -137,7 +142,7 @@ export default function PortalProduction() {
     if (!activeProfitCenter) return;
     setLoading(true);
     try {
-      const [f, s, l, g, m, sl, mi, th] = await Promise.all([
+      const [f, s, l, g, m, sl, mi, th, met] = await Promise.all([
         fetchFurnaces(activeProfitCenter.id),
         fetchShifts(activeProfitCenter.id),
         fetchHeatLogs(activeProfitCenter.id, {
@@ -150,6 +155,7 @@ export default function PortalProduction() {
         fetchStockLocations(activeProfitCenter.id),
         fetchMasterItems(activeProfitCenter.id),
         fetchProductionAlertThresholds(activeProfitCenter.id).catch(() => DEFAULT_PRODUCTION_ALERTS),
+        fetchMetallurgyByPC(activeProfitCenter.id).catch(() => [] as HeatMetallurgy[]),
       ]);
       setFurnaces(f);
       setShifts(s);
@@ -159,6 +165,7 @@ export default function PortalProduction() {
       setStockLocations(sl);
       setMasterItems(mi);
       setThresholds(th);
+      setAllMetallurgy(met);
     } catch (error) {
       toast({ title: "Failed to load production data", description: error instanceof Error ? error.message : "Try again.", variant: "destructive" });
     } finally {
@@ -395,8 +402,61 @@ export default function PortalProduction() {
     );
   }
 
+  // KPI strip — derived from SSOT (heat_logs + heat_metallurgy). Per POLICY §19,
+  // production KPIs MUST come from these tables. No mock data.
+  const metByHeat = indexMetallurgyByHeat(allMetallurgy);
+  const kpis = computeProductionKpis(logs, metByHeat);
+  const recoveryAlert = kpis.avgRecoveryPct !== null && kpis.avgRecoveryPct < thresholds.recoveryMinPct;
+
+  const fmt = (v: number | null, digits = 2, suffix = "") =>
+    v === null || !Number.isFinite(v) ? "—" : `${v.toFixed(digits)}${suffix}`;
+
   return (
     <div className="space-y-6">
+      {/* Production KPI strip — sits ABOVE the existing tabs. Read-only. */}
+      <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
+        <Card className="border-border bg-card shadow-panel">
+          <CardHeader className="pb-2">
+            <CardTitle className="text-xs font-medium text-muted-foreground">Total Production</CardTitle>
+          </CardHeader>
+          <CardContent>
+            <div className="text-2xl font-semibold">{fmt(kpis.totalProductionMt, 2)} <span className="text-sm font-normal text-muted-foreground">MT</span></div>
+            <div className="text-xs text-muted-foreground mt-1">{kpis.heatCount} heats (latest 200, voids excluded)</div>
+          </CardContent>
+        </Card>
+        <Card className={`border-border bg-card shadow-panel ${recoveryAlert ? "border-destructive/60" : ""}`}>
+          <CardHeader className="pb-2">
+            <CardTitle className="text-xs font-medium text-muted-foreground">Avg Recovery</CardTitle>
+          </CardHeader>
+          <CardContent>
+            <div className={`text-2xl font-semibold ${recoveryAlert ? "text-destructive" : ""}`}>{fmt(kpis.avgRecoveryPct, 2, "%")}</div>
+            <div className="text-xs text-muted-foreground mt-1">
+              {kpis.heatsWithMetallurgy} heats w/ metallurgy · target ≥ {thresholds.recoveryMinPct}%
+            </div>
+          </CardContent>
+        </Card>
+        <Card className="border-border bg-card shadow-panel">
+          <CardHeader className="pb-2">
+            <CardTitle className="text-xs font-medium text-muted-foreground">Avg kWh / MT</CardTitle>
+          </CardHeader>
+          <CardContent>
+            <div className="text-2xl font-semibold">{fmt(kpis.avgKwhPerMt, 0)}</div>
+            <div className="text-xs text-muted-foreground mt-1">{fmt(kpis.totalPowerMwh, 2)} MWh total</div>
+          </CardContent>
+        </Card>
+        <Card className="border-border bg-card shadow-panel">
+          <CardHeader className="pb-2 flex flex-row items-center justify-between gap-2">
+            <CardTitle className="text-xs font-medium text-muted-foreground">FAD Entry</CardTitle>
+            <FlaskConical className="h-4 w-4 text-muted-foreground" />
+          </CardHeader>
+          <CardContent>
+            <Button asChild size="sm" variant="outline" className="w-full">
+              <Link to="/portal/production-fad">Open metallurgical entry →</Link>
+            </Button>
+            <div className="text-xs text-muted-foreground mt-2">4-step Mn balance wizard</div>
+          </CardContent>
+        </Card>
+      </div>
       <Tabs defaultValue="data-entry">
         <TabsList className="flex h-auto w-full flex-wrap justify-start gap-1 bg-muted/50 p-1">
           <TabsTrigger value="data-entry" className="data-[state=active]:bg-primary data-[state=active]:text-primary-foreground">Data Entry</TabsTrigger>
