@@ -292,6 +292,25 @@ export default function PortalOverview() {
         </Card>
       </section>
 
+      {activeProfitCenter && lowStockCount !== null && lowStockCount > 0 && (
+        <Card className="border-destructive/40 bg-destructive/5">
+          <CardContent className="flex items-center justify-between gap-4 p-4">
+            <div className="flex items-center gap-3">
+              <div className="rounded-md bg-destructive/15 p-2 text-destructive">
+                <AlertTriangle className="h-5 w-5" />
+              </div>
+              <div>
+                <p className="text-sm font-semibold">{lowStockCount} item{lowStockCount === 1 ? "" : "s"} need attention</p>
+                <p className="text-xs text-muted-foreground">Stock at or below reorder / minimum thresholds.</p>
+              </div>
+            </div>
+            <Button asChild size="sm" variant="outline">
+              <Link to="/portal/inventory/min-max">Review Min-Max</Link>
+            </Button>
+          </CardContent>
+        </Card>
+      )}
+
       <section className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
         {metrics.map((item) => (
           <Card key={item.label} className="border-border bg-card">
