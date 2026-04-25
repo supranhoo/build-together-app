@@ -460,18 +460,8 @@ export default function PortalProduction() {
           </CardContent>
         </Card>
       </div>
-      <Tabs defaultValue="data-entry">
-        <TabsList className="flex h-auto w-full flex-wrap justify-start gap-1 bg-muted/50 p-1">
-          <TabsTrigger value="data-entry" className="data-[state=active]:bg-primary data-[state=active]:text-primary-foreground">Data Entry</TabsTrigger>
-          <TabsTrigger value="heatwise" className="data-[state=active]:bg-primary data-[state=active]:text-primary-foreground">Heat-wise View</TabsTrigger>
-          <TabsTrigger value="furnace" className="data-[state=active]:bg-primary data-[state=active]:text-primary-foreground">Furnace Summary</TabsTrigger>
-          <TabsTrigger value="monthly" className="data-[state=active]:bg-primary data-[state=active]:text-primary-foreground">Monthly Summary</TabsTrigger>
-          <TabsTrigger value="energy" className="data-[state=active]:bg-primary data-[state=active]:text-primary-foreground">Energy</TabsTrigger>
-          <TabsTrigger value="quality" className="data-[state=active]:bg-primary data-[state=active]:text-primary-foreground">Quality</TabsTrigger>
-          <TabsTrigger value="consumption" className="data-[state=active]:bg-primary data-[state=active]:text-primary-foreground">Consumption</TabsTrigger>
-        </TabsList>
-
-        <TabsContent value="data-entry" className="mt-4">
+      {/* Heat-log management — lifted out of the former 'Data Entry' tab so the tab
+          can be removed without losing entry, filtering, or void capability. */}
       <Card className="border-border bg-card shadow-panel">
         <CardHeader className="flex flex-row items-center justify-between gap-4">
           <CardTitle>Heat logs — {activeProfitCenter.name}</CardTitle>
