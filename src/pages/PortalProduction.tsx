@@ -46,6 +46,15 @@ import {
   type StockLocation,
 } from "@/lib/inventory";
 import { bulkVoidHeatLogs, userCanAct } from "@/lib/reporting";
+import { fetchMasterItems, type MasterItem } from "@/lib/master-data";
+import {
+  fetchMetallurgy,
+  upsertMetallurgy,
+  type HeatMetallurgy,
+  type HeatMetallurgyStatus,
+} from "@/lib/heat-metallurgy";
+import { mnBalance, mnInput, type MaterialSpecLookup } from "@/lib/ferro-alloys";
+import { fetchProductionAlertThresholds, DEFAULT_PRODUCTION_ALERTS, type ProductionAlertThresholds } from "@/lib/production-alerts";
 
 
 interface FormState {
