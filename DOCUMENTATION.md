@@ -283,3 +283,14 @@ SteelFlow ERP now uses a configuration-first workspace foundation for steel and 
 
 ## Version History
 - 2026-04-24 (Phase 13.1): Auto-switch active workspace after a cross-workspace create from admin dialogs (`AdminFurnaces`, `AdminShifts`, `AdminMaterials`, `AdminStockLocations`, `AdminKpis`); relaxed `selectProfitCenter` to allow super_admin to switch into any active workspace.
+
+## Admin User Profile editing (Phase 14)
+- New tab `/admin/settings?tab=users` (component `src/pages/AdminUsers.tsx`) lists `manageableProfiles` from `useWorkspace()` and lets an admin edit `display_name`, `department`, and `job_title` only. No user creation, no role changes, no deactivation — these are intentionally out of scope.
+- Persistence goes through `updateUserProfile` in `src/lib/workspace.ts`, which performs a single `UPDATE public.profiles SET display_name, department, job_title WHERE user_id = ?`. Admins cannot modify auth identity (email/password) from the UI; users self-register and are auto-provisioned by the existing `handle_new_user_profile` trigger.
+- Server-side scope is enforced by RLS policy `Admins can update manageable profiles` on `public.profiles`: super_admin may update any profile (other than their own — self-edit goes through the existing self-update policy), and admin may update profiles of users co-assigned to a workspace they manage. The check reuses the existing `can_view_profile(viewer, target)` and `has_elevated_role(viewer)` security-definer helpers — no new functions.
+- The legacy route `/admin/users` redirects to `/admin/settings?tab=users` to match the consolidation pattern from Phase 12.
+- Every save writes one `audit_logs` row with `entity_type='profile'`, `action='profile.updated'`, `change_summary={ userId, before, after }` for compliance reconstruction.
+- Tests live in `src/test/admin-users.test.ts`: column-name mapping, error propagation, and clearing nullable fields via `null`.
+
+## Version History
+- 2026-04-25 (Phase 14): Added admin User Profile editing (`/admin/settings?tab=users`); new RLS policy `Admins can update manageable profiles` on `public.profiles`; new helper `updateUserProfile`; new audit action `profile.updated`.
