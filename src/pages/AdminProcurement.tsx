@@ -42,6 +42,8 @@ import { useWorkspace } from "@/hooks/use-workspace";
 import { SuppliersTab } from "@/components/procurement/SuppliersTab";
 import { PRTab } from "@/components/procurement/PRTab";
 import { POTab } from "@/components/procurement/POTab";
+import { MRPTab } from "@/components/procurement/MRPTab";
+import { ShipmentsTab } from "@/components/procurement/ShipmentsTab";
 
 type DeepLinkTarget = { to: string; label: string };
 type TabSpec =
@@ -58,8 +60,9 @@ const TABS: TabSpec[] = [
   { id: "min_max", label: "MIN-MAX Control", icon: AlertTriangle, kind: "deeplink",
     description: "MIN / MAX / Reorder thresholds live on each material and surface in the inventory module.",
     target: { to: "/portal/inventory/min-max", label: "Open MIN-MAX dashboard" } },
-  { id: "mrp", label: "MRP", icon: Calculator, kind: "scaffold", phase: "C",
-    description: "Material Requirements Planning — shortage calculation across stock, open POs and consumption velocity." },
+  { id: "mrp", label: "MRP", icon: Calculator, kind: "live",
+    description: "Material Requirements Planning — shortages from on-hand + open POs against thresholds.",
+    render: () => <MRPTab /> },
   { id: "suppliers", label: "Suppliers", icon: Users, kind: "live",
     description: "Vendor directory: contacts, payment terms, lead time, preferred status.",
     render: () => <SuppliersTab /> },
@@ -69,8 +72,9 @@ const TABS: TabSpec[] = [
   { id: "po", label: "Purchase Orders", icon: ShoppingCart, kind: "live",
     description: "Supplier orders with multi-currency value, expected delivery and receipt tracking.",
     render: () => <POTab /> },
-  { id: "shipments", label: "Import Shipments", icon: Ship, kind: "scaffold", phase: "C",
-    description: "International transit: vessel, BL, ETA, customs and freight cost." },
+  { id: "shipments", label: "Import Shipments", icon: Ship, kind: "live",
+    description: "International transit: vessel, BL, ETA, customs and freight cost.",
+    render: () => <ShipmentsTab /> },
   { id: "grn", label: "GRN", icon: ClipboardCheck, kind: "deeplink",
     description: "Goods Receipt Notes are recorded in the inventory module and post directly to the ledger.",
     target: { to: "/portal/inventory/grn", label: "Open GRN entry" } },
@@ -110,8 +114,8 @@ export default function AdminProcurement() {
               : "Select a workspace to scope procurement data."}
           </p>
         </div>
-        <Badge variant="outline" className="border-amber-500/40 bg-amber-500/10 text-amber-700 dark:text-amber-300">
-          Phase B live · Suppliers · PR · PO · MRP/Shipments/Risk in Phases C–D
+        <Badge variant="outline" className="border-emerald-500/40 bg-emerald-500/10 text-emerald-700 dark:text-emerald-300">
+          Phase C live · Suppliers · PR · PO · MRP · Shipments · Receipts → Phase D: Performance, Risk, Dashboard
         </Badge>
       </div>
 
