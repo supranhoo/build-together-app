@@ -1,5 +1,12 @@
 import { describe, expect, it } from "vitest";
-import { computeProductionKpis, indexMetallurgyByHeat, kwhDeviationPct } from "@/lib/production-rollups";
+import {
+  classifyEnergy,
+  classifyQuality,
+  computeProductionKpis,
+  heatKwhPerMt,
+  indexMetallurgyByHeat,
+  kwhDeviationPct,
+} from "@/lib/production-rollups";
 import type { HeatLog } from "@/lib/production";
 import type { HeatMetallurgy } from "@/lib/heat-metallurgy";
 
