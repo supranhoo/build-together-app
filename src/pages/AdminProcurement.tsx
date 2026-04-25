@@ -44,6 +44,9 @@ import { PRTab } from "@/components/procurement/PRTab";
 import { POTab } from "@/components/procurement/POTab";
 import { MRPTab } from "@/components/procurement/MRPTab";
 import { ShipmentsTab } from "@/components/procurement/ShipmentsTab";
+import { DashboardTab } from "@/components/procurement/DashboardTab";
+import { SupplierPerformanceTab } from "@/components/procurement/SupplierPerformanceTab";
+import { RiskTab } from "@/components/procurement/RiskTab";
 
 type DeepLinkTarget = { to: string; label: string };
 type TabSpec =
@@ -52,8 +55,9 @@ type TabSpec =
   | { id: string; label: string; icon: React.ComponentType<{ className?: string }>; kind: "live"; description: string; render: () => JSX.Element };
 
 const TABS: TabSpec[] = [
-  { id: "dashboard", label: "Dashboard", icon: LayoutDashboard, kind: "scaffold", phase: "D",
-    description: "KPIs across PRs, POs, shipments, supplier performance and risk events." },
+  { id: "dashboard", label: "Dashboard", icon: LayoutDashboard, kind: "live",
+    description: "KPIs across PRs, POs, shipments, supplier performance and risk events.",
+    render: () => <DashboardTab /> },
   { id: "rm_master", label: "RM Master", icon: Database, kind: "deeplink",
     description: "Raw material master is managed in Admin → Materials. Single source of truth.",
     target: { to: "/admin/settings?tab=materials", label: "Open Materials master" } },
@@ -84,13 +88,15 @@ const TABS: TabSpec[] = [
   { id: "inventory", label: "Inventory Update", icon: Package, kind: "deeplink",
     description: "Live stock by location is in the inventory module. Procurement consumes — does not duplicate.",
     target: { to: "/portal/inventory/stock", label: "Open stock view" } },
-  { id: "supplier_perf", label: "Supplier Performance", icon: TrendingUp, kind: "scaffold", phase: "D",
-    description: "Periodic scorecards: on-time %, quality %, price competitiveness, overall score." },
+  { id: "supplier_perf", label: "Supplier Performance", icon: TrendingUp, kind: "live",
+    description: "Periodic scorecards: on-time %, quality %, price competitiveness, overall score.",
+    render: () => <SupplierPerformanceTab /> },
   { id: "cost", label: "Cost Monitoring", icon: DollarSign, kind: "deeplink",
     description: "Cost rates and price trends are managed in Admin → Cost Rates. Procurement reads against them.",
     target: { to: "/admin/settings?tab=cost-rates", label: "Open Cost Rates" } },
-  { id: "risk", label: "Risk Monitoring", icon: ShieldAlert, kind: "scaffold", phase: "D",
-    description: "Supply-chain risk register: severity, status, mitigation plan, optional supplier link." },
+  { id: "risk", label: "Risk Monitoring", icon: ShieldAlert, kind: "live",
+    description: "Supply-chain risk register: severity, status, mitigation plan, optional supplier link.",
+    render: () => <RiskTab /> },
   { id: "reports", label: "Reports", icon: BarChart2, kind: "deeplink",
     description: "Cross-module reporting lives in the central reports surface.",
     target: { to: "/portal/reports", label: "Open reports" } },
@@ -115,7 +121,7 @@ export default function AdminProcurement() {
           </p>
         </div>
         <Badge variant="outline" className="border-emerald-500/40 bg-emerald-500/10 text-emerald-700 dark:text-emerald-300">
-          Phase C live · Suppliers · PR · PO · MRP · Shipments · Receipts → Phase D: Performance, Risk, Dashboard
+          All 16 tabs live · Dashboard · Suppliers · PR · PO · MRP · Shipments · Performance · Risk
         </Badge>
       </div>
 
