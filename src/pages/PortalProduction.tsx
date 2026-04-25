@@ -249,6 +249,42 @@ export default function PortalProduction() {
     setConsumption((rows) => rows.filter((r) => r.key !== key));
   };
 
+  // Live Mn balance derived from current consumption rows + master item specs +
+  // entered output. Pure read; never mutates state.
+  const liveBalance = useMemo(() => {
+    const specs: Record<string, MaterialSpecLookup> = {};
+    for (const mi of masterItems) {
+      const s = (mi.specs ?? {}) as Record<string, unknown>;
+      specs[mi.id] = {
+        mnPct: typeof s.mnPct === "number" ? s.mnPct : Number(s.mnPct ?? NaN),
+        moisturePct: typeof s.moisturePct === "number" ? s.moisturePct : Number(s.moisturePct ?? NaN),
+        fePct: typeof s.fePct === "number" ? s.fePct : Number(s.fePct ?? NaN),
+      };
+    }
+    const inputMn = mnInput(
+      consumption.map((c) => ({ materialId: c.materialId, quantity: Number(c.quantity) || 0 })),
+      specs,
+    );
+    return mnBalance({
+      inputMn,
+      productionMt: Number(form.weightMt) || 0,
+      fgMnPct: Number(metallurgy.fgMnPct) || 0,
+      slagQty: Number(metallurgy.slagQtyMt) || 0,
+      slagMnoPct: Number(metallurgy.slagMnoPct) || 0,
+      dustQty: Number(metallurgy.dustQtyMt) || 0,
+      dustMnPct: Number(metallurgy.dustMnPct) || 0,
+    });
+  }, [masterItems, consumption, form.weightMt, metallurgy]);
+
+  const moistureWarn = useMemo(() => {
+    const specsById = new Map(masterItems.map((m) => [m.id, m.specs as Record<string, unknown>]));
+    return consumption.some((c) => {
+      const s = specsById.get(c.materialId);
+      const m = s ? Number(s.moisturePct) : NaN;
+      return Number.isFinite(m) && m > thresholds.moistureMaxPct;
+    });
+  }, [consumption, masterItems, thresholds.moistureMaxPct]);
+
   const validate = (): string | null => {
     if (!form.furnaceId) return "Furnace is required";
     if (!form.shiftId) return "Shift is required";
@@ -260,6 +296,18 @@ export default function PortalProduction() {
     }
     return null;
   };
+
+  const hasMetallurgyInput = (): boolean => {
+    return Boolean(
+      metallurgy.product || metallurgy.grade || metallurgy.tappingNo || metallurgy.batchNo ||
+      metallurgy.fgMnPct || metallurgy.slagQtyMt || metallurgy.slagMnoPct ||
+      metallurgy.dustQtyMt || metallurgy.dustMnPct ||
+      metallurgy.tappingPowerMwh || metallurgy.furnacePowerMwh || metallurgy.auxPowerMwh ||
+      metallurgy.avgPowerFactor,
+    );
+  };
+
+  const numOrNull = (v: string): number | null => (v === "" ? null : Number.isFinite(Number(v)) ? Number(v) : null);
 
   const handleSave = async () => {
     if (!activeProfitCenter || !session?.user) return;
@@ -273,6 +321,7 @@ export default function PortalProduction() {
       const tapIso = new Date(form.tapTime).toISOString();
       const weightMt = form.weightMt ? Number(form.weightMt) : null;
       const powerMwh = form.powerMwh ? Number(form.powerMwh) : null;
+      let heatLogId: string;
       if (editing) {
         await updateHeatLog(editing.id, {
           heatNumber: form.heatNumber,
@@ -281,8 +330,9 @@ export default function PortalProduction() {
           powerMwh,
           notes: form.notes || null,
         });
+        heatLogId = editing.id;
       } else {
-        const newId = await createHeatLog({
+        heatLogId = await createHeatLog({
           profitCenterId: activeProfitCenter.id,
           furnaceId: form.furnaceId,
           shiftId: form.shiftId,
@@ -295,12 +345,36 @@ export default function PortalProduction() {
         });
         if (consumption.length > 0) {
           await recordHeatConsumption({
-            heatLogId: newId,
+            heatLogId,
             profitCenterId: activeProfitCenter.id,
             createdBy: session.user.id,
             rows: consumption.map((r) => ({ materialId: r.materialId, stockLocationId: r.stockLocationId, quantity: r.quantity })),
           });
         }
+      }
+
+      // Save metallurgy when any field provided OR when an existing draft row needs updating.
+      if (hasMetallurgyInput() || existingMetallurgy) {
+        await upsertMetallurgy({
+          heatLogId,
+          profitCenterId: activeProfitCenter.id,
+          createdBy: session.user.id,
+          product: metallurgy.product || null,
+          grade: metallurgy.grade || null,
+          tappingNo: metallurgy.tappingNo || null,
+          batchNo: metallurgy.batchNo || null,
+          fgMnPct: numOrNull(metallurgy.fgMnPct),
+          slagQtyMt: numOrNull(metallurgy.slagQtyMt),
+          slagMnoPct: numOrNull(metallurgy.slagMnoPct),
+          dustQtyMt: numOrNull(metallurgy.dustQtyMt),
+          dustMnPct: numOrNull(metallurgy.dustMnPct),
+          tappingPowerMwh: numOrNull(metallurgy.tappingPowerMwh),
+          furnacePowerMwh: numOrNull(metallurgy.furnacePowerMwh),
+          auxPowerMwh: numOrNull(metallurgy.auxPowerMwh),
+          avgPowerFactor: numOrNull(metallurgy.avgPowerFactor),
+          status: metallurgy.status,
+          notes: null,
+        });
       }
       toast({ title: editing ? "Heat log updated" : "Heat log recorded" });
       setCreateOpen(false);
