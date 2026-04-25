@@ -120,6 +120,10 @@ export default function PortalProduction() {
   const [createOpen, setCreateOpen] = useState(false);
   const [editing, setEditing] = useState<HeatLog | null>(null);
   const [form, setForm] = useState<FormState>(emptyForm);
+  const [metallurgy, setMetallurgy] = useState<MetallurgyFormState>(emptyMetallurgy);
+  const [existingMetallurgy, setExistingMetallurgy] = useState<HeatMetallurgy | null>(null);
+  const [masterItems, setMasterItems] = useState<MasterItem[]>([]);
+  const [thresholds, setThresholds] = useState<ProductionAlertThresholds>(DEFAULT_PRODUCTION_ALERTS);
   const [consumption, setConsumption] = useState<ConsumptionRow[]>([]);
   const [saving, setSaving] = useState(false);
   const [loading, setLoading] = useState(false);
