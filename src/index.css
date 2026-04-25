@@ -60,14 +60,14 @@ All colors MUST be HSL.
     --shadow-panel: 0 24px 60px -24px hsl(215 30% 30% / 0.18);
     --shadow-signal: 0 18px 40px -22px hsl(var(--accent) / 0.45);
 
-    --sidebar-background: 215 29% 8%;
-    --sidebar-foreground: 210 20% 96%;
-    --sidebar-primary: 204 77% 52%;
+    --sidebar-background: 0 0% 100%;
+    --sidebar-foreground: 215 28% 12%;
+    --sidebar-primary: 204 77% 42%;
     --sidebar-primary-foreground: 210 40% 98%;
-    --sidebar-accent: 215 20% 16%;
-    --sidebar-accent-foreground: 210 20% 96%;
-    --sidebar-border: 217 16% 20%;
-    --sidebar-ring: 204 77% 52%;
+    --sidebar-accent: 214 22% 94%;
+    --sidebar-accent-foreground: 215 28% 18%;
+    --sidebar-border: 214 18% 86%;
+    --sidebar-ring: 204 77% 42%;
   }
 
   /* Dark (night) palette — preserved verbatim from prior :root. */
