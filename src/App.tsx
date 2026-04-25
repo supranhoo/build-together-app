@@ -32,8 +32,16 @@ import AdminReportDeliveries from "./pages/AdminReportDeliveries";
 import ModulePlaceholder from "./pages/ModulePlaceholder";
 import PortalProduction from "./pages/PortalProduction";
 import PortalInventory from "./pages/PortalInventory";
+import PortalInventoryDashboard from "./pages/PortalInventoryDashboard";
+import PortalInventoryStock from "./pages/PortalInventoryStock";
 import PortalInventoryReceipts from "./pages/PortalInventoryReceipts";
+import PortalInventoryGrn from "./pages/PortalInventoryGrn";
+import PortalInventoryIssue from "./pages/PortalInventoryIssue";
+import PortalInventoryTransfers from "./pages/PortalInventoryTransfers";
+import PortalInventoryMinMax from "./pages/PortalInventoryMinMax";
+import PortalInventoryReports from "./pages/PortalInventoryReports";
 import PortalInventoryLedger from "./pages/PortalInventoryLedger";
+import PortalCosting from "./pages/PortalCosting";
 import PortalReports from "./pages/PortalReports";
 import NotFound from "./pages/NotFound";
 
@@ -59,9 +67,17 @@ const App = () => (
                     <Route index element={<PortalOverview />} />
                     <Route path="production" element={<PortalProduction />} />
                     <Route path="inventory" element={<PortalInventory />}>
+                      <Route index element={<PortalInventoryDashboard />} />
+                      <Route path="stock" element={<PortalInventoryStock />} />
+                      <Route path="grn" element={<PortalInventoryGrn />} />
                       <Route path="receipts" element={<PortalInventoryReceipts />} />
+                      <Route path="issue" element={<PortalInventoryIssue />} />
+                      <Route path="transfers" element={<PortalInventoryTransfers />} />
+                      <Route path="min-max" element={<PortalInventoryMinMax />} />
+                      <Route path="reports" element={<PortalInventoryReports />} />
                       <Route path="ledger" element={<PortalInventoryLedger />} />
                     </Route>
+                    <Route path="costing" element={<PortalCosting />} />
                     <Route path="reports" element={<PortalReports />} />
                     <Route path=":module" element={<ModulePlaceholder />} />
                   </Route>
