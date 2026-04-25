@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { Cog, LayoutDashboard, LogOut, Menu } from "lucide-react";
+import { Cog, LayoutDashboard, LogOut, Menu, ShoppingCart } from "lucide-react";
 import { Outlet, useLocation } from "react-router-dom";
 import { BFCLLogo } from "@/components/BFCLLogo";
 import { NavLink } from "@/components/NavLink";
@@ -15,6 +15,7 @@ import { cn } from "@/lib/utils";
 export const adminNavItems = [
   { label: "Overview", to: "/admin", icon: LayoutDashboard },
   { label: "Admin Settings", to: "/admin/settings", icon: Cog },
+  { label: "Procurement", to: "/admin/procurement", icon: ShoppingCart },
 ];
 
 export function AdminShell() {

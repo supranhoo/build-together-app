@@ -29,6 +29,7 @@ import AdminMaterials from "./pages/AdminMaterials";
 import AdminStockLocations from "./pages/AdminStockLocations";
 import AdminKpis from "./pages/AdminKpis";
 import AdminReportDeliveries from "./pages/AdminReportDeliveries";
+import AdminProcurement from "./pages/AdminProcurement";
 import ModulePlaceholder from "./pages/ModulePlaceholder";
 import PortalProduction from "./pages/PortalProduction";
 import PortalProductionFAD from "./pages/PortalProductionFAD";
@@ -88,6 +89,7 @@ const App = () => (
                   <Route path="/admin" element={<AdminShell />}>
                     <Route index element={<AdminOverview />} />
                     <Route path="settings" element={<AdminSettings />} />
+                    <Route path="procurement" element={<AdminProcurement />} />
                     {/* Legacy admin routes — consolidated under Admin Settings tabs. */}
                     <Route path="workspaces" element={<Navigate to="/admin/settings?tab=workspaces" replace />} />
                     <Route path="modules" element={<Navigate to="/admin/settings?tab=modules" replace />} />

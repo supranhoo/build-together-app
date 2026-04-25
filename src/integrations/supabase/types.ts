@@ -142,6 +142,36 @@ export type Database = {
         }
         Relationships: []
       }
+      currencies: {
+        Row: {
+          code: string
+          created_at: string
+          id: string
+          is_active: boolean
+          name: string
+          symbol: string | null
+          updated_at: string
+        }
+        Insert: {
+          code: string
+          created_at?: string
+          id?: string
+          is_active?: boolean
+          name: string
+          symbol?: string | null
+          updated_at?: string
+        }
+        Update: {
+          code?: string
+          created_at?: string
+          id?: string
+          is_active?: boolean
+          name?: string
+          symbol?: string | null
+          updated_at?: string
+        }
+        Relationships: []
+      }
       furnaces: {
         Row: {
           capacity_mt: number | null
@@ -182,6 +212,50 @@ export type Database = {
         Relationships: [
           {
             foreignKeyName: "furnaces_profit_center_id_fkey"
+            columns: ["profit_center_id"]
+            isOneToOne: false
+            referencedRelation: "profit_centers"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      fx_rates: {
+        Row: {
+          created_at: string
+          created_by: string
+          effective_date: string
+          from_currency: string
+          id: string
+          notes: string | null
+          profit_center_id: string
+          rate: number
+          to_currency: string
+        }
+        Insert: {
+          created_at?: string
+          created_by: string
+          effective_date: string
+          from_currency: string
+          id?: string
+          notes?: string | null
+          profit_center_id: string
+          rate: number
+          to_currency: string
+        }
+        Update: {
+          created_at?: string
+          created_by?: string
+          effective_date?: string
+          from_currency?: string
+          id?: string
+          notes?: string | null
+          profit_center_id?: string
+          rate?: number
+          to_currency?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "fx_rates_profit_center_id_fkey"
             columns: ["profit_center_id"]
             isOneToOne: false
             referencedRelation: "profit_centers"
@@ -426,6 +500,84 @@ export type Database = {
           updated_at?: string
         }
         Relationships: []
+      }
+      import_shipments: {
+        Row: {
+          bl_number: string | null
+          created_at: string
+          created_by: string
+          currency_code: string
+          customs_cost: number | null
+          destination_port: string | null
+          eta: string | null
+          etd: string | null
+          freight_cost: number | null
+          id: string
+          notes: string | null
+          origin_country: string | null
+          po_id: string | null
+          profit_center_id: string
+          shipment_no: string
+          status: Database["public"]["Enums"]["shipment_status"]
+          updated_at: string
+          vessel: string | null
+        }
+        Insert: {
+          bl_number?: string | null
+          created_at?: string
+          created_by: string
+          currency_code?: string
+          customs_cost?: number | null
+          destination_port?: string | null
+          eta?: string | null
+          etd?: string | null
+          freight_cost?: number | null
+          id?: string
+          notes?: string | null
+          origin_country?: string | null
+          po_id?: string | null
+          profit_center_id: string
+          shipment_no: string
+          status?: Database["public"]["Enums"]["shipment_status"]
+          updated_at?: string
+          vessel?: string | null
+        }
+        Update: {
+          bl_number?: string | null
+          created_at?: string
+          created_by?: string
+          currency_code?: string
+          customs_cost?: number | null
+          destination_port?: string | null
+          eta?: string | null
+          etd?: string | null
+          freight_cost?: number | null
+          id?: string
+          notes?: string | null
+          origin_country?: string | null
+          po_id?: string | null
+          profit_center_id?: string
+          shipment_no?: string
+          status?: Database["public"]["Enums"]["shipment_status"]
+          updated_at?: string
+          vessel?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "import_shipments_po_id_fkey"
+            columns: ["po_id"]
+            isOneToOne: false
+            referencedRelation: "purchase_orders"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "import_shipments_profit_center_id_fkey"
+            columns: ["profit_center_id"]
+            isOneToOne: false
+            referencedRelation: "profit_centers"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       inventory_ledger: {
         Row: {
@@ -998,6 +1150,282 @@ export type Database = {
         }
         Relationships: []
       }
+      purchase_order_lines: {
+        Row: {
+          created_at: string
+          currency_code: string
+          id: string
+          material_id: string
+          notes: string | null
+          po_id: string
+          profit_center_id: string
+          qty_ordered: number
+          qty_received: number
+          source_pr_line_id: string | null
+          unit_cost: number
+          uom: string
+        }
+        Insert: {
+          created_at?: string
+          currency_code?: string
+          id?: string
+          material_id: string
+          notes?: string | null
+          po_id: string
+          profit_center_id: string
+          qty_ordered: number
+          qty_received?: number
+          source_pr_line_id?: string | null
+          unit_cost: number
+          uom: string
+        }
+        Update: {
+          created_at?: string
+          currency_code?: string
+          id?: string
+          material_id?: string
+          notes?: string | null
+          po_id?: string
+          profit_center_id?: string
+          qty_ordered?: number
+          qty_received?: number
+          source_pr_line_id?: string | null
+          unit_cost?: number
+          uom?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "purchase_order_lines_material_id_fkey"
+            columns: ["material_id"]
+            isOneToOne: false
+            referencedRelation: "materials"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "purchase_order_lines_po_id_fkey"
+            columns: ["po_id"]
+            isOneToOne: false
+            referencedRelation: "purchase_orders"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "purchase_order_lines_profit_center_id_fkey"
+            columns: ["profit_center_id"]
+            isOneToOne: false
+            referencedRelation: "profit_centers"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "purchase_order_lines_source_pr_line_id_fkey"
+            columns: ["source_pr_line_id"]
+            isOneToOne: false
+            referencedRelation: "purchase_requisition_lines"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      purchase_orders: {
+        Row: {
+          approved_at: string | null
+          approved_by: string | null
+          cancelled_at: string | null
+          cancelled_reason: string | null
+          created_at: string
+          created_by: string
+          currency_code: string
+          expected_delivery_date: string | null
+          id: string
+          notes: string | null
+          payment_terms: string | null
+          po_number: string
+          profit_center_id: string
+          source_pr_id: string | null
+          status: Database["public"]["Enums"]["po_status"]
+          supplier_id: string
+          total_amount: number
+          updated_at: string
+        }
+        Insert: {
+          approved_at?: string | null
+          approved_by?: string | null
+          cancelled_at?: string | null
+          cancelled_reason?: string | null
+          created_at?: string
+          created_by: string
+          currency_code?: string
+          expected_delivery_date?: string | null
+          id?: string
+          notes?: string | null
+          payment_terms?: string | null
+          po_number: string
+          profit_center_id: string
+          source_pr_id?: string | null
+          status?: Database["public"]["Enums"]["po_status"]
+          supplier_id: string
+          total_amount?: number
+          updated_at?: string
+        }
+        Update: {
+          approved_at?: string | null
+          approved_by?: string | null
+          cancelled_at?: string | null
+          cancelled_reason?: string | null
+          created_at?: string
+          created_by?: string
+          currency_code?: string
+          expected_delivery_date?: string | null
+          id?: string
+          notes?: string | null
+          payment_terms?: string | null
+          po_number?: string
+          profit_center_id?: string
+          source_pr_id?: string | null
+          status?: Database["public"]["Enums"]["po_status"]
+          supplier_id?: string
+          total_amount?: number
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "purchase_orders_profit_center_id_fkey"
+            columns: ["profit_center_id"]
+            isOneToOne: false
+            referencedRelation: "profit_centers"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "purchase_orders_source_pr_id_fkey"
+            columns: ["source_pr_id"]
+            isOneToOne: false
+            referencedRelation: "purchase_requisitions"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "purchase_orders_supplier_id_fkey"
+            columns: ["supplier_id"]
+            isOneToOne: false
+            referencedRelation: "suppliers"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      purchase_requisition_lines: {
+        Row: {
+          created_at: string
+          currency_code: string
+          est_unit_cost: number | null
+          id: string
+          material_id: string
+          notes: string | null
+          pr_id: string
+          profit_center_id: string
+          quantity: number
+          uom: string
+        }
+        Insert: {
+          created_at?: string
+          currency_code?: string
+          est_unit_cost?: number | null
+          id?: string
+          material_id: string
+          notes?: string | null
+          pr_id: string
+          profit_center_id: string
+          quantity: number
+          uom: string
+        }
+        Update: {
+          created_at?: string
+          currency_code?: string
+          est_unit_cost?: number | null
+          id?: string
+          material_id?: string
+          notes?: string | null
+          pr_id?: string
+          profit_center_id?: string
+          quantity?: number
+          uom?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "purchase_requisition_lines_material_id_fkey"
+            columns: ["material_id"]
+            isOneToOne: false
+            referencedRelation: "materials"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "purchase_requisition_lines_pr_id_fkey"
+            columns: ["pr_id"]
+            isOneToOne: false
+            referencedRelation: "purchase_requisitions"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "purchase_requisition_lines_profit_center_id_fkey"
+            columns: ["profit_center_id"]
+            isOneToOne: false
+            referencedRelation: "profit_centers"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      purchase_requisitions: {
+        Row: {
+          approved_at: string | null
+          approved_by: string | null
+          created_at: string
+          id: string
+          notes: string | null
+          pr_number: string
+          priority: string | null
+          profit_center_id: string
+          rejected_reason: string | null
+          requested_by: string
+          requested_for_date: string | null
+          status: Database["public"]["Enums"]["pr_status"]
+          updated_at: string
+        }
+        Insert: {
+          approved_at?: string | null
+          approved_by?: string | null
+          created_at?: string
+          id?: string
+          notes?: string | null
+          pr_number: string
+          priority?: string | null
+          profit_center_id: string
+          rejected_reason?: string | null
+          requested_by: string
+          requested_for_date?: string | null
+          status?: Database["public"]["Enums"]["pr_status"]
+          updated_at?: string
+        }
+        Update: {
+          approved_at?: string | null
+          approved_by?: string | null
+          created_at?: string
+          id?: string
+          notes?: string | null
+          pr_number?: string
+          priority?: string | null
+          profit_center_id?: string
+          rejected_reason?: string | null
+          requested_by?: string
+          requested_for_date?: string | null
+          status?: Database["public"]["Enums"]["pr_status"]
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "purchase_requisitions_profit_center_id_fkey"
+            columns: ["profit_center_id"]
+            isOneToOne: false
+            referencedRelation: "profit_centers"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       report_deliveries: {
         Row: {
           cadence: string
@@ -1045,6 +1473,69 @@ export type Database = {
             columns: ["profit_center_id"]
             isOneToOne: false
             referencedRelation: "profit_centers"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      risk_events: {
+        Row: {
+          created_at: string
+          created_by: string
+          description: string
+          id: string
+          mitigation_plan: string | null
+          occurred_at: string
+          profit_center_id: string
+          resolved_at: string | null
+          risk_type: string
+          severity: Database["public"]["Enums"]["risk_severity"]
+          status: Database["public"]["Enums"]["risk_status"]
+          supplier_id: string | null
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          created_by: string
+          description: string
+          id?: string
+          mitigation_plan?: string | null
+          occurred_at?: string
+          profit_center_id: string
+          resolved_at?: string | null
+          risk_type: string
+          severity?: Database["public"]["Enums"]["risk_severity"]
+          status?: Database["public"]["Enums"]["risk_status"]
+          supplier_id?: string | null
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          created_by?: string
+          description?: string
+          id?: string
+          mitigation_plan?: string | null
+          occurred_at?: string
+          profit_center_id?: string
+          resolved_at?: string | null
+          risk_type?: string
+          severity?: Database["public"]["Enums"]["risk_severity"]
+          status?: Database["public"]["Enums"]["risk_status"]
+          supplier_id?: string | null
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "risk_events_profit_center_id_fkey"
+            columns: ["profit_center_id"]
+            isOneToOne: false
+            referencedRelation: "profit_centers"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "risk_events_supplier_id_fkey"
+            columns: ["supplier_id"]
+            isOneToOne: false
+            referencedRelation: "suppliers"
             referencedColumns: ["id"]
           },
         ]
@@ -1127,6 +1618,137 @@ export type Database = {
         Relationships: [
           {
             foreignKeyName: "stock_locations_profit_center_id_fkey"
+            columns: ["profit_center_id"]
+            isOneToOne: false
+            referencedRelation: "profit_centers"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      supplier_evaluations: {
+        Row: {
+          created_at: string
+          created_by: string
+          id: string
+          notes: string | null
+          on_time_pct: number | null
+          overall_score: number | null
+          period_end: string
+          period_start: string
+          price_score: number | null
+          profit_center_id: string
+          quality_pct: number | null
+          supplier_id: string
+        }
+        Insert: {
+          created_at?: string
+          created_by: string
+          id?: string
+          notes?: string | null
+          on_time_pct?: number | null
+          overall_score?: number | null
+          period_end: string
+          period_start: string
+          price_score?: number | null
+          profit_center_id: string
+          quality_pct?: number | null
+          supplier_id: string
+        }
+        Update: {
+          created_at?: string
+          created_by?: string
+          id?: string
+          notes?: string | null
+          on_time_pct?: number | null
+          overall_score?: number | null
+          period_end?: string
+          period_start?: string
+          price_score?: number | null
+          profit_center_id?: string
+          quality_pct?: number | null
+          supplier_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "supplier_evaluations_profit_center_id_fkey"
+            columns: ["profit_center_id"]
+            isOneToOne: false
+            referencedRelation: "profit_centers"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "supplier_evaluations_supplier_id_fkey"
+            columns: ["supplier_id"]
+            isOneToOne: false
+            referencedRelation: "suppliers"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      suppliers: {
+        Row: {
+          address: string | null
+          code: string
+          contact_person: string | null
+          country: string | null
+          created_at: string
+          created_by: string
+          default_currency: string
+          email: string | null
+          id: string
+          is_active: boolean
+          is_preferred: boolean
+          lead_time_days: number | null
+          name: string
+          notes: string | null
+          payment_terms: string | null
+          phone: string | null
+          profit_center_id: string
+          updated_at: string
+        }
+        Insert: {
+          address?: string | null
+          code: string
+          contact_person?: string | null
+          country?: string | null
+          created_at?: string
+          created_by: string
+          default_currency?: string
+          email?: string | null
+          id?: string
+          is_active?: boolean
+          is_preferred?: boolean
+          lead_time_days?: number | null
+          name: string
+          notes?: string | null
+          payment_terms?: string | null
+          phone?: string | null
+          profit_center_id: string
+          updated_at?: string
+        }
+        Update: {
+          address?: string | null
+          code?: string
+          contact_person?: string | null
+          country?: string | null
+          created_at?: string
+          created_by?: string
+          default_currency?: string
+          email?: string | null
+          id?: string
+          is_active?: boolean
+          is_preferred?: boolean
+          lead_time_days?: number | null
+          name?: string
+          notes?: string | null
+          payment_terms?: string | null
+          phone?: string | null
+          profit_center_id?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "suppliers_profit_center_id_fkey"
             columns: ["profit_center_id"]
             isOneToOne: false
             referencedRelation: "profit_centers"
@@ -1361,6 +1983,31 @@ export type Database = {
       heat_metallurgy_status: "draft" | "submitted"
       machine_type: "FAD" | "CLU" | "DRI"
       material_type: "RM" | "FG" | "WIP" | "Consumable"
+      po_status:
+        | "draft"
+        | "sent"
+        | "acknowledged"
+        | "partially_received"
+        | "received"
+        | "closed"
+        | "cancelled"
+      pr_status:
+        | "draft"
+        | "submitted"
+        | "approved"
+        | "rejected"
+        | "converted"
+        | "closed"
+      risk_severity: "low" | "medium" | "high" | "critical"
+      risk_status: "open" | "mitigated" | "closed"
+      shipment_status:
+        | "planned"
+        | "in_transit"
+        | "arrived"
+        | "customs"
+        | "delivered"
+        | "delayed"
+        | "cancelled"
     }
     CompositeTypes: {
       [_ in never]: never
@@ -1500,6 +2147,34 @@ export const Constants = {
       heat_metallurgy_status: ["draft", "submitted"],
       machine_type: ["FAD", "CLU", "DRI"],
       material_type: ["RM", "FG", "WIP", "Consumable"],
+      po_status: [
+        "draft",
+        "sent",
+        "acknowledged",
+        "partially_received",
+        "received",
+        "closed",
+        "cancelled",
+      ],
+      pr_status: [
+        "draft",
+        "submitted",
+        "approved",
+        "rejected",
+        "converted",
+        "closed",
+      ],
+      risk_severity: ["low", "medium", "high", "critical"],
+      risk_status: ["open", "mitigated", "closed"],
+      shipment_status: [
+        "planned",
+        "in_transit",
+        "arrived",
+        "customs",
+        "delivered",
+        "delayed",
+        "cancelled",
+      ],
     },
   },
 } as const
