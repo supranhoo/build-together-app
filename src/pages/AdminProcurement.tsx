@@ -39,11 +39,15 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
 import { useWorkspace } from "@/hooks/use-workspace";
+import { SuppliersTab } from "@/components/procurement/SuppliersTab";
+import { PRTab } from "@/components/procurement/PRTab";
+import { POTab } from "@/components/procurement/POTab";
 
 type DeepLinkTarget = { to: string; label: string };
 type TabSpec =
   | { id: string; label: string; icon: React.ComponentType<{ className?: string }>; kind: "scaffold"; description: string; phase: "B" | "C" | "D" }
-  | { id: string; label: string; icon: React.ComponentType<{ className?: string }>; kind: "deeplink"; description: string; target: DeepLinkTarget };
+  | { id: string; label: string; icon: React.ComponentType<{ className?: string }>; kind: "deeplink"; description: string; target: DeepLinkTarget }
+  | { id: string; label: string; icon: React.ComponentType<{ className?: string }>; kind: "live"; description: string; render: () => JSX.Element };
 
 const TABS: TabSpec[] = [
   { id: "dashboard", label: "Dashboard", icon: LayoutDashboard, kind: "scaffold", phase: "D",
@@ -56,12 +60,15 @@ const TABS: TabSpec[] = [
     target: { to: "/portal/inventory/min-max", label: "Open MIN-MAX dashboard" } },
   { id: "mrp", label: "MRP", icon: Calculator, kind: "scaffold", phase: "C",
     description: "Material Requirements Planning — shortage calculation across stock, open POs and consumption velocity." },
-  { id: "suppliers", label: "Suppliers", icon: Users, kind: "scaffold", phase: "B",
-    description: "Vendor directory: contacts, payment terms, lead time, preferred status." },
-  { id: "pr", label: "Purchase Requisitions", icon: FileText, kind: "scaffold", phase: "B",
-    description: "Internal material requests. Draft → Submitted → Approved → Converted to PO." },
-  { id: "po", label: "Purchase Orders", icon: ShoppingCart, kind: "scaffold", phase: "B",
-    description: "Supplier orders with multi-currency value, expected delivery and receipt tracking." },
+  { id: "suppliers", label: "Suppliers", icon: Users, kind: "live",
+    description: "Vendor directory: contacts, payment terms, lead time, preferred status.",
+    render: () => <SuppliersTab /> },
+  { id: "pr", label: "Purchase Requisitions", icon: FileText, kind: "live",
+    description: "Internal material requests. Draft → Submitted → Approved → Converted to PO.",
+    render: () => <PRTab /> },
+  { id: "po", label: "Purchase Orders", icon: ShoppingCart, kind: "live",
+    description: "Supplier orders with multi-currency value, expected delivery and receipt tracking.",
+    render: () => <POTab /> },
   { id: "shipments", label: "Import Shipments", icon: Ship, kind: "scaffold", phase: "C",
     description: "International transit: vessel, BL, ETA, customs and freight cost." },
   { id: "grn", label: "GRN", icon: ClipboardCheck, kind: "deeplink",
@@ -104,7 +111,7 @@ export default function AdminProcurement() {
           </p>
         </div>
         <Badge variant="outline" className="border-amber-500/40 bg-amber-500/10 text-amber-700 dark:text-amber-300">
-          Phase A — shell only · Phases B/C/D activate the new tabs
+          Phase B live · Suppliers · PR · PO · MRP/Shipments/Risk in Phases C–D
         </Badge>
       </div>
 
@@ -120,38 +127,42 @@ export default function AdminProcurement() {
 
         {TABS.map((t) => (
           <TabsContent key={t.id} value={t.id} className="space-y-4">
-            <Card>
-              <CardHeader className="flex flex-row items-start justify-between gap-4 space-y-0">
-                <div className="space-y-1">
-                  <CardTitle className="flex items-center gap-2">
-                    <t.icon className="h-5 w-5 text-primary" />
-                    {t.label}
-                  </CardTitle>
-                  <CardDescription>{t.description}</CardDescription>
-                </div>
-                {t.kind === "deeplink" && (
-                  <Button onClick={() => navigate(t.target.to)} variant="outline" className="gap-2">
-                    <ExternalLink className="h-4 w-4" /> {t.target.label}
-                  </Button>
-                )}
-                {t.kind === "scaffold" && (
-                  <Badge variant="secondary">Activates in Phase {t.phase}</Badge>
-                )}
-              </CardHeader>
-              <CardContent>
-                {t.kind === "deeplink" ? (
-                  <div className="rounded-md border border-dashed border-border bg-muted/30 p-6 text-sm text-muted-foreground">
-                    This screen lives in another module to keep a single source of truth.
-                    The button above opens the existing page; data shown there is shared with Procurement.
+            {t.kind === "live" ? (
+              t.render()
+            ) : (
+              <Card>
+                <CardHeader className="flex flex-row items-start justify-between gap-4 space-y-0">
+                  <div className="space-y-1">
+                    <CardTitle className="flex items-center gap-2">
+                      <t.icon className="h-5 w-5 text-primary" />
+                      {t.label}
+                    </CardTitle>
+                    <CardDescription>{t.description}</CardDescription>
                   </div>
-                ) : (
-                  <div className="rounded-md border border-dashed border-border bg-muted/30 p-6 text-sm text-muted-foreground">
-                    Schema, RLS, audit triggers and permission grants for this tab are live in the database.
-                    The interactive UI is delivered in Phase {t.phase}.
-                  </div>
-                )}
-              </CardContent>
-            </Card>
+                  {t.kind === "deeplink" && (
+                    <Button onClick={() => navigate(t.target.to)} variant="outline" className="gap-2">
+                      <ExternalLink className="h-4 w-4" /> {t.target.label}
+                    </Button>
+                  )}
+                  {t.kind === "scaffold" && (
+                    <Badge variant="secondary">Activates in Phase {t.phase}</Badge>
+                  )}
+                </CardHeader>
+                <CardContent>
+                  {t.kind === "deeplink" ? (
+                    <div className="rounded-md border border-dashed border-border bg-muted/30 p-6 text-sm text-muted-foreground">
+                      This screen lives in another module to keep a single source of truth.
+                      The button above opens the existing page; data shown there is shared with Procurement.
+                    </div>
+                  ) : (
+                    <div className="rounded-md border border-dashed border-border bg-muted/30 p-6 text-sm text-muted-foreground">
+                      Schema, RLS, audit triggers and permission grants for this tab are live in the database.
+                      The interactive UI is delivered in Phase {t.phase}.
+                    </div>
+                  )}
+                </CardContent>
+              </Card>
+            )}
           </TabsContent>
         ))}
       </Tabs>
