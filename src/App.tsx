@@ -82,8 +82,11 @@ const App = () => (
                     </Route>
                     <Route path="costing" element={<PortalCosting />} />
                     <Route path="reports" element={<PortalReports />} />
-                    {/* Procurement lives in the Control Panel — redirect portal hits there. */}
-                    <Route path="procurement" element={<Navigate to="/admin/procurement" replace />} />
+                    {/* Procurement is rendered inside the Portal shell so the
+                        plant module sidebar stays visible. The same component
+                        (SSOT) is also mounted under /admin/procurement for
+                        Control Panel access. */}
+                    <Route path="procurement" element={<AdminProcurement />} />
                     <Route path=":module" element={<ModulePlaceholder />} />
                   </Route>
                 </Route>
