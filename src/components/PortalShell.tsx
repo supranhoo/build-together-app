@@ -2,6 +2,7 @@ import { useMemo, useState } from "react";
 import { Outlet, useLocation, useNavigate } from "react-router-dom";
 import { Bell, ChevronRight, ClipboardList, Factory, FileBarChart2, LayoutDashboard, LogOut, Menu, Search, Settings2, ShieldCheck, Warehouse } from "lucide-react";
 import { BFCLLogo } from "@/components/BFCLLogo";
+import { ThemeToggle } from "@/components/ThemeToggle";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Sheet, SheetContent, SheetTrigger } from "@/components/ui/sheet";
@@ -10,6 +11,7 @@ import { Breadcrumbs } from "@/components/Breadcrumbs";
 import { cn } from "@/lib/utils";
 import { NavLink } from "@/components/NavLink";
 import { useAuth } from "@/hooks/use-auth";
+import { useTheme } from "@/hooks/use-theme";
 import { useWorkspace } from "@/hooks/use-workspace";
 
 const iconMap = {
@@ -29,6 +31,8 @@ export function PortalShell() {
   const [mobileNavOpen, setMobileNavOpen] = useState(false);
   const { profile, logout } = useAuth();
   const { activeProfitCenter, modules, settings, isAdmin } = useWorkspace();
+  const { theme } = useTheme();
+  const logoTheme = theme === "dark" ? "dark" : "light";
   const location = useLocation();
   const navigate = useNavigate();
 
