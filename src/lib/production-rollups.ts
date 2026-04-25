@@ -111,3 +111,40 @@ export function kwhDeviationPct(actualKwhPerMt: number | null, targetKwhPerMt: n
   if (!targetKwhPerMt || !Number.isFinite(targetKwhPerMt) || targetKwhPerMt <= 0) return null;
   return Math.abs((actualKwhPerMt - targetKwhPerMt) / targetKwhPerMt) * 100;
 }
+
+/**
+ * Classify a heat's kWh/MT against a target. Pure — no I/O.
+ *   < target          → "optimal"
+ *   ≤ target × 1.05   → "near_limit"
+ *   > target × 1.05   → "high"
+ *   null inputs       → "unknown"
+ */
+export type EnergyStatus = "optimal" | "near_limit" | "high" | "unknown";
+
+export function classifyEnergy(actualKwhPerMt: number | null, targetKwhPerMt: number | null | undefined): EnergyStatus {
+  if (actualKwhPerMt === null || !targetKwhPerMt || targetKwhPerMt <= 0) return "unknown";
+  if (actualKwhPerMt < targetKwhPerMt) return "optimal";
+  if (actualKwhPerMt <= targetKwhPerMt * 1.05) return "near_limit";
+  return "high";
+}
+
+/**
+ * Per-heat kWh/MT (power_mwh × 1000 / weight_mt). Null when unusable.
+ */
+export function heatKwhPerMt(log: HeatLog): number | null {
+  if (!log.weightMt || log.weightMt <= 0) return null;
+  if (log.powerMwh === null || log.powerMwh === undefined) return null;
+  return (log.powerMwh * 1000) / log.weightMt;
+}
+
+/**
+ * Quality validation against a workspace recovery threshold.
+ * Returns "passed" when FG Mn% is present AND meets/exceeds the threshold,
+ * "failed" when below, "pending" when metallurgy missing or fgMnPct null.
+ */
+export type QualityStatus = "passed" | "failed" | "pending";
+
+export function classifyQuality(met: HeatMetallurgy | undefined, recoveryMinPct: number): QualityStatus {
+  if (!met || met.fgMnPct === null) return "pending";
+  return met.fgMnPct >= recoveryMinPct ? "passed" : "failed";
+}

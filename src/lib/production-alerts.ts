@@ -16,6 +16,8 @@ export interface ProductionAlertThresholds {
   fcPerMtMax: number;
   /** Material moisture % above this → warning at entry. */
   moistureMaxPct: number;
+  /** kWh/MT above this → energy "high" status; within +5% → "near limit". */
+  kwhPerMtTarget: number;
 }
 
 export const DEFAULT_PRODUCTION_ALERTS: ProductionAlertThresholds = {
@@ -23,6 +25,7 @@ export const DEFAULT_PRODUCTION_ALERTS: ProductionAlertThresholds = {
   slagMnoMaxPct: 18,
   fcPerMtMax: 0.45,
   moistureMaxPct: 15,
+  kwhPerMtTarget: 4000,
 };
 
 const client = supabase as unknown as { from: (t: string) => any };
@@ -43,5 +46,6 @@ export async function fetchProductionAlertThresholds(profitCenterId: string): Pr
     slagMnoMaxPct: Number.isFinite(v.slagMnoMaxPct) ? Number(v.slagMnoMaxPct) : DEFAULT_PRODUCTION_ALERTS.slagMnoMaxPct,
     fcPerMtMax: Number.isFinite(v.fcPerMtMax) ? Number(v.fcPerMtMax) : DEFAULT_PRODUCTION_ALERTS.fcPerMtMax,
     moistureMaxPct: Number.isFinite(v.moistureMaxPct) ? Number(v.moistureMaxPct) : DEFAULT_PRODUCTION_ALERTS.moistureMaxPct,
+    kwhPerMtTarget: Number.isFinite(v.kwhPerMtTarget) ? Number(v.kwhPerMtTarget) : DEFAULT_PRODUCTION_ALERTS.kwhPerMtTarget,
   };
 }

@@ -1,5 +1,12 @@
 import { describe, expect, it } from "vitest";
-import { computeProductionKpis, indexMetallurgyByHeat, kwhDeviationPct } from "@/lib/production-rollups";
+import {
+  classifyEnergy,
+  classifyQuality,
+  computeProductionKpis,
+  heatKwhPerMt,
+  indexMetallurgyByHeat,
+  kwhDeviationPct,
+} from "@/lib/production-rollups";
 import type { HeatLog } from "@/lib/production";
 import type { HeatMetallurgy } from "@/lib/heat-metallurgy";
 
@@ -100,5 +107,44 @@ describe("kwhDeviationPct", () => {
   it("computes absolute deviation %", () => {
     expect(kwhDeviationPct(3150, 3000)).toBeCloseTo(5);
     expect(kwhDeviationPct(2850, 3000)).toBeCloseTo(5);
+  });
+});
+
+describe("classifyEnergy", () => {
+  it("returns 'unknown' for missing inputs", () => {
+    expect(classifyEnergy(null, 4000)).toBe("unknown");
+    expect(classifyEnergy(3500, null)).toBe("unknown");
+    expect(classifyEnergy(3500, 0)).toBe("unknown");
+  });
+  it("classifies vs target with 5% near-limit band", () => {
+    expect(classifyEnergy(3500, 4000)).toBe("optimal");
+    expect(classifyEnergy(4100, 4000)).toBe("near_limit"); // within +5%
+    expect(classifyEnergy(4200, 4000)).toBe("near_limit"); // exactly +5%
+    expect(classifyEnergy(4300, 4000)).toBe("high"); // > +5%
+  });
+});
+
+describe("heatKwhPerMt", () => {
+  it("returns null when weight or power is missing/zero", () => {
+    expect(heatKwhPerMt(baseLog({ weightMt: 0 }))).toBeNull();
+    expect(heatKwhPerMt(baseLog({ weightMt: null }))).toBeNull();
+    expect(heatKwhPerMt(baseLog({ powerMwh: null }))).toBeNull();
+  });
+  it("converts MWh→kWh and divides by MT", () => {
+    expect(heatKwhPerMt(baseLog({ weightMt: 10, powerMwh: 40 }))).toBe(4000);
+  });
+});
+
+describe("classifyQuality", () => {
+  it("returns 'pending' when metallurgy missing or fgMnPct null", () => {
+    expect(classifyQuality(undefined, 70)).toBe("pending");
+    expect(classifyQuality(baseMet({ fgMnPct: null }), 70)).toBe("pending");
+  });
+  it("returns 'passed' when fgMnPct meets threshold", () => {
+    expect(classifyQuality(baseMet({ fgMnPct: 70 }), 70)).toBe("passed");
+    expect(classifyQuality(baseMet({ fgMnPct: 75 }), 70)).toBe("passed");
+  });
+  it("returns 'failed' when fgMnPct below threshold", () => {
+    expect(classifyQuality(baseMet({ fgMnPct: 60 }), 70)).toBe("failed");
   });
 });
