@@ -49,12 +49,16 @@ import { bulkVoidHeatLogs, userCanAct } from "@/lib/reporting";
 import { fetchMasterItems, type MasterItem } from "@/lib/master-data";
 import {
   fetchMetallurgy,
+  fetchMetallurgyByPC,
   upsertMetallurgy,
   type HeatMetallurgy,
   type HeatMetallurgyStatus,
 } from "@/lib/heat-metallurgy";
 import { mnBalance, mnInput, type MaterialSpecLookup } from "@/lib/ferro-alloys";
 import { fetchProductionAlertThresholds, DEFAULT_PRODUCTION_ALERTS, type ProductionAlertThresholds } from "@/lib/production-alerts";
+import { computeProductionKpis, indexMetallurgyByHeat } from "@/lib/production-rollups";
+import { Link } from "react-router-dom";
+import { FlaskConical } from "lucide-react";
 
 
 interface FormState {
