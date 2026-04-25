@@ -282,6 +282,71 @@ export function POTab() {
     }
   };
 
+  const openReceive = (line: PoLine) => {
+    setReceiveLine(line);
+    const remaining = Math.max(0, line.qtyOrdered - line.qtyReceived);
+    setReceiveQty(remaining > 0 ? String(remaining) : "");
+    setReceiveLocation(stockLocations[0]?.id ?? "");
+    setReceiveNotes("");
+  };
+
+  const handleReceive = async () => {
+    if (!receiveLine || !detailFor || !activeProfitCenter || !session?.user) return;
+    const qty = Number(receiveQty);
+    if (!Number.isFinite(qty) || qty <= 0) {
+      toast({ title: "Quantity must be > 0", variant: "destructive" });
+      return;
+    }
+    setReceiving(true);
+    try {
+      const result = await receivePoLine({
+        poLineId: receiveLine.id,
+        profitCenterId: activeProfitCenter.id,
+        materialId: receiveLine.materialId,
+        stockLocationId: receiveLocation,
+        quantity: qty,
+        unitCost: receiveLine.unitCost,
+        poId: detailFor.id,
+        notes: receiveNotes.trim() || null,
+        createdBy: session.user.id,
+      });
+
+      // Refresh lines, then auto-advance PO header status if appropriate.
+      const fresh = await fetchPoLines(detailFor.id);
+      setDetailLines(fresh);
+
+      const allComplete = fresh.every((l) => l.qtyReceived + 1e-6 >= l.qtyOrdered);
+      const anyPartial = fresh.some((l) => l.qtyReceived > 0);
+
+      if (allComplete && detailFor.status !== "received" && detailFor.status !== "closed") {
+        await transitionPurchaseOrder({
+          poId: detailFor.id,
+          fromStatus: detailFor.status,
+          toStatus: "received",
+          actorUserId: session.user.id,
+        });
+      } else if (anyPartial && detailFor.status === "acknowledged") {
+        await transitionPurchaseOrder({
+          poId: detailFor.id,
+          fromStatus: detailFor.status,
+          toStatus: "partially_received",
+          actorUserId: session.user.id,
+        });
+      }
+
+      toast({
+        title: result.lineComplete ? "Line fully received" : "Receipt posted",
+        description: `${qty} added to inventory.`,
+      });
+      setReceiveLine(null);
+      await load();
+    } catch (e) {
+      toast({ title: "Receipt failed", description: e instanceof Error ? e.message : "", variant: "destructive" });
+    } finally {
+      setReceiving(false);
+    }
+  };
+
   if (!activeProfitCenter) {
     return (
       <Card>
