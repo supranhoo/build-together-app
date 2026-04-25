@@ -438,28 +438,8 @@ export default function PortalProduction() {
             <div className="text-xs text-muted-foreground mt-1">{fmt(kpis.totalPowerMwh, 2)} MWh total</div>
           </CardContent>
         </Card>
-        <Card className="border-border bg-card shadow-panel">
-          <CardHeader className="pb-2 flex flex-row items-center justify-between gap-2">
-            <CardTitle className="text-xs font-medium text-muted-foreground">FAD Entry</CardTitle>
-            <FlaskConical className="h-4 w-4 text-muted-foreground" />
-          </CardHeader>
-          <CardContent>
-            <Button asChild size="sm" variant="outline" className="w-full">
-              <Link to="/portal/production-fad">Open metallurgical entry →</Link>
-            </Button>
-            <div className="text-xs text-muted-foreground mt-2">4-step Mn balance wizard</div>
-          </CardContent>
-        </Card>
       </div>
-      <Tabs defaultValue="data-entry">
-        <TabsList className="flex h-auto w-full flex-wrap justify-start gap-1 bg-muted/50 p-1">
-          <TabsTrigger value="data-entry" className="data-[state=active]:bg-primary data-[state=active]:text-primary-foreground">Data Entry</TabsTrigger>
-          <TabsTrigger value="heatwise" className="data-[state=active]:bg-primary data-[state=active]:text-primary-foreground">Heat-wise View</TabsTrigger>
-          <TabsTrigger value="furnace" className="data-[state=active]:bg-primary data-[state=active]:text-primary-foreground">Furnace Summary</TabsTrigger>
-          <TabsTrigger value="monthly" className="data-[state=active]:bg-primary data-[state=active]:text-primary-foreground">Monthly Summary</TabsTrigger>
-        </TabsList>
 
-        <TabsContent value="data-entry" className="mt-4">
       <Card className="border-border bg-card shadow-panel">
         <CardHeader className="flex flex-row items-center justify-between gap-4">
           <CardTitle>Heat logs — {activeProfitCenter.name}</CardTitle>
