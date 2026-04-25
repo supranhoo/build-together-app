@@ -18,11 +18,11 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Badge } from "@/components/ui/badge";
-import { Trash2, Plus } from "lucide-react";
+import { Trash2, Plus, PackagePlus } from "lucide-react";
 import { useWorkspace } from "@/hooks/use-workspace";
 import { useAuth } from "@/hooks/use-auth";
 import { useToast } from "@/hooks/use-toast";
-import { fetchMaterials, type Material } from "@/lib/inventory";
+import { fetchMaterials, fetchStockLocations, type Material, type StockLocation } from "@/lib/inventory";
 import {
   calcPoTotal,
   convertPrToPo,
@@ -33,6 +33,7 @@ import {
   fetchPurchaseOrders,
   fetchPurchaseRequisitions,
   fetchSuppliers,
+  receivePoLine,
   transitionPurchaseOrder,
   transitionPurchaseRequisition,
   type Currency,
