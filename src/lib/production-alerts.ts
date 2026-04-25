@@ -46,5 +46,6 @@ export async function fetchProductionAlertThresholds(profitCenterId: string): Pr
     slagMnoMaxPct: Number.isFinite(v.slagMnoMaxPct) ? Number(v.slagMnoMaxPct) : DEFAULT_PRODUCTION_ALERTS.slagMnoMaxPct,
     fcPerMtMax: Number.isFinite(v.fcPerMtMax) ? Number(v.fcPerMtMax) : DEFAULT_PRODUCTION_ALERTS.fcPerMtMax,
     moistureMaxPct: Number.isFinite(v.moistureMaxPct) ? Number(v.moistureMaxPct) : DEFAULT_PRODUCTION_ALERTS.moistureMaxPct,
+    kwhPerMtTarget: Number.isFinite(v.kwhPerMtTarget) ? Number(v.kwhPerMtTarget) : DEFAULT_PRODUCTION_ALERTS.kwhPerMtTarget,
   };
 }
