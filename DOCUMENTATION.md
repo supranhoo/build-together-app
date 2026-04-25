@@ -358,3 +358,16 @@ SteelFlow ERP now uses a configuration-first workspace foundation for steel and 
 
 ## Version History
 - 2026-04-25 (Phase 21): Removed "Data Entry" tab from PortalProduction; lifted entry Dialog + filters/table/bulk-void above the tabs. Default tab now `heatwise`. No logic/schema changes; suite still 167 passing.
+
+## Production page reorganization & FAD merge (Phase 22)
+- The "Heat logs" management Card (header, **New heat log** button, Dialog, filters, table, bulk-void UI) was moved OUT of the Production page header and INTO the **Heat-wise View** tab. The page header now shows only the 3-card KPI strip (Total Production / Avg Recovery / Avg kWh/MT) and the tab bar — no inline operational form above the tabs.
+- The standalone **FAD KPI shortcut card** was deleted from the strip; FAD is now a first-class tab inside Production. The `/portal/production-fad` route remains live (non-destructive) so deep links and the existing FAD page tests continue to work, but the canonical entry is now `/portal/production` → "FAD Entry" tab.
+- The legacy heat-log Dialog inside Production no longer renders the 13-field metallurgy form (Product/Grade/Tapping/Batch/FG Mn/Slag/Slag MnO/Dust/Dust Mn/Tapping MWh/Furnace MWh/Aux MWh/Power Factor) or the live Mn balance panel. Metallurgy entry is owned exclusively by the FAD wizard going forward — single source of truth, no duplicate inputs.
+- The Dialog still captures heat identity (heat #, furnace, shift, tap time, weight, power, notes) and optional consumption rows. These are NOT yet covered by FAD, so removing them would be a regression.
+- KPI strip grid changed from `lg:grid-cols-4` to `sm:grid-cols-3` to reflect the dropped FAD shortcut.
+- Tabs after merge: Heat-wise View (now contains Heat-logs Card), **FAD Entry (new)**, Furnace Summary, Monthly Summary, Energy, Quality, Consumption.
+- Tests: no test changes needed; suite at **167 passing**.
+- Known cosmetic follow-up: `PortalProductionFAD` renders its own internal Tabs (Heatwise/Furnace/Monthly) which now appear nested inside the Production tab. Not removed in this turn per §3 (surgical changes only).
+
+## Version History
+- 2026-04-25 (Phase 22): Heat-logs Card moved into Heat-wise View tab; FAD wizard added as inline tab; legacy Dialog metallurgy fields removed (FAD owns metallurgy SSOT). KPI strip reduced to 3 cards. `/portal/production-fad` retained. Suite still 167 passing.
