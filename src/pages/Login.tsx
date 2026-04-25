@@ -15,6 +15,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { useToast } from "@/hooks/use-toast";
 import { useAuth } from "@/hooks/use-auth";
+import { ThemeToggle } from "@/components/ThemeToggle";
 import { getRememberPreference, setRememberPreference } from "@/lib/auth-storage";
 import { requestPasswordReset } from "@/lib/auth";
 import { cn } from "@/lib/utils";
@@ -169,6 +170,7 @@ export default function Login() {
         </section>
 
         <section className="relative flex flex-1 items-center justify-center overflow-hidden p-4 sm:p-8">
+          <ThemeToggle className="absolute right-4 top-4 z-20" />
           <div className="absolute inset-0 lg:hidden">
             <div
               className="absolute inset-0 bg-cover bg-center opacity-20"

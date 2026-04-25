@@ -152,6 +152,7 @@
 - The toggle MUST NOT alter business logic, role assignments, or workspace state. It is a presentation-layer concern only.
 - All UI MUST use the semantic design tokens defined in `src/index.css`. Hardcoded color classes (e.g., `text-white`, `bg-black`) are forbidden — they break the day/night contract.
 - Default for first-time users is the OS-level `prefers-color-scheme`; this is not configurable from Admin and does not require an audit entry.
+- The toggle is also exposed on the pre-auth `/login` screen so the palette can be flipped before signing in. This remains a per-device localStorage preference; no auth state, profile data, or audit entry is created by interacting with it while unauthenticated.
 
 ## Policy Change Log
 - 2026-04-25: Phase 14 — added Admin User Profile Governance (admin-edit limited to display_name/department/job_title; scope enforced via existing `can_view_profile` helper; mandatory `profile.updated` audit; admin self-edit must use self-update policy; user creation/role/deactivation explicitly out of scope).
