@@ -82,6 +82,8 @@ const App = () => (
                     </Route>
                     <Route path="costing" element={<PortalCosting />} />
                     <Route path="reports" element={<PortalReports />} />
+                    {/* Procurement lives in the Control Panel — redirect portal hits there. */}
+                    <Route path="procurement" element={<Navigate to="/admin/procurement" replace />} />
                     <Route path=":module" element={<ModulePlaceholder />} />
                   </Route>
                 </Route>
