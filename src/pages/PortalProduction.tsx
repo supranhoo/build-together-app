@@ -67,11 +67,34 @@ interface FormState {
   notes: string;
 }
 
+interface MetallurgyFormState {
+  product: string;
+  grade: string;
+  tappingNo: string;
+  batchNo: string;
+  fgMnPct: string;
+  slagQtyMt: string;
+  slagMnoPct: string;
+  dustQtyMt: string;
+  dustMnPct: string;
+  tappingPowerMwh: string;
+  furnacePowerMwh: string;
+  auxPowerMwh: string;
+  avgPowerFactor: string;
+  status: HeatMetallurgyStatus;
+}
+
 interface ConsumptionRow extends ConsumptionInput {
   key: string;
 }
 
 const emptyForm: FormState = { furnaceId: "", shiftId: "", heatNumber: "", tapTime: "", weightMt: "", powerMwh: "", notes: "" };
+const emptyMetallurgy: MetallurgyFormState = {
+  product: "", grade: "", tappingNo: "", batchNo: "",
+  fgMnPct: "", slagQtyMt: "", slagMnoPct: "", dustQtyMt: "", dustMnPct: "",
+  tappingPowerMwh: "", furnacePowerMwh: "", auxPowerMwh: "", avgPowerFactor: "",
+  status: "draft",
+};
 
 function nowLocalForInput() {
   const d = new Date();
