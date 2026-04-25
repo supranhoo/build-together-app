@@ -787,7 +787,16 @@ export default function PortalProduction() {
           </AlertDialog>
         </CardContent>
       </Card>
-        </TabsContent>
+
+      <Tabs defaultValue="heatwise">
+        <TabsList className="flex h-auto w-full flex-wrap justify-start gap-1 bg-muted/50 p-1">
+          <TabsTrigger value="heatwise" className="data-[state=active]:bg-primary data-[state=active]:text-primary-foreground">Heat-wise View</TabsTrigger>
+          <TabsTrigger value="furnace" className="data-[state=active]:bg-primary data-[state=active]:text-primary-foreground">Furnace Summary</TabsTrigger>
+          <TabsTrigger value="monthly" className="data-[state=active]:bg-primary data-[state=active]:text-primary-foreground">Monthly Summary</TabsTrigger>
+          <TabsTrigger value="energy" className="data-[state=active]:bg-primary data-[state=active]:text-primary-foreground">Energy</TabsTrigger>
+          <TabsTrigger value="quality" className="data-[state=active]:bg-primary data-[state=active]:text-primary-foreground">Quality</TabsTrigger>
+          <TabsTrigger value="consumption" className="data-[state=active]:bg-primary data-[state=active]:text-primary-foreground">Consumption</TabsTrigger>
+        </TabsList>
 
         <TabsContent value="heatwise" className="mt-4">
           <PortalProductionHeatwise />
