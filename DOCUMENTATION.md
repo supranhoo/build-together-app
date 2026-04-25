@@ -292,5 +292,13 @@ SteelFlow ERP now uses a configuration-first workspace foundation for steel and 
 - Every save writes one `audit_logs` row with `entity_type='profile'`, `action='profile.updated'`, `change_summary={ userId, before, after }` for compliance reconstruction.
 - Tests live in `src/test/admin-users.test.ts`: column-name mapping, error propagation, and clearing nullable fields via `null`.
 
+## Day/Night Theme (Phase 15)
+- The app supports a user-controlled day/night mode driven by `ThemeProvider` in `src/hooks/use-theme.tsx`. The provider toggles the `dark` class on `<html>` and sets `color-scheme` accordingly. Both palettes are defined as HSL CSS variables in `src/index.css` — `:root` is the light palette, `.dark` is the dark palette (verbatim from the previous default).
+- The user preference is persisted in `localStorage` under `steelflow:theme` (`light` | `dark`). Absence of a stored value means "follow system" (`prefers-color-scheme`). System changes are observed via `matchMedia` only while no explicit preference is set.
+- A Sun/Moon `ThemeToggle` button (`src/components/ThemeToggle.tsx`) is mounted in both the Portal header and the Admin header — single click flips the mode for the entire app, including the sidebar. The `BFCLLogo` reads the active theme so its text contrast adapts.
+- All components use semantic tokens (`bg-background`, `text-foreground`, `bg-panel`, `text-muted-foreground`, etc.); no component contains hardcoded color classes — flipping the palette is sufficient. Sidebar tokens (`--sidebar-*`) are also overridden per palette.
+- Tests: `src/test/use-theme.test.ts` covers the pure `resolveTheme(preference, systemIsDark)` resolver. `useTheme()` returns a no-op fallback when used outside `ThemeProvider`, so existing component tests that bypass the provider continue to render.
+
 ## Version History
 - 2026-04-25 (Phase 14): Added admin User Profile editing (`/admin/settings?tab=users`); new RLS policy `Admins can update manageable profiles` on `public.profiles`; new helper `updateUserProfile`; new audit action `profile.updated`.
+- 2026-04-25 (Phase 15): Added day/night theme support — `ThemeProvider`, `useTheme`, `ThemeToggle`; light palette in `:root`, dark palette in `.dark`; persistence via `steelflow:theme` localStorage key; default follows system preference.

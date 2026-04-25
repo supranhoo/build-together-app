@@ -147,5 +147,12 @@
 - Every successful profile edit MUST emit exactly one `audit_logs` row with `entity_type='profile'`, `action='profile.updated'`, and a `change_summary` containing `userId`, full `before` snapshot, and full `after` snapshot. No silent edits.
 - User creation, deactivation, and role changes remain explicitly out of scope. Adding any of these requires a new policy section and a new RLS migration — they are NOT implicit extensions of profile editing.
 
+## Theme Preference Governance (Phase 15)
+- Day/night mode is a per-device user preference. It is stored only in browser `localStorage` (`steelflow:theme`) — never written to the database, never tied to user identity, and not part of profile data.
+- The toggle MUST NOT alter business logic, role assignments, or workspace state. It is a presentation-layer concern only.
+- All UI MUST use the semantic design tokens defined in `src/index.css`. Hardcoded color classes (e.g., `text-white`, `bg-black`) are forbidden — they break the day/night contract.
+- Default for first-time users is the OS-level `prefers-color-scheme`; this is not configurable from Admin and does not require an audit entry.
+
 ## Policy Change Log
 - 2026-04-25: Phase 14 — added Admin User Profile Governance (admin-edit limited to display_name/department/job_title; scope enforced via existing `can_view_profile` helper; mandatory `profile.updated` audit; admin self-edit must use self-update policy; user creation/role/deactivation explicitly out of scope).
+- 2026-04-25: Phase 15 — added Theme Preference Governance (day/night is a per-device localStorage preference, presentation-layer only, no DB writes, no audit; default follows OS).

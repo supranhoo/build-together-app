@@ -4,9 +4,11 @@ import { Outlet, useLocation } from "react-router-dom";
 import { BFCLLogo } from "@/components/BFCLLogo";
 import { NavLink } from "@/components/NavLink";
 import { Breadcrumbs } from "@/components/Breadcrumbs";
+import { ThemeToggle } from "@/components/ThemeToggle";
 import { Button } from "@/components/ui/button";
 import { Sheet, SheetContent, SheetTrigger } from "@/components/ui/sheet";
 import { useAuth } from "@/hooks/use-auth";
+import { useTheme } from "@/hooks/use-theme";
 import { useWorkspace } from "@/hooks/use-workspace";
 import { cn } from "@/lib/utils";
 
@@ -19,12 +21,14 @@ export function AdminShell() {
   const location = useLocation();
   const { logout } = useAuth();
   const { activeProfitCenter, isSuperAdmin } = useWorkspace();
+  const { theme } = useTheme();
+  const logoTheme = theme === "dark" ? "dark" : "light";
   const [mobileNavOpen, setMobileNavOpen] = useState(false);
 
   const renderSidebarBody = (onNavigate?: () => void) => (
     <>
       <div className="flex items-center justify-between border-b border-sidebar-border px-5 py-5">
-        <BFCLLogo className="w-36" theme="dark" />
+        <BFCLLogo className="w-36" theme={logoTheme} />
         <Button variant="ghost" size="icon" className="text-sidebar-foreground hover:bg-sidebar-accent" onClick={() => void logout()} aria-label="Sign out">
           <LogOut className="h-4 w-4" />
         </Button>
@@ -85,9 +89,12 @@ export function AdminShell() {
                 <Breadcrumbs pathname={location.pathname} className="mt-2" />
               </div>
             </div>
-            <Button asChild variant="outline">
-              <NavLink to="/portal" className={cn("inline-flex items-center gap-2")}>Return to portal</NavLink>
-            </Button>
+            <div className="flex items-center gap-2">
+              <ThemeToggle />
+              <Button asChild variant="outline">
+                <NavLink to="/portal" className={cn("inline-flex items-center gap-2")}>Return to portal</NavLink>
+              </Button>
+            </div>
           </div>
         </header>
         <main className="px-4 py-6 sm:px-6 lg:px-8">
