@@ -122,16 +122,18 @@ export function POTab() {
     if (!activeProfitCenter) return;
     setLoading(true);
     try {
-      const [list, sup, mats, cur, prs] = await Promise.all([
+      const [list, sup, mats, locs, cur, prs] = await Promise.all([
         fetchPurchaseOrders(activeProfitCenter.id),
         fetchSuppliers(activeProfitCenter.id),
         fetchMaterials(activeProfitCenter.id),
+        fetchStockLocations(activeProfitCenter.id),
         fetchCurrencies(),
         fetchPurchaseRequisitions(activeProfitCenter.id),
       ]);
       setPos(list);
       setSuppliers(sup.filter((s) => s.isActive));
       setMaterials(mats.filter((m) => m.isActive));
+      setStockLocations(locs.filter((l) => l.isActive));
       setCurrencies(cur);
       setApprovedPrs(prs.filter((p) => p.status === "approved"));
     } catch (e) {
