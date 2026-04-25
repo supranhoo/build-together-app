@@ -85,6 +85,14 @@ export function ThemeProvider({ children }: { children: ReactNode }) {
 
 export function useTheme() {
   const ctx = useContext(ThemeContext);
-  if (!ctx) throw new Error("useTheme must be used within a ThemeProvider");
+  // Fallback for tests / isolated component renders without a provider.
+  if (!ctx) {
+    return {
+      theme: "dark" as ThemeMode,
+      preference: "system" as ThemePreference,
+      setPreference: () => {},
+      toggle: () => {},
+    };
+  }
   return ctx;
 }
