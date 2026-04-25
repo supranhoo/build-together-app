@@ -624,11 +624,10 @@ export function POTab() {
                 {detailFor.status === "sent" && (
                   <Button onClick={() => void transition("acknowledged")}>Mark acknowledged</Button>
                 )}
-                {detailFor.status === "acknowledged" && (
-                  <Button onClick={() => void transition("partially_received")}>Partial receipt</Button>
-                )}
-                {detailFor.status === "partially_received" && (
-                  <Button onClick={() => void transition("received")}>Fully received</Button>
+                {(detailFor.status === "acknowledged" || detailFor.status === "partially_received") && (
+                  <span className="text-xs text-muted-foreground">
+                    Use the <strong>Receive</strong> button on each line to post receipts. Status updates automatically.
+                  </span>
                 )}
                 {detailFor.status === "received" && (
                   <Button onClick={() => void transition("closed")}>Close PO</Button>
@@ -641,6 +640,69 @@ export function POTab() {
                 {(detailFor.status === "closed" || detailFor.status === "cancelled") && (
                   <span className="text-sm text-muted-foreground">No further actions for this PO.</span>
                 )}
+              </DialogFooter>
+            </>
+          )}
+        </DialogContent>
+      </Dialog>
+
+      {/* Receive line dialog */}
+      <Dialog open={Boolean(receiveLine)} onOpenChange={(o) => !o && setReceiveLine(null)}>
+        <DialogContent className="max-w-md">
+          {receiveLine && (
+            <>
+              <DialogHeader>
+                <DialogTitle>Receive PO line</DialogTitle>
+              </DialogHeader>
+              <div className="space-y-3 text-sm">
+                <div className="rounded-md border border-border bg-muted/30 p-3">
+                  <div className="font-medium">
+                    {materialMap.get(receiveLine.materialId)?.code ?? receiveLine.materialId.slice(0, 8)}
+                  </div>
+                  <div className="text-xs text-muted-foreground">
+                    Ordered {receiveLine.qtyOrdered} {receiveLine.uom} · Already received {receiveLine.qtyReceived} ·
+                    Remaining {Math.max(0, receiveLine.qtyOrdered - receiveLine.qtyReceived)}
+                  </div>
+                </div>
+                <div>
+                  <Label>Quantity to receive *</Label>
+                  <Input
+                    type="number"
+                    min="0"
+                    step="0.01"
+                    value={receiveQty}
+                    onChange={(e) => setReceiveQty(e.target.value)}
+                  />
+                </div>
+                <div>
+                  <Label>Stock location *</Label>
+                  <Select value={receiveLocation} onValueChange={setReceiveLocation}>
+                    <SelectTrigger><SelectValue placeholder="Select location" /></SelectTrigger>
+                    <SelectContent>
+                      {stockLocations.map((l) => (
+                        <SelectItem key={l.id} value={l.id}>{l.code} — {l.name}</SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                  {stockLocations.length === 0 && (
+                    <p className="mt-1 text-xs text-destructive">
+                      No active stock locations configured. Add one in Inventory settings.
+                    </p>
+                  )}
+                </div>
+                <div>
+                  <Label>Notes</Label>
+                  <Input value={receiveNotes} onChange={(e) => setReceiveNotes(e.target.value)} maxLength={255} />
+                </div>
+              </div>
+              <DialogFooter>
+                <Button variant="outline" onClick={() => setReceiveLine(null)}>Cancel</Button>
+                <Button
+                  onClick={() => void handleReceive()}
+                  disabled={receiving || !receiveLocation || !receiveQty}
+                >
+                  {receiving ? "Posting…" : "Post receipt"}
+                </Button>
               </DialogFooter>
             </>
           )}
