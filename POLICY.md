@@ -205,3 +205,7 @@
 ## Phase 23 — Heat-wise tab and lean Dialog retired
 - The Heat-wise View tab inside `/portal/production` and the legacy lean heat-log Dialog were removed at operator request. The FAD Entry tab is the SOLE heat-entry surface in Production. Re-introducing a parallel lean Dialog inside Production violates §5 (SSOT) — corrections to heat fields go through FAD or via admin-managed flows.
 - The `bulk_void_heat_logs` RPC and `void_heat_log` flow remain in the database and are still RLS-protected. They are no longer surfaced in the Production page UI. Any future re-surfacing MUST route through FAD or a dedicated admin screen — never re-open the legacy Dialog.
+
+## Phase 24 — FAD removed from sidebar nav
+- The "Production Entry – FAD" entry was removed from the portal sidebar (`portalStaticNavItems`). Operators reach FAD exclusively via the **FAD Entry** tab inside `/portal/production`.
+- `/portal/production-fad` remains a live route for deep-link compatibility but MUST NOT be re-added to the sidebar — the Production module's tab bar is the canonical navigation surface (§5 SSOT, reaffirms Phase 22).

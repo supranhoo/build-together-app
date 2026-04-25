@@ -22,9 +22,11 @@ const iconMap = {
 
 // Static (non-module) portal nav entries. Exported so the route-audit test can
 // validate every link against the App router.
+// Phase 24 — "Production Entry – FAD" removed from the panel nav per user request.
+// The /portal/production-fad route + page remain mounted for backward compatibility
+// and FAD remains embedded in PortalProduction as the "FAD Entry" tab (SSOT).
 export const portalStaticNavItems = [
   { label: "Overview", to: "/portal" },
-  { label: "Production Entry – FAD", to: "/portal/production-fad" },
 ];
 
 export function PortalShell() {
