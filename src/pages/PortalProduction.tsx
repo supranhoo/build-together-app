@@ -26,6 +26,7 @@ import PortalProductionMonthly from "./PortalProductionMonthly";
 import PortalProductionEnergy from "./PortalProductionEnergy";
 import PortalProductionQuality from "./PortalProductionQuality";
 import PortalProductionConsumption from "./PortalProductionConsumption";
+import PortalProductionFAD from "./PortalProductionFAD";
 import { useWorkspace } from "@/hooks/use-workspace";
 import { useAuth } from "@/hooks/use-auth";
 import { useToast } from "@/hooks/use-toast";
