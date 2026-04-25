@@ -380,5 +380,12 @@ SteelFlow ERP now uses a configuration-first workspace foundation for steel and 
 - Bulk-void inline UI is no longer reachable from the Production page. RPC `bulk_void_heat_logs` and the underlying `void_heat_log` flow remain available; they need a new surface (or restoring a void action inside the Heat list within Furnace/Monthly tabs) to be operator-accessible. Logged as a known gap.
 - Tests: no test changes; suite at **167 passing**.
 
+## Production Entry – FAD module fully removed (Phase 24)
+- The Production Entry – FAD module was removed entirely at user request. Deleted: `src/pages/PortalProductionFAD.tsx`, `src/lib/production-entry-fad.ts`, `src/lib/production-formulas.ts`, `src/test/production-entry-fad.test.ts`. Removed from `src/App.tsx` (route `/portal/production-fad` and import), `src/components/PortalShell.tsx` (sidebar entry "Production Entry – FAD"), and `src/pages/PortalProduction.tsx` (FAD tab + import).
+- `PortalProduction` default tab is now `furnace`. Surviving tabs are analytics-only: Furnace Summary, Monthly Summary, Energy, Quality, Consumption. There is **no heat-entry surface left in the app** — by design, per the user's instruction to remove the module completely.
+- The PostgreSQL machine_type enum value `'FAD'` (one of FAD/CLU/DRI in `master-data.ts` and `production.ts`) is unrelated to the deleted module — it classifies furnace hardware and remains intact.
+- Tests: 7 FAD-suite tests removed with the file. Suite now **160/160 passing** (was 167).
+
 ## Version History
+- 2026-04-25 (Phase 24): Production Entry – FAD module removed completely. Route, sidebar link, page component, FAD tab inside PortalProduction, FAD orchestrator lib, formulas helper, and test all deleted. PortalProduction defaults to Furnace Summary tab and is now analytics-only. No heat-entry UI surface remains anywhere in the app. Suite at 160 passing.
 - 2026-04-25 (Phase 23): Removed Heat-wise View tab and the Heat-logs management Card it contained. Default tab is FAD Entry. Heat-log CRUD via the legacy Dialog is gone; FAD wizard is the sole heat-entry surface. Bulk-void surface lost (RPC retained). Suite still 167 passing.
