@@ -80,6 +80,7 @@ const App = () => (
                     <Route path="kpis" element={<Navigate to="/admin/settings?tab=kpis" replace />} />
                     <Route path="report-deliveries" element={<Navigate to="/admin/settings?tab=report-deliveries" replace />} />
                     <Route path="roles" element={<Navigate to="/admin/settings?tab=roles" replace />} />
+                    <Route path="users" element={<Navigate to="/admin/settings?tab=users" replace />} />
                   </Route>
                 </Route>
               </Route>
