@@ -303,3 +303,19 @@ SteelFlow ERP now uses a configuration-first workspace foundation for steel and 
 ## Version History
 - 2026-04-25 (Phase 14): Added admin User Profile editing (`/admin/settings?tab=users`); new RLS policy `Admins can update manageable profiles` on `public.profiles`; new helper `updateUserProfile`; new audit action `profile.updated`.
 - 2026-04-25 (Phase 15): Added day/night theme support — `ThemeProvider`, `useTheme`, `ThemeToggle`; light palette in `:root`, dark palette in `.dark`; persistence via `steelflow:theme` localStorage key; default follows system preference. Toggle also surfaced on `/login`.
+
+## Ferro Alloys Layer (Phase 16)
+- New tables/logic build on the existing SSOT — no duplication of `heat_logs`, `material_consumption`, `inventory_ledger`, `materials`, or `cost_rates`.
+- **`grn_logs`** (migration `20260425173859_*.sql`) stores quality data (`vendor`, `invoice_no`, `mn_pct`, `fe_pct`, `moisture_pct`) keyed 1:1 to an `inventory_ledger` receipt row. RLS: select via `has_profit_center_access`; insert requires `inventory.receipt`; no update/delete (immutable).
+- **Inventory shell** (`src/pages/PortalInventory.tsx`) now hosts 7 nested routes under `/portal/inventory/*`: `dashboard` (default), `stock`, `grn`, `issue`, `transfers`, `min-max`, `reports`. Legacy `/receipts` and `/ledger` paths still resolve.
+- **Costing engine** (`src/pages/PortalCosting.tsx`, route `/portal/costing`) computes Material Cost = Σ(qty × latestRate), Conversion Cost = power MWh × `costing.power_rate_per_mwh` setting + `costing.fixed_cost_per_day` × days, Total, Cost/MT, Cost/Mn% from filters (date range + furnace). All inputs are workspace-scoped; no hardcoded rates.
+- **Production tabs** (`src/pages/PortalProduction.tsx`): existing entry UI stays in `Data Entry` tab; three new read-only tabs added — `Heat-wise View` (consumption rolled per heat), `Furnace Summary` (per-furnace heats, MT, MWh, MWh/MT), `Monthly Summary` (year-month rollup, voided excluded).
+- **Pure logic libs**: `src/lib/ferro-alloys.ts` (`mnInput`, `mnOutput`, `recoveryPct`, `slagMn`, `groupConsumptionByHeat`), `src/lib/costing.ts` (`latestRateOn`, `materialCost`, `conversionCost`, `buildCostBreakdown`, `daysBetween`), `src/lib/inventory-min-max.ts` (`classifyStockStatus`), `src/lib/grn.ts`, `src/lib/excel-export.ts` (`exportRows` wrapper around `xlsx`).
+- **Overview alerts** (`src/pages/PortalOverview.tsx`): adds a low-stock banner counting items in `below_min` + `reorder` status using `classifyStockStatus`. Banner only renders when count > 0; links to `/portal/inventory/min-max`.
+- **Workspace consumption fetch** (`src/lib/inventory.ts → fetchWorkspaceConsumption`) loads up to 1000 rows per workspace with optional date bounds — used by Heat-wise tab to avoid N+1.
+- **Settings keys**: `costing.power_rate_per_mwh`, `costing.fixed_cost_per_day`, `costing.target_grade_mn_pct` live in `profit_center_settings` (admin-managed).
+- **Excel export**: every report-class view (Inventory Reports, Costing, Production tabs) exposes a single Download button calling `exportRows(filename, [{name, rows}])`.
+- **Tests added**: `ferro-alloys.test.ts` (11), `costing.test.ts` (12), `grn.test.ts` (3), `inventory-min-max.test.ts` (5), `production-monthly.test.ts` (4). Total suite now 143 tests, all passing.
+
+## Version History
+- 2026-04-25 (Phase 16): Ferro Alloys layer — `grn_logs` table; 7-tab Inventory shell; Costing engine; Production Heat-wise/Furnace/Monthly tabs; Overview min-max alert; Excel export utility; pure logic libs (`ferro-alloys`, `costing`, `inventory-min-max`, `grn`); 44 new unit tests.
