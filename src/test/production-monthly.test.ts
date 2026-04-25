@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { rollupByMonth } from "@/pages/PortalProductionMonthly";
+import { rollupByMonth } from "@/lib/production-rollups";
 import type { HeatLog } from "@/lib/production";
 
 function makeLog(partial: Partial<HeatLog>): HeatLog {
