@@ -142,7 +142,7 @@ export default function PortalProduction() {
     if (!activeProfitCenter) return;
     setLoading(true);
     try {
-      const [f, s, l, g, m, sl, mi, th] = await Promise.all([
+      const [f, s, l, g, m, sl, mi, th, met] = await Promise.all([
         fetchFurnaces(activeProfitCenter.id),
         fetchShifts(activeProfitCenter.id),
         fetchHeatLogs(activeProfitCenter.id, {
@@ -155,6 +155,7 @@ export default function PortalProduction() {
         fetchStockLocations(activeProfitCenter.id),
         fetchMasterItems(activeProfitCenter.id),
         fetchProductionAlertThresholds(activeProfitCenter.id).catch(() => DEFAULT_PRODUCTION_ALERTS),
+        fetchMetallurgyByPC(activeProfitCenter.id).catch(() => [] as HeatMetallurgy[]),
       ]);
       setFurnaces(f);
       setShifts(s);
@@ -164,6 +165,7 @@ export default function PortalProduction() {
       setStockLocations(sl);
       setMasterItems(mi);
       setThresholds(th);
+      setAllMetallurgy(met);
     } catch (error) {
       toast({ title: "Failed to load production data", description: error instanceof Error ? error.message : "Try again.", variant: "destructive" });
     } finally {
