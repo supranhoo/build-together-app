@@ -519,6 +519,18 @@ export default function PortalProduction() {
           </AlertDialog>
         </CardContent>
       </Card>
+        </TabsContent>
+
+        <TabsContent value="heatwise" className="mt-4">
+          <PortalProductionHeatwise />
+        </TabsContent>
+        <TabsContent value="furnace" className="mt-4">
+          <PortalProductionFurnaceSummary />
+        </TabsContent>
+        <TabsContent value="monthly" className="mt-4">
+          <PortalProductionMonthly />
+        </TabsContent>
+      </Tabs>
     </div>
   );
 }
