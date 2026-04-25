@@ -640,3 +640,345 @@ export function findFxRate(
     .sort((a, b) => (a.effectiveDate < b.effectiveDate ? 1 : -1));
   return candidates[0]?.rate ?? null;
 }
+
+// ---------- IMPORT SHIPMENTS (Phase C) ----------
+
+export type ShipmentStatus =
+  | "planned"
+  | "in_transit"
+  | "customs"
+  | "delivered"
+  | "cancelled";
+
+export interface ImportShipment {
+  id: string;
+  profitCenterId: string;
+  shipmentNo: string;
+  poId: string | null;
+  originCountry: string | null;
+  destinationPort: string | null;
+  vessel: string | null;
+  blNumber: string | null;
+  etd: string | null;
+  eta: string | null;
+  status: ShipmentStatus;
+  freightCost: number | null;
+  customsCost: number | null;
+  currencyCode: string;
+  notes: string | null;
+  createdBy: string;
+  createdAt: string;
+  updatedAt: string;
+}
+
+function toShipment(r: any): ImportShipment {
+  return {
+    id: r.id,
+    profitCenterId: r.profit_center_id,
+    shipmentNo: r.shipment_no,
+    poId: r.po_id ?? null,
+    originCountry: r.origin_country ?? null,
+    destinationPort: r.destination_port ?? null,
+    vessel: r.vessel ?? null,
+    blNumber: r.bl_number ?? null,
+    etd: r.etd ?? null,
+    eta: r.eta ?? null,
+    status: r.status as ShipmentStatus,
+    freightCost: r.freight_cost !== null && r.freight_cost !== undefined ? Number(r.freight_cost) : null,
+    customsCost: r.customs_cost !== null && r.customs_cost !== undefined ? Number(r.customs_cost) : null,
+    currencyCode: r.currency_code,
+    notes: r.notes ?? null,
+    createdBy: r.created_by,
+    createdAt: r.created_at,
+    updatedAt: r.updated_at,
+  };
+}
+
+/** Status-transition guard — defense in depth alongside DB rules. */
+export function canTransitionShipment(from: ShipmentStatus, to: ShipmentStatus): boolean {
+  const map: Record<ShipmentStatus, ShipmentStatus[]> = {
+    planned: ["in_transit", "cancelled"],
+    in_transit: ["customs", "delivered", "cancelled"],
+    customs: ["delivered", "cancelled"],
+    delivered: [],
+    cancelled: [],
+  };
+  return (map[from] ?? []).includes(to);
+}
+
+export async function fetchImportShipments(profitCenterId: string): Promise<ImportShipment[]> {
+  const { data, error } = await client
+    .from("import_shipments")
+    .select(
+      "id, profit_center_id, shipment_no, po_id, origin_country, destination_port, vessel, bl_number, etd, eta, status, freight_cost, customs_cost, currency_code, notes, created_by, created_at, updated_at",
+    )
+    .eq("profit_center_id", profitCenterId)
+    .order("created_at", { ascending: false })
+    .limit(500);
+  if (error) throw error;
+  return (data ?? []).map(toShipment);
+}
+
+export interface ShipmentInput {
+  id?: string;
+  profitCenterId: string;
+  shipmentNo: string;
+  poId: string | null;
+  originCountry: string | null;
+  destinationPort: string | null;
+  vessel: string | null;
+  blNumber: string | null;
+  etd: string | null;
+  eta: string | null;
+  freightCost: number | null;
+  customsCost: number | null;
+  currencyCode: string;
+  notes: string | null;
+  createdBy: string;
+}
+
+export async function upsertImportShipment(input: ShipmentInput): Promise<void> {
+  if (!input.shipmentNo.trim()) throw new Error("Shipment number is required");
+  if (input.etd && input.eta && input.etd > input.eta) {
+    throw new Error("ETA must be on or after ETD");
+  }
+  const payload: Record<string, unknown> = {
+    profit_center_id: input.profitCenterId,
+    shipment_no: input.shipmentNo.trim(),
+    po_id: input.poId,
+    origin_country: input.originCountry,
+    destination_port: input.destinationPort,
+    vessel: input.vessel,
+    bl_number: input.blNumber,
+    etd: input.etd,
+    eta: input.eta,
+    freight_cost: input.freightCost,
+    customs_cost: input.customsCost,
+    currency_code: input.currencyCode,
+    notes: input.notes,
+  };
+  if (input.id) {
+    const { error } = await client.from("import_shipments").update(payload).eq("id", input.id);
+    if (error) throw error;
+  } else {
+    payload.created_by = input.createdBy;
+    payload.status = "planned";
+    const { error } = await client.from("import_shipments").insert(payload);
+    if (error) throw error;
+  }
+}
+
+export async function transitionShipment(input: {
+  shipmentId: string;
+  fromStatus: ShipmentStatus;
+  toStatus: ShipmentStatus;
+}): Promise<void> {
+  if (!canTransitionShipment(input.fromStatus, input.toStatus)) {
+    throw new Error(`Transition ${input.fromStatus} → ${input.toStatus} is not allowed`);
+  }
+  const { error } = await client
+    .from("import_shipments")
+    .update({ status: input.toStatus })
+    .eq("id", input.shipmentId);
+  if (error) throw error;
+}
+
+// ---------- PO RECEIPT (Phase C — PO ↔ GRN linkage) ----------
+
+/**
+ * Receive a PO line. Posts a `receipt` ledger row referencing the PO line and
+ * updates `qty_received`. The DB triggers handle audit logging. Quantity is
+ * additive — call repeatedly for partial receipts.
+ *
+ * Side effects: returns the new qty_received and whether the PO is now fully
+ * received (so the caller can transition the PO header).
+ */
+export async function receivePoLine(input: {
+  poLineId: string;
+  profitCenterId: string;
+  materialId: string;
+  stockLocationId: string;
+  quantity: number;
+  unitCost: number;
+  poId: string;
+  notes: string | null;
+  createdBy: string;
+}): Promise<{ qtyReceived: number; lineComplete: boolean }> {
+  if (!Number.isFinite(input.quantity) || input.quantity <= 0) {
+    throw new Error("Receipt quantity must be greater than zero");
+  }
+  if (!input.stockLocationId) throw new Error("Stock location is required");
+
+  // Read current line for guard + math
+  const { data: line, error: readErr } = await client
+    .from("purchase_order_lines")
+    .select("id, qty_ordered, qty_received")
+    .eq("id", input.poLineId)
+    .single();
+  if (readErr) throw readErr;
+  const ordered = Number((line as any).qty_ordered);
+  const already = Number((line as any).qty_received ?? 0);
+  const newQty = already + input.quantity;
+  if (newQty > ordered + 1e-6) {
+    throw new Error(`Receipt exceeds ordered quantity (${ordered - already} remaining)`);
+  }
+
+  // 1. Post inventory receipt
+  const { error: ledgerErr } = await client.from("inventory_ledger").insert({
+    profit_center_id: input.profitCenterId,
+    material_id: input.materialId,
+    stock_location_id: input.stockLocationId,
+    movement_type: "receipt",
+    quantity: input.quantity,
+    unit_cost: input.unitCost,
+    reference_type: "purchase_order_line",
+    reference_id: input.poLineId,
+    notes: input.notes,
+    created_by: input.createdBy,
+  });
+  if (ledgerErr) throw ledgerErr;
+
+  // 2. Update PO line qty_received
+  const { error: updErr } = await client
+    .from("purchase_order_lines")
+    .update({ qty_received: newQty })
+    .eq("id", input.poLineId);
+  if (updErr) throw updErr;
+
+  return { qtyReceived: newQty, lineComplete: newQty + 1e-6 >= ordered };
+}
+
+// ---------- MRP SHORTAGES (Phase C) ----------
+
+export interface ShortageRow {
+  materialId: string;
+  materialCode: string;
+  materialName: string;
+  uom: string;
+  onHand: number;
+  onOrder: number;
+  available: number; // onHand + onOrder
+  minLevel: number | null;
+  reorderLevel: number | null;
+  /** Suggested order qty: brings `available` up to maxLevel (or reorder/min). 0 if none needed. */
+  shortage: number;
+  triggerLevel: number;
+  status: "below_min" | "reorder" | "ok";
+}
+
+export interface ShortageInputItem {
+  id: string;
+  code: string;
+  name: string;
+  uom: string;
+  minLevel: number | null;
+  maxLevel: number | null;
+  reorderLevel: number | null;
+  isActive: boolean;
+}
+
+/**
+ * Compute shortages from materials master + on-hand quantities + open POs.
+ *
+ * Rules:
+ *  - Inactive materials are skipped.
+ *  - Materials with no min/reorder level configured are skipped (cannot
+ *    classify shortage without a threshold — surface separately in UI).
+ *  - `available = onHand + onOrder`. A material is short when
+ *    `available < max(minLevel, reorderLevel)`.
+ *  - Suggested order qty = (target − available), where target =
+ *    maxLevel ?? reorderLevel ?? minLevel.
+ */
+export function computeShortages(
+  materials: ShortageInputItem[],
+  onHandByMaterial: Map<string, number>,
+  onOrderByMaterial: Map<string, number>,
+): ShortageRow[] {
+  const out: ShortageRow[] = [];
+  for (const m of materials) {
+    if (!m.isActive) continue;
+    if (m.minLevel === null && m.reorderLevel === null) continue;
+
+    const onHand = onHandByMaterial.get(m.id) ?? 0;
+    const onOrder = onOrderByMaterial.get(m.id) ?? 0;
+    const available = onHand + onOrder;
+
+    const triggerLevel = Math.max(m.minLevel ?? 0, m.reorderLevel ?? 0);
+    const target = m.maxLevel ?? m.reorderLevel ?? m.minLevel ?? 0;
+
+    let status: ShortageRow["status"] = "ok";
+    if (m.minLevel !== null && available < m.minLevel) status = "below_min";
+    else if (available <= triggerLevel) status = "reorder";
+
+    if (status === "ok") continue;
+
+    const shortage = Math.max(0, target - available);
+    out.push({
+      materialId: m.id,
+      materialCode: m.code,
+      materialName: m.name,
+      uom: m.uom,
+      onHand,
+      onOrder,
+      available,
+      minLevel: m.minLevel,
+      reorderLevel: m.reorderLevel,
+      shortage,
+      triggerLevel,
+      status,
+    });
+  }
+  // Most critical first
+  return out.sort((a, b) => {
+    if (a.status !== b.status) return a.status === "below_min" ? -1 : 1;
+    return b.shortage - a.shortage;
+  });
+}
+
+/** Sum open PO line quantities (not yet fully received) per material. */
+export function buildOnOrderMap(
+  poLines: { materialId: string; qtyOrdered: number; qtyReceived: number }[],
+  openPoIds: Set<string>,
+  poLineToPoId: Map<string, string>,
+): Map<string, number> {
+  const map = new Map<string, number>();
+  for (const l of poLines) {
+    const poId = poLineToPoId.get((l as unknown as { id: string }).id);
+    if (!poId || !openPoIds.has(poId)) continue;
+    const remaining = Math.max(0, l.qtyOrdered - l.qtyReceived);
+    if (remaining <= 0) continue;
+    map.set(l.materialId, (map.get(l.materialId) ?? 0) + remaining);
+  }
+  return map;
+}
+
+/** Convenience: load all data needed to compute MRP shortages for a workspace. */
+export async function fetchOpenPoLinesForMrp(
+  profitCenterId: string,
+): Promise<{ map: Map<string, number> }> {
+  // Pull open POs (status not closed/cancelled/received)
+  const { data: poRows, error: poErr } = await client
+    .from("purchase_orders")
+    .select("id, status")
+    .eq("profit_center_id", profitCenterId)
+    .in("status", ["draft", "sent", "acknowledged", "partially_received"]);
+  if (poErr) throw poErr;
+
+  const openIds = new Set<string>((poRows ?? []).map((r: any) => r.id));
+  if (openIds.size === 0) return { map: new Map() };
+
+  const { data: lineRows, error: lineErr } = await client
+    .from("purchase_order_lines")
+    .select("po_id, material_id, qty_ordered, qty_received")
+    .in("po_id", Array.from(openIds));
+  if (lineErr) throw lineErr;
+
+  const map = new Map<string, number>();
+  for (const r of lineRows ?? []) {
+    const remaining = Math.max(0, Number((r as any).qty_ordered) - Number((r as any).qty_received ?? 0));
+    if (remaining <= 0) continue;
+    const matId = (r as any).material_id;
+    map.set(matId, (map.get(matId) ?? 0) + remaining);
+  }
+  return { map };
+}
