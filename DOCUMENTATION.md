@@ -371,3 +371,14 @@ SteelFlow ERP now uses a configuration-first workspace foundation for steel and 
 
 ## Version History
 - 2026-04-25 (Phase 22): Heat-logs Card moved into Heat-wise View tab; FAD wizard added as inline tab; legacy Dialog metallurgy fields removed (FAD owns metallurgy SSOT). KPI strip reduced to 3 cards. `/portal/production-fad` retained. Suite still 167 passing.
+
+## Heat-wise View tab removed (Phase 23)
+- The "Heat-wise View" tab in `src/pages/PortalProduction.tsx` was removed at user request. With it, the Heat-logs management Card (header, **New heat log** Dialog, furnace/shift/date filters, table, bulk-void AlertDialog) — which had been moved into that tab in Phase 22 — was also removed.
+- Heat creation now lives **only** inside the **FAD Entry** tab (`PortalProductionFAD`). The legacy lean Dialog in PortalProduction is gone. `/portal/production-fad` remains addressable.
+- Default tab is now `fad`. Surviving tabs: FAD Entry, Furnace Summary, Monthly Summary, Energy, Quality, Consumption.
+- The companion page component `PortalProductionHeatwise.tsx` is no longer imported anywhere from PortalProduction; it remains on disk but inert. Not deleted in this turn per §3 (surgical) — flag for cleanup if confirmed unused elsewhere.
+- Bulk-void inline UI is no longer reachable from the Production page. RPC `bulk_void_heat_logs` and the underlying `void_heat_log` flow remain available; they need a new surface (or restoring a void action inside the Heat list within Furnace/Monthly tabs) to be operator-accessible. Logged as a known gap.
+- Tests: no test changes; suite at **167 passing**.
+
+## Version History
+- 2026-04-25 (Phase 23): Removed Heat-wise View tab and the Heat-logs management Card it contained. Default tab is FAD Entry. Heat-log CRUD via the legacy Dialog is gone; FAD wizard is the sole heat-entry surface. Bulk-void surface lost (RPC retained). Suite still 167 passing.
