@@ -19,6 +19,10 @@ import {
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
 import { Trash2 } from "lucide-react";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import PortalProductionHeatwise from "./PortalProductionHeatwise";
+import PortalProductionFurnaceSummary from "./PortalProductionFurnaceSummary";
+import PortalProductionMonthly from "./PortalProductionMonthly";
 import { useWorkspace } from "@/hooks/use-workspace";
 import { useAuth } from "@/hooks/use-auth";
 import { useToast } from "@/hooks/use-toast";
@@ -53,6 +57,8 @@ import {
 import { mnBalance, mnInput, type MaterialSpecLookup } from "@/lib/ferro-alloys";
 import { fetchProductionAlertThresholds, DEFAULT_PRODUCTION_ALERTS, type ProductionAlertThresholds } from "@/lib/production-alerts";
 import { computeProductionKpis, indexMetallurgyByHeat } from "@/lib/production-rollups";
+import { Link } from "react-router-dom";
+import { FlaskConical } from "lucide-react";
 
 
 interface FormState {
@@ -407,8 +413,8 @@ export default function PortalProduction() {
 
   return (
     <div className="space-y-6">
-      {/* Production KPI strip — read-only summary above the Data Entry surface. */}
-      <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
+      {/* Production KPI strip — sits ABOVE the existing tabs. Read-only. */}
+      <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
         <Card className="border-border bg-card shadow-panel">
           <CardHeader className="pb-2">
             <CardTitle className="text-xs font-medium text-muted-foreground">Total Production</CardTitle>
@@ -438,8 +444,28 @@ export default function PortalProduction() {
             <div className="text-xs text-muted-foreground mt-1">{fmt(kpis.totalPowerMwh, 2)} MWh total</div>
           </CardContent>
         </Card>
+        <Card className="border-border bg-card shadow-panel">
+          <CardHeader className="pb-2 flex flex-row items-center justify-between gap-2">
+            <CardTitle className="text-xs font-medium text-muted-foreground">FAD Entry</CardTitle>
+            <FlaskConical className="h-4 w-4 text-muted-foreground" />
+          </CardHeader>
+          <CardContent>
+            <Button asChild size="sm" variant="outline" className="w-full">
+              <Link to="/portal/production-fad">Open metallurgical entry →</Link>
+            </Button>
+            <div className="text-xs text-muted-foreground mt-2">4-step Mn balance wizard</div>
+          </CardContent>
+        </Card>
       </div>
+      <Tabs defaultValue="data-entry">
+        <TabsList className="flex h-auto w-full flex-wrap justify-start gap-1 bg-muted/50 p-1">
+          <TabsTrigger value="data-entry" className="data-[state=active]:bg-primary data-[state=active]:text-primary-foreground">Data Entry</TabsTrigger>
+          <TabsTrigger value="heatwise" className="data-[state=active]:bg-primary data-[state=active]:text-primary-foreground">Heat-wise View</TabsTrigger>
+          <TabsTrigger value="furnace" className="data-[state=active]:bg-primary data-[state=active]:text-primary-foreground">Furnace Summary</TabsTrigger>
+          <TabsTrigger value="monthly" className="data-[state=active]:bg-primary data-[state=active]:text-primary-foreground">Monthly Summary</TabsTrigger>
+        </TabsList>
 
+        <TabsContent value="data-entry" className="mt-4">
       <Card className="border-border bg-card shadow-panel">
         <CardHeader className="flex flex-row items-center justify-between gap-4">
           <CardTitle>Heat logs — {activeProfitCenter.name}</CardTitle>
@@ -765,6 +791,18 @@ export default function PortalProduction() {
           </AlertDialog>
         </CardContent>
       </Card>
+        </TabsContent>
+
+        <TabsContent value="heatwise" className="mt-4">
+          <PortalProductionHeatwise />
+        </TabsContent>
+        <TabsContent value="furnace" className="mt-4">
+          <PortalProductionFurnaceSummary />
+        </TabsContent>
+        <TabsContent value="monthly" className="mt-4">
+          <PortalProductionMonthly />
+        </TabsContent>
+      </Tabs>
     </div>
   );
 }

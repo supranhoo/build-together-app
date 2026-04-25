@@ -111,28 +111,3 @@ export function kwhDeviationPct(actualKwhPerMt: number | null, targetKwhPerMt: n
   if (!targetKwhPerMt || !Number.isFinite(targetKwhPerMt) || targetKwhPerMt <= 0) return null;
   return Math.abs((actualKwhPerMt - targetKwhPerMt) / targetKwhPerMt) * 100;
 }
-
-/**
- * Month-on-month rollup of heat logs by year-month: heats, weight, power.
- * Pure derivation from HeatLog rows. Voided heats excluded.
- *
- * Moved here from the now-removed PortalProductionMonthly page so the rollup
- * library remains the single home for production aggregations.
- */
-export function rollupByMonth(
-  logs: HeatLog[],
-): Array<{ month: string; heats: number; weight: number; power: number }> {
-  const map = new Map<string, { heats: number; weight: number; power: number }>();
-  for (const l of logs) {
-    if (l.isVoided) continue;
-    const key = l.tapTime.slice(0, 7); // YYYY-MM
-    const cur = map.get(key) ?? { heats: 0, weight: 0, power: 0 };
-    cur.heats += 1;
-    cur.weight += l.weightMt ?? 0;
-    cur.power += l.powerMwh ?? 0;
-    map.set(key, cur);
-  }
-  return Array.from(map.entries())
-    .sort(([a], [b]) => (a < b ? 1 : -1))
-    .map(([month, v]) => ({ month, ...v }));
-}
