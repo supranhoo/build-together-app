@@ -111,7 +111,7 @@ export default function AdminProcurement() {
           </p>
         </div>
         <Badge variant="outline" className="border-amber-500/40 bg-amber-500/10 text-amber-700 dark:text-amber-300">
-          Phase A — shell only · Phases B/C/D activate the new tabs
+          Phase B live · Suppliers · PR · PO · MRP/Shipments/Risk in Phases C–D
         </Badge>
       </div>
 
