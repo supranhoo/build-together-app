@@ -176,3 +176,9 @@
 
 ## Policy Change Log
 - 2026-04-25: Phase 16 — added Ferro Alloys Governance (GRN immutability; cost rates remain append-only; recovery formulas authoritative in `ferro-alloys.ts`; costing inputs from `profit_center_settings`; min-max thresholds admin-only; voided heats excluded from all aggregations; Excel export is read-only).
+
+
+## Phase 17 — Heat metallurgy
+- **Single Source of Truth**: `heat_metallurgy` extends `heat_logs` 1:1. Inventory remains in `material_consumption` / `inventory_ledger`. No JSON blobs duplicating consumption.
+- **Immutability**: rows in `status='submitted'` cannot be updated (RLS-enforced). Drafts may be edited by users with `heat_log` edit permission.
+- **Alert thresholds** (recovery min, slag MnO max, FC/MT max, moisture max) live in `profit_center_settings` under `setting_key='production.alerts'`. Code defaults are fallbacks only — never policy.
