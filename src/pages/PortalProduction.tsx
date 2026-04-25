@@ -447,22 +447,23 @@ export default function PortalProduction() {
             <div className="text-xs text-muted-foreground mt-1">{fmt(kpis.totalPowerMwh, 2)} MWh total</div>
           </CardContent>
         </Card>
-        <Card className="border-border bg-card shadow-panel">
-          <CardHeader className="pb-2 flex flex-row items-center justify-between gap-2">
-            <CardTitle className="text-xs font-medium text-muted-foreground">FAD Entry</CardTitle>
-            <FlaskConical className="h-4 w-4 text-muted-foreground" />
-          </CardHeader>
-          <CardContent>
-            <Button asChild size="sm" variant="outline" className="w-full">
-              <Link to="/portal/production-fad">Open metallurgical entry →</Link>
-            </Button>
-            <div className="text-xs text-muted-foreground mt-2">4-step Mn balance wizard</div>
-          </CardContent>
-        </Card>
       </div>
-      {/* Heat-log management — lifted out of the former 'Data Entry' tab so the tab
-          can be removed without losing entry, filtering, or void capability. */}
-      <Card className="border-border bg-card shadow-panel">
+      {/* Phase 22 — Heat-log management Card moved INTO the Heat-wise View tab.
+          The FAD wizard is also a tab now (no separate KPI shortcut needed). */}
+      <Tabs defaultValue="heatwise">
+        <TabsList className="flex h-auto w-full flex-wrap justify-start gap-1 bg-muted/50 p-1">
+          <TabsTrigger value="heatwise" className="data-[state=active]:bg-primary data-[state=active]:text-primary-foreground">Heat-wise View</TabsTrigger>
+          <TabsTrigger value="fad" className="data-[state=active]:bg-primary data-[state=active]:text-primary-foreground">FAD Entry</TabsTrigger>
+          <TabsTrigger value="furnace" className="data-[state=active]:bg-primary data-[state=active]:text-primary-foreground">Furnace Summary</TabsTrigger>
+          <TabsTrigger value="monthly" className="data-[state=active]:bg-primary data-[state=active]:text-primary-foreground">Monthly Summary</TabsTrigger>
+          <TabsTrigger value="energy" className="data-[state=active]:bg-primary data-[state=active]:text-primary-foreground">Energy</TabsTrigger>
+          <TabsTrigger value="quality" className="data-[state=active]:bg-primary data-[state=active]:text-primary-foreground">Quality</TabsTrigger>
+          <TabsTrigger value="consumption" className="data-[state=active]:bg-primary data-[state=active]:text-primary-foreground">Consumption</TabsTrigger>
+        </TabsList>
+
+        <TabsContent value="heatwise" className="mt-4 space-y-4">
+          <PortalProductionHeatwise />
+          <Card className="border-border bg-card shadow-panel">
         <CardHeader className="flex flex-row items-center justify-between gap-4">
           <CardTitle>Heat logs — {activeProfitCenter.name}</CardTitle>
           <Dialog open={createOpen} onOpenChange={setCreateOpen}>
