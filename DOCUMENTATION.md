@@ -320,3 +320,17 @@ SteelFlow ERP now uses a configuration-first workspace foundation for steel and 
 ## Version History
 - 2026-04-25 (Phase 16): Ferro Alloys layer — `grn_logs` table; 7-tab Inventory shell; Costing engine; Production Heat-wise/Furnace/Monthly tabs; Overview min-max alert; Excel export utility; pure logic libs (`ferro-alloys`, `costing`, `inventory-min-max`, `grn`); 44 new unit tests.
 - 2026-04-25 (Phase 17): Heat metallurgy capture — new `heat_metallurgy` table (1:1 with `heat_logs`) for product/grade/tapping/batch, FG Mn%, slag/dust qty+grades, power breakdown, draft→submitted lock. SSOT preserved (no inventory duplication). New libs: `heat-metallurgy.ts`, `production-alerts.ts`. Extended `ferro-alloys.ts` with `mnBalance()`. Production dialog now shows live Mn balance + threshold alerts (recovery/slag MnO/moisture) sourced from `profit_center_settings.production.alerts`. 3 new tests, total 146 passing.
+
+## Production KPI strip on PortalProduction (Phase 19)
+- `src/pages/PortalProduction.tsx` now renders a 4-card KPI strip ABOVE the existing tabs. Cards: Total Production (MT), Avg Recovery %, Avg kWh/MT, and a navigation card linking to `/portal/production-fad`. Tabs (`Data Entry`, `Heat-wise View`, `Furnace Summary`, `Monthly Summary`) and the existing entry Dialog are unchanged — the strip is purely additive.
+- KPI math lives in `src/lib/production-rollups.ts` as pure functions:
+  - `computeProductionKpis(logs, metallurgyByHeatId)` → totals + production-weighted recovery %.
+  - `indexMetallurgyByHeat(rows)` → Map for O(1) lookup.
+  - `kwhDeviationPct(actual, target)` → absolute % deviation vs. a configured target.
+- Recovery on the dashboard is an approximation: `metalMn / (metalMn + slagMn + dustMn) × 100`, weighted by heat weight. Per-heat live recovery (with full Mn input from consumption rows) remains authoritative inside the FAD entry sidebar — the strip's job is at-a-glance, not heat-level forensics.
+- Data sources: `heat_logs` (existing fetch in PortalProduction) + `heat_metallurgy` via the new `fetchMetallurgyByPC` helper in `src/lib/heat-metallurgy.ts`. Both are workspace-scoped via existing RLS — no new policies. No mock data, no forked schema.
+- The Avg Recovery card flips to destructive border + red number when below `profit_center_settings.production.alerts.recoveryMinPct` (defaults to 70%). Threshold source unchanged from Phase 17.
+- Tests: `src/test/production-rollups.test.ts` (7 tests — empty input, voided exclusion, kWh/MT math, weighted recovery, missing-fgMnPct case, kwh deviation symmetry). Total suite now 160 passing.
+
+## Version History
+- 2026-04-25 (Phase 19): Production KPI strip on PortalProduction reading SSOT (`heat_logs` + `heat_metallurgy`); new `production-rollups.ts` lib + 7 tests; FAD entry remains the single metallurgical entry surface, linked from the strip. No new tables, no forked schema, no UI changes to existing tabs/dialog.
