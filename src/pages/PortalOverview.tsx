@@ -81,6 +81,40 @@ export default function PortalOverview() {
     return () => { cancelled = true; };
   }, [activeProfitCenter, session?.user?.id]);
 
+  // Surface min-max alerts on Overview (read-only count; details on Inventory tab).
+  useEffect(() => {
+    if (!activeProfitCenter) {
+      setLowStockCount(null);
+      return;
+    }
+    let cancelled = false;
+    (async () => {
+      try {
+        const [items, ledger] = await Promise.all([
+          fetchMasterItems(activeProfitCenter.id),
+          fetchLedger(activeProfitCenter.id),
+        ]);
+        if (cancelled) return;
+        const balances = computeStockBalances(ledger);
+        const count = items.reduce((acc, item) => {
+          const qty = balances
+            .filter((b) => b.materialId === item.id)
+            .reduce((s, b) => s + b.quantity, 0);
+          const status = classifyStockStatus(qty, {
+            minLevel: item.minLevel,
+            maxLevel: item.maxLevel,
+            reorderLevel: item.reorderLevel,
+          });
+          return status === "below_min" || status === "reorder" ? acc + 1 : acc;
+        }, 0);
+        setLowStockCount(count);
+      } catch {
+        if (!cancelled) setLowStockCount(null);
+      }
+    })();
+    return () => { cancelled = true; };
+  }, [activeProfitCenter]);
+
   const { personalCards, sharedCards } = useMemo(() => {
     const split = splitPinsByScope(pinned.map((c) => c.pin));
     const personalIds = new Set(split.personal.map((p) => p.id));
