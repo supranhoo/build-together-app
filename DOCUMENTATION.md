@@ -422,5 +422,16 @@ SteelFlow ERP now uses a configuration-first workspace foundation for steel and 
 - Route-audit catalog in `src/test/example.test.tsx` updated to include `/admin/procurement`.
 - Suite: **171 passing** (was 167 + 4 new).
 
+## Procurement module — Phase B (2026-04-25)
+- Activates **Suppliers**, **Purchase Requisitions** and **Purchase Orders** tabs as live UI. Other 13 tabs unchanged (8 deep-links + 5 scaffolds for Phases C/D).
+- Service layer: `src/lib/procurement.ts` — workspace-scoped CRUD + status-transition guards (`canTransitionPr`, `canTransitionPo`), `calcPoTotal`, `findFxRate`, `convertPrToPo` (line copy + supplier/currency override).
+- New components (each renders its own Card; AdminProcurement now switches on `kind: "live" | "scaffold" | "deeplink"`):
+  - `src/components/procurement/SuppliersTab.tsx` — list + create/edit dialog, currency picker from global `currencies` master.
+  - `src/components/procurement/PRTab.tsx` — list + create dialog with multi-line items, detail dialog with workflow buttons (`draft → submitted → approved | rejected`, return-to-draft, rejection reason ≥3 chars).
+  - `src/components/procurement/POTab.tsx` — list + create dialog (blank or convert-from-approved-PR), detail dialog (`draft → sent → acknowledged → partially_received → received → closed`; cancel with reason ≥3 chars). Conversion auto-transitions source PR to `converted`.
+- Status-transition rules are defense-in-depth: client guards mirror the DB RLS USING-clauses on `purchase_requisitions` / `purchase_orders`. Any future change here MUST update both layers and POLICY.md in the same response.
+- Tests: `src/test/procurement-phase-b.test.ts` — 16 tests (PR/PO transition matrices, PO total, FX lookup, page wiring asserts the 3 tabs are `kind: "live"`). Suite: **187 passing** (was 171 + 16 new).
+
 ## Version History
 - 2026-04-25 (Procurement Phase A): Schema (currencies, fx_rates, suppliers, PR/PR-lines, PO/PO-lines, import_shipments, supplier_evaluations, risk_events) + RLS + audit triggers + permission grants seeded + module registered + 16-tab shell at `/admin/procurement` with 8 deep-links live and 8 scaffolds. 171/171 tests passing.
+- 2026-04-25 (Procurement Phase B): Suppliers + PR + PO tabs live with full CRUD, multi-currency, single-step PR approval, PR→PO conversion. Service layer + 16 new tests. 187/187 tests passing.
