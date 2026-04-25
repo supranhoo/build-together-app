@@ -119,14 +119,15 @@ describe("computeShortages", () => {
     const rows = computeShortages(
       [
         mat({ id: "a", code: "A", minLevel: 100, reorderLevel: 150, maxLevel: 300 }), // avail 120 → reorder, shortage 180
-        mat({ id: "b", code: "B", minLevel: 50, reorderLevel: 100, maxLevel: 200 }),  // avail 60 → below_min, shortage 140
+        mat({ id: "b", code: "B", minLevel: 80, reorderLevel: 100, maxLevel: 200 }),  // avail 40 → below_min, shortage 160
         mat({ id: "c", code: "C", minLevel: 200, reorderLevel: 250, maxLevel: 500 }), // avail 10 → below_min, shortage 490
       ],
-      new Map([["a", 120], ["b", 60], ["c", 10]]),
+      new Map([["a", 120], ["b", 40], ["c", 10]]),
       new Map(),
     );
     expect(rows.map((r) => r.materialId)).toEqual(["c", "b", "a"]);
     expect(rows[0].status).toBe("below_min");
+    expect(rows[1].status).toBe("below_min");
     expect(rows[2].status).toBe("reorder");
   });
 });
