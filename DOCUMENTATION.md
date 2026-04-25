@@ -432,6 +432,20 @@ SteelFlow ERP now uses a configuration-first workspace foundation for steel and 
 - Status-transition rules are defense-in-depth: client guards mirror the DB RLS USING-clauses on `purchase_requisitions` / `purchase_orders`. Any future change here MUST update both layers and POLICY.md in the same response.
 - Tests: `src/test/procurement-phase-b.test.ts` — 16 tests (PR/PO transition matrices, PO total, FX lookup, page wiring asserts the 3 tabs are `kind: "live"`). Suite: **187 passing** (was 171 + 16 new).
 
+## Procurement module — Phase C (2026-04-25)
+- Activates **MRP**, **Import Shipments** as live tabs and wires **PO → Inventory** receipts directly into the PO detail dialog. Remaining 4 tabs (Dashboard, Supplier Performance, Risk, plus deep-links unchanged) move to Phase D.
+- Service layer additions in `src/lib/procurement.ts`:
+  - `computeShortages(items, onHandMap, onOrderMap)` — pure shortage classifier (`below_min` / `reorder`), suggested order qty = `target − available` where `target = maxLevel ?? reorderLevel ?? minLevel`. Skips inactive + unconfigured materials. Sorts critical-first.
+  - `fetchOpenPoLinesForMrp(pcId)` — aggregates remaining qty (`ordered − received`) from open POs (`draft|sent|acknowledged|partially_received`) per material.
+  - `canTransitionShipment` + `transitionShipment` + `upsertImportShipment` + `fetchImportShipments` — workflow `planned → in_transit → customs → delivered`; `cancelled` reachable from any non-terminal state.
+  - `receivePoLine` — atomic PO-line receipt: validates `qty_received + new ≤ qty_ordered`, posts `inventory_ledger` row (`movement_type='receipt'`, `reference_type='purchase_order_line'`), updates `qty_received`, returns `{qtyReceived, lineComplete}`.
+- New components:
+  - `src/components/procurement/MRPTab.tsx` — read-only shortage table with KPI tiles (Below MIN / Reorder / Unconfigured), filter, recompute button. Reads `materials` master + `inventory_ledger` + open POs; does not duplicate stock state.
+  - `src/components/procurement/ShipmentsTab.tsx` — CRUD with optional PO link, ETD/ETA, freight + customs in shipment currency, status workflow buttons.
+- POTab integration: per-line **Receive** button in detail dialog opens a small dialog (qty, stock location, notes); on success refreshes lines and auto-advances PO header to `partially_received` or `received` based on aggregate completion. Manual "Partial/Fully received" buttons removed (auto-derived). Cancel still requires reason ≥3 chars.
+- Tests: `src/test/procurement-phase-c.test.ts` — 21 tests (shipment workflow matrix, MRP classification incl. inactive/unconfigured/on-order/sort). Suite: **208 passing** (was 187 + 21 new).
+
 ## Version History
 - 2026-04-25 (Procurement Phase A): Schema (currencies, fx_rates, suppliers, PR/PR-lines, PO/PO-lines, import_shipments, supplier_evaluations, risk_events) + RLS + audit triggers + permission grants seeded + module registered + 16-tab shell at `/admin/procurement` with 8 deep-links live and 8 scaffolds. 171/171 tests passing.
 - 2026-04-25 (Procurement Phase B): Suppliers + PR + PO tabs live with full CRUD, multi-currency, single-step PR approval, PR→PO conversion. Service layer + 16 new tests. 187/187 tests passing.
+- 2026-04-25 (Procurement Phase C): MRP shortages tab, Import Shipments tab, PO↔GRN linkage (per-line Receive posting to inventory_ledger with auto PO status advance). 21 new tests. 208/208 tests passing.

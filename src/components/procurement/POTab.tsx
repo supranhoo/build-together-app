@@ -18,11 +18,11 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Badge } from "@/components/ui/badge";
-import { Trash2, Plus } from "lucide-react";
+import { Trash2, Plus, PackagePlus } from "lucide-react";
 import { useWorkspace } from "@/hooks/use-workspace";
 import { useAuth } from "@/hooks/use-auth";
 import { useToast } from "@/hooks/use-toast";
-import { fetchMaterials, type Material } from "@/lib/inventory";
+import { fetchMaterials, fetchStockLocations, type Material, type StockLocation } from "@/lib/inventory";
 import {
   calcPoTotal,
   convertPrToPo,
@@ -33,6 +33,7 @@ import {
   fetchPurchaseOrders,
   fetchPurchaseRequisitions,
   fetchSuppliers,
+  receivePoLine,
   transitionPurchaseOrder,
   transitionPurchaseRequisition,
   type Currency,
@@ -81,6 +82,7 @@ export function POTab() {
   const [pos, setPos] = useState<PurchaseOrder[]>([]);
   const [suppliers, setSuppliers] = useState<Supplier[]>([]);
   const [materials, setMaterials] = useState<Material[]>([]);
+  const [stockLocations, setStockLocations] = useState<StockLocation[]>([]);
   const [currencies, setCurrencies] = useState<Currency[]>([]);
   const [approvedPrs, setApprovedPrs] = useState<PurchaseRequisition[]>([]);
   const [loading, setLoading] = useState(false);
@@ -101,6 +103,13 @@ export function POTab() {
   const [detailLines, setDetailLines] = useState<PoLine[]>([]);
   const [cancelReason, setCancelReason] = useState("");
 
+  // Receive dialog state (PO ↔ inventory linkage)
+  const [receiveLine, setReceiveLine] = useState<PoLine | null>(null);
+  const [receiveQty, setReceiveQty] = useState("");
+  const [receiveLocation, setReceiveLocation] = useState("");
+  const [receiveNotes, setReceiveNotes] = useState("");
+  const [receiving, setReceiving] = useState(false);
+
   const materialMap = useMemo(() => new Map(materials.map((m) => [m.id, m])), [materials]);
   const supplierMap = useMemo(() => new Map(suppliers.map((s) => [s.id, s])), [suppliers]);
 
@@ -113,16 +122,18 @@ export function POTab() {
     if (!activeProfitCenter) return;
     setLoading(true);
     try {
-      const [list, sup, mats, cur, prs] = await Promise.all([
+      const [list, sup, mats, locs, cur, prs] = await Promise.all([
         fetchPurchaseOrders(activeProfitCenter.id),
         fetchSuppliers(activeProfitCenter.id),
         fetchMaterials(activeProfitCenter.id),
+        fetchStockLocations(activeProfitCenter.id),
         fetchCurrencies(),
         fetchPurchaseRequisitions(activeProfitCenter.id),
       ]);
       setPos(list);
       setSuppliers(sup.filter((s) => s.isActive));
       setMaterials(mats.filter((m) => m.isActive));
+      setStockLocations(locs.filter((l) => l.isActive));
       setCurrencies(cur);
       setApprovedPrs(prs.filter((p) => p.status === "approved"));
     } catch (e) {
@@ -268,6 +279,71 @@ export function POTab() {
       await load();
     } catch (e) {
       toast({ title: "Transition failed", description: e instanceof Error ? e.message : "", variant: "destructive" });
+    }
+  };
+
+  const openReceive = (line: PoLine) => {
+    setReceiveLine(line);
+    const remaining = Math.max(0, line.qtyOrdered - line.qtyReceived);
+    setReceiveQty(remaining > 0 ? String(remaining) : "");
+    setReceiveLocation(stockLocations[0]?.id ?? "");
+    setReceiveNotes("");
+  };
+
+  const handleReceive = async () => {
+    if (!receiveLine || !detailFor || !activeProfitCenter || !session?.user) return;
+    const qty = Number(receiveQty);
+    if (!Number.isFinite(qty) || qty <= 0) {
+      toast({ title: "Quantity must be > 0", variant: "destructive" });
+      return;
+    }
+    setReceiving(true);
+    try {
+      const result = await receivePoLine({
+        poLineId: receiveLine.id,
+        profitCenterId: activeProfitCenter.id,
+        materialId: receiveLine.materialId,
+        stockLocationId: receiveLocation,
+        quantity: qty,
+        unitCost: receiveLine.unitCost,
+        poId: detailFor.id,
+        notes: receiveNotes.trim() || null,
+        createdBy: session.user.id,
+      });
+
+      // Refresh lines, then auto-advance PO header status if appropriate.
+      const fresh = await fetchPoLines(detailFor.id);
+      setDetailLines(fresh);
+
+      const allComplete = fresh.every((l) => l.qtyReceived + 1e-6 >= l.qtyOrdered);
+      const anyPartial = fresh.some((l) => l.qtyReceived > 0);
+
+      if (allComplete && detailFor.status !== "received" && detailFor.status !== "closed") {
+        await transitionPurchaseOrder({
+          poId: detailFor.id,
+          fromStatus: detailFor.status,
+          toStatus: "received",
+          actorUserId: session.user.id,
+        });
+      } else if (anyPartial && detailFor.status === "acknowledged") {
+        await transitionPurchaseOrder({
+          poId: detailFor.id,
+          fromStatus: detailFor.status,
+          toStatus: "partially_received",
+          actorUserId: session.user.id,
+        });
+      }
+
+      toast({
+        title: result.lineComplete ? "Line fully received" : "Receipt posted",
+        description: `${qty} added to inventory.`,
+      });
+      setReceiveLine(null);
+      await load();
+    } catch (e) {
+      toast({ title: "Receipt failed", description: e instanceof Error ? e.message : "", variant: "destructive" });
+    } finally {
+      setReceiving(false);
     }
   };
 
@@ -492,24 +568,42 @@ export function POTab() {
                   <TableHeader>
                     <TableRow>
                       <TableHead>Material</TableHead>
-                      <TableHead>Ordered</TableHead>
-                      <TableHead>Received</TableHead>
+                      <TableHead className="text-right">Ordered</TableHead>
+                      <TableHead className="text-right">Received</TableHead>
                       <TableHead>UoM</TableHead>
-                      <TableHead>Unit cost</TableHead>
-                      <TableHead>Line total</TableHead>
+                      <TableHead className="text-right">Unit cost</TableHead>
+                      <TableHead className="text-right">Line total</TableHead>
+                      <TableHead className="text-right">Receive</TableHead>
                     </TableRow>
                   </TableHeader>
                   <TableBody>
                     {detailLines.map((l) => {
                       const m = materialMap.get(l.materialId);
+                      const remaining = Math.max(0, l.qtyOrdered - l.qtyReceived);
+                      const canReceive =
+                        remaining > 0 &&
+                        (detailFor.status === "acknowledged" ||
+                          detailFor.status === "partially_received" ||
+                          detailFor.status === "sent");
                       return (
                         <TableRow key={l.id}>
                           <TableCell>{m ? `${m.code} — ${m.name}` : l.materialId.slice(0, 8)}</TableCell>
-                          <TableCell>{l.qtyOrdered}</TableCell>
-                          <TableCell>{l.qtyReceived}</TableCell>
+                          <TableCell className="text-right">{l.qtyOrdered}</TableCell>
+                          <TableCell className="text-right">{l.qtyReceived}</TableCell>
                           <TableCell>{l.uom}</TableCell>
-                          <TableCell>{l.unitCost}</TableCell>
-                          <TableCell>{(l.qtyOrdered * l.unitCost).toLocaleString()}</TableCell>
+                          <TableCell className="text-right">{l.unitCost}</TableCell>
+                          <TableCell className="text-right">{(l.qtyOrdered * l.unitCost).toLocaleString()}</TableCell>
+                          <TableCell className="text-right">
+                            {canReceive ? (
+                              <Button size="sm" variant="outline" onClick={() => openReceive(l)}>
+                                <PackagePlus className="mr-1 h-3 w-3" /> {remaining}
+                              </Button>
+                            ) : (
+                              <span className="text-xs text-muted-foreground">
+                                {remaining === 0 ? "Done" : "—"}
+                              </span>
+                            )}
+                          </TableCell>
                         </TableRow>
                       );
                     })}
@@ -530,11 +624,10 @@ export function POTab() {
                 {detailFor.status === "sent" && (
                   <Button onClick={() => void transition("acknowledged")}>Mark acknowledged</Button>
                 )}
-                {detailFor.status === "acknowledged" && (
-                  <Button onClick={() => void transition("partially_received")}>Partial receipt</Button>
-                )}
-                {detailFor.status === "partially_received" && (
-                  <Button onClick={() => void transition("received")}>Fully received</Button>
+                {(detailFor.status === "acknowledged" || detailFor.status === "partially_received") && (
+                  <span className="text-xs text-muted-foreground">
+                    Use the <strong>Receive</strong> button on each line to post receipts. Status updates automatically.
+                  </span>
                 )}
                 {detailFor.status === "received" && (
                   <Button onClick={() => void transition("closed")}>Close PO</Button>
@@ -547,6 +640,69 @@ export function POTab() {
                 {(detailFor.status === "closed" || detailFor.status === "cancelled") && (
                   <span className="text-sm text-muted-foreground">No further actions for this PO.</span>
                 )}
+              </DialogFooter>
+            </>
+          )}
+        </DialogContent>
+      </Dialog>
+
+      {/* Receive line dialog */}
+      <Dialog open={Boolean(receiveLine)} onOpenChange={(o) => !o && setReceiveLine(null)}>
+        <DialogContent className="max-w-md">
+          {receiveLine && (
+            <>
+              <DialogHeader>
+                <DialogTitle>Receive PO line</DialogTitle>
+              </DialogHeader>
+              <div className="space-y-3 text-sm">
+                <div className="rounded-md border border-border bg-muted/30 p-3">
+                  <div className="font-medium">
+                    {materialMap.get(receiveLine.materialId)?.code ?? receiveLine.materialId.slice(0, 8)}
+                  </div>
+                  <div className="text-xs text-muted-foreground">
+                    Ordered {receiveLine.qtyOrdered} {receiveLine.uom} · Already received {receiveLine.qtyReceived} ·
+                    Remaining {Math.max(0, receiveLine.qtyOrdered - receiveLine.qtyReceived)}
+                  </div>
+                </div>
+                <div>
+                  <Label>Quantity to receive *</Label>
+                  <Input
+                    type="number"
+                    min="0"
+                    step="0.01"
+                    value={receiveQty}
+                    onChange={(e) => setReceiveQty(e.target.value)}
+                  />
+                </div>
+                <div>
+                  <Label>Stock location *</Label>
+                  <Select value={receiveLocation} onValueChange={setReceiveLocation}>
+                    <SelectTrigger><SelectValue placeholder="Select location" /></SelectTrigger>
+                    <SelectContent>
+                      {stockLocations.map((l) => (
+                        <SelectItem key={l.id} value={l.id}>{l.code} — {l.name}</SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                  {stockLocations.length === 0 && (
+                    <p className="mt-1 text-xs text-destructive">
+                      No active stock locations configured. Add one in Inventory settings.
+                    </p>
+                  )}
+                </div>
+                <div>
+                  <Label>Notes</Label>
+                  <Input value={receiveNotes} onChange={(e) => setReceiveNotes(e.target.value)} maxLength={255} />
+                </div>
+              </div>
+              <DialogFooter>
+                <Button variant="outline" onClick={() => setReceiveLine(null)}>Cancel</Button>
+                <Button
+                  onClick={() => void handleReceive()}
+                  disabled={receiving || !receiveLocation || !receiveQty}
+                >
+                  {receiving ? "Posting…" : "Post receipt"}
+                </Button>
               </DialogFooter>
             </>
           )}
