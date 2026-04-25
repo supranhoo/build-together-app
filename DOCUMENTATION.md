@@ -334,3 +334,16 @@ SteelFlow ERP now uses a configuration-first workspace foundation for steel and 
 
 ## Version History
 - 2026-04-25 (Phase 19): Production KPI strip on PortalProduction reading SSOT (`heat_logs` + `heat_metallurgy`); new `production-rollups.ts` lib + 7 tests; FAD entry remains the single metallurgical entry surface, linked from the strip. No new tables, no forked schema, no UI changes to existing tabs/dialog.
+
+## Data Entry parity audit vs. external Production.tsx reference (Phase 19.1)
+The user-supplied `Production.tsx` reference was reviewed for any Data Entry capability missing from the existing PortalProduction Dialog. Result: **no code changes required** — the current Dialog already meets or exceeds the reference. Mapping below is the source of truth for future requests; do not duplicate any of these into a new surface.
+
+| Reference field/section | Current implementation (SSOT) |
+|---|---|
+| Manganese Ore Feed multi-row (Item, Qty MT, Mn%, Fe%, Moisture%) | Existing consumption rows in Dialog: `material_consumption` rows keyed to `heat_log_id`. Mn%/Fe%/Moisture% are NOT re-entered per heat — they live on `materials.specs` and `grn_logs` (per-receipt assay) and are the SSOT. Re-entering them per heat is forbidden under §5/§10. |
+| Power Cons. (kWh) / Avg Load (MW) | `heat_metallurgy.furnace_power_mwh`, `tapping_power_mwh`, `aux_power_mwh`, `avg_power_factor`. Already captured. |
+| Output (Alloy/Slag/Dust qty + grades) | `heat_metallurgy.fg_mn_pct`, `slag_qty_mt`, `slag_mno_pct`, `dust_qty_mt`, `dust_mn_pct`. Already captured. |
+| Yield / Recovery / Mn Balance | Live sidebar in Dialog via `mnBalance()` in `src/lib/ferro-alloys.ts`; threshold alerts via `production-alerts.ts` reading `profit_center_settings.production.alerts`. |
+| Heat No / Furnace / Shift / Tap time | `heat_logs` (Phase 16 schema). Already captured. |
+
+No new fields, no new tables, no new tabs, no wizard inside Data Entry. The reference's `productionService` / `production_logs` / `material_issues` tables are explicitly NOT ported (would fork SSOT — rejected in Phase 19 decision).
