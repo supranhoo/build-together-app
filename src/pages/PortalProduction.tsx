@@ -19,6 +19,10 @@ import {
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
 import { Trash2 } from "lucide-react";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import PortalProductionHeatwise from "./PortalProductionHeatwise";
+import PortalProductionFurnaceSummary from "./PortalProductionFurnaceSummary";
+import PortalProductionMonthly from "./PortalProductionMonthly";
 import { useWorkspace } from "@/hooks/use-workspace";
 import { useAuth } from "@/hooks/use-auth";
 import { useToast } from "@/hooks/use-toast";
@@ -250,6 +254,15 @@ export default function PortalProduction() {
 
   return (
     <div className="space-y-6">
+      <Tabs defaultValue="data-entry">
+        <TabsList className="flex h-auto w-full flex-wrap justify-start gap-1 bg-muted/50 p-1">
+          <TabsTrigger value="data-entry" className="data-[state=active]:bg-primary data-[state=active]:text-primary-foreground">Data Entry</TabsTrigger>
+          <TabsTrigger value="heatwise" className="data-[state=active]:bg-primary data-[state=active]:text-primary-foreground">Heat-wise View</TabsTrigger>
+          <TabsTrigger value="furnace" className="data-[state=active]:bg-primary data-[state=active]:text-primary-foreground">Furnace Summary</TabsTrigger>
+          <TabsTrigger value="monthly" className="data-[state=active]:bg-primary data-[state=active]:text-primary-foreground">Monthly Summary</TabsTrigger>
+        </TabsList>
+
+        <TabsContent value="data-entry" className="mt-4">
       <Card className="border-border bg-card shadow-panel">
         <CardHeader className="flex flex-row items-center justify-between gap-4">
           <CardTitle>Heat logs — {activeProfitCenter.name}</CardTitle>
@@ -506,6 +519,18 @@ export default function PortalProduction() {
           </AlertDialog>
         </CardContent>
       </Card>
+        </TabsContent>
+
+        <TabsContent value="heatwise" className="mt-4">
+          <PortalProductionHeatwise />
+        </TabsContent>
+        <TabsContent value="furnace" className="mt-4">
+          <PortalProductionFurnaceSummary />
+        </TabsContent>
+        <TabsContent value="monthly" className="mt-4">
+          <PortalProductionMonthly />
+        </TabsContent>
+      </Tabs>
     </div>
   );
 }

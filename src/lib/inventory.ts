@@ -260,6 +260,43 @@ export async function fetchConsumptionForHeat(heatLogId: string): Promise<Array<
   }));
 }
 
+export interface WorkspaceConsumption {
+  id: string;
+  heatLogId: string;
+  materialId: string;
+  stockLocationId: string;
+  quantity: number;
+  createdAt: string;
+}
+
+/**
+ * Fetch all consumption rows for a workspace (optionally bounded by date) so
+ * we can roll up by heat / furnace / month without N+1 queries.
+ */
+export async function fetchWorkspaceConsumption(
+  profitCenterId: string,
+  range?: { from?: string; to?: string },
+): Promise<WorkspaceConsumption[]> {
+  let q = client
+    .from("material_consumption")
+    .select("id, heat_log_id, material_id, stock_location_id, quantity, created_at")
+    .eq("profit_center_id", profitCenterId)
+    .order("created_at", { ascending: false })
+    .limit(1000);
+  if (range?.from) q = q.gte("created_at", range.from);
+  if (range?.to) q = q.lte("created_at", range.to);
+  const { data, error } = await q;
+  if (error) throw error;
+  return (data ?? []).map((r: any) => ({
+    id: r.id,
+    heatLogId: r.heat_log_id,
+    materialId: r.material_id,
+    stockLocationId: r.stock_location_id,
+    quantity: Number(r.quantity),
+    createdAt: r.created_at,
+  }));
+}
+
 // ---------- STOCK CALCULATION ----------
 /**
  * Compute stock balances per (material, location) from ledger entries.

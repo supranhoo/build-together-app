@@ -164,3 +164,15 @@
 ## Policy Change Log
 - 2026-04-25: Phase 14 — added Admin User Profile Governance (admin-edit limited to display_name/department/job_title; scope enforced via existing `can_view_profile` helper; mandatory `profile.updated` audit; admin self-edit must use self-update policy; user creation/role/deactivation explicitly out of scope).
 - 2026-04-25: Phase 15 — added Theme Preference Governance (day/night is a per-device localStorage preference, presentation-layer only, no DB writes, no audit; default follows OS).
+
+## Ferro Alloys Governance (Phase 16)
+- **GRN immutability**: Once a `grn_logs` row is inserted, its quality fields (`mn_pct`, `fe_pct`, `moisture_pct`, `vendor`, `invoice_no`) MUST NOT be updated or deleted. Quality corrections require a new offsetting `inventory_ledger` adjustment + a new `grn_logs` row referencing it. Enforced by RLS (no update/delete policy on `grn_logs`).
+- **Cost rates remain append-only**: `cost_rates` is the authoritative price source. Costing always reads the rate effective on the consumption date via `latestRateOn(rates, materialId, onDate)`. No edits, no deletes — supersession via a new effective-from row.
+- **Recovery formulas are authoritative**: `mnInput`, `mnOutput`, `recoveryPct`, `slagMn` in `src/lib/ferro-alloys.ts` are the single source of truth for Mn metallurgy. UI MUST NOT recompute these inline. Material Mn% / Moisture% MUST be read from `materials.specs` keys `mn_pct` / `moisture_pct`; ad-hoc constants are forbidden.
+- **Costing inputs are dynamic**: Power rate (`costing.power_rate_per_mwh`) and fixed cost (`costing.fixed_cost_per_day`) MUST come from `profit_center_settings`. Hardcoding any rate, target grade, or stoichiometric factor outside `src/lib/ferro-alloys.ts` and `src/lib/costing.ts` is forbidden.
+- **Min-Max thresholds (`min_level`, `max_level`, `reorder_level` on `materials`)** are admin-only fields. Operators see alerts; they do not change thresholds. RLS already restricts material updates to `can_manage_profit_center`.
+- **Voided heats excluded everywhere**: Furnace summary, Monthly rollup, Heat-wise view, and Costing all MUST exclude `is_voided = true`. KPI engine already does this; new aggregations follow the same rule.
+- **Excel export is read-only**: `exportRows` writes the currently-loaded, filtered view. It MUST NOT trigger fresh fetches with broader scope or bypass RLS — what the user sees on screen is what they download.
+
+## Policy Change Log
+- 2026-04-25: Phase 16 — added Ferro Alloys Governance (GRN immutability; cost rates remain append-only; recovery formulas authoritative in `ferro-alloys.ts`; costing inputs from `profit_center_settings`; min-max thresholds admin-only; voided heats excluded from all aggregations; Excel export is read-only).

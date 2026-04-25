@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { Link } from "react-router-dom";
-import { ArrowDown, ArrowRight, ArrowUp, BarChart3, Factory, Gauge, MapPin, Pin, Users, Warehouse } from "lucide-react";
+import { AlertTriangle, ArrowDown, ArrowRight, ArrowUp, BarChart3, Factory, Gauge, MapPin, Pin, Users, Warehouse } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -18,6 +18,9 @@ import {
   type KpiDefinition,
   type KpiPin,
 } from "@/lib/reporting";
+import { computeStockBalances, fetchLedger } from "@/lib/inventory";
+import { fetchMasterItems, type MasterItem } from "@/lib/master-data";
+import { classifyStockStatus } from "@/lib/inventory-min-max";
 
 interface PinnedKpiCard {
   pin: KpiPin;
@@ -32,6 +35,7 @@ export default function PortalOverview() {
   const [pinned, setPinned] = useState<PinnedKpiCard[]>([]);
   const [pinnedLoading, setPinnedLoading] = useState(false);
   const [reordering, setReordering] = useState(false);
+  const [lowStockCount, setLowStockCount] = useState<number | null>(null);
   const workspaceCardRef = useRef<HTMLDivElement | null>(null);
   const modulesGridRef = useRef<HTMLDivElement | null>(null);
 
@@ -76,6 +80,40 @@ export default function PortalOverview() {
     })();
     return () => { cancelled = true; };
   }, [activeProfitCenter, session?.user?.id]);
+
+  // Surface min-max alerts on Overview (read-only count; details on Inventory tab).
+  useEffect(() => {
+    if (!activeProfitCenter) {
+      setLowStockCount(null);
+      return;
+    }
+    let cancelled = false;
+    (async () => {
+      try {
+        const [items, ledger] = await Promise.all([
+          fetchMasterItems(activeProfitCenter.id),
+          fetchLedger(activeProfitCenter.id),
+        ]);
+        if (cancelled) return;
+        const balances = computeStockBalances(ledger);
+        const count = items.reduce((acc, item) => {
+          const qty = balances
+            .filter((b) => b.materialId === item.id)
+            .reduce((s, b) => s + b.quantity, 0);
+          const status = classifyStockStatus(qty, {
+            minLevel: item.minLevel,
+            maxLevel: item.maxLevel,
+            reorderLevel: item.reorderLevel,
+          });
+          return status === "below_min" || status === "reorder" ? acc + 1 : acc;
+        }, 0);
+        setLowStockCount(count);
+      } catch {
+        if (!cancelled) setLowStockCount(null);
+      }
+    })();
+    return () => { cancelled = true; };
+  }, [activeProfitCenter]);
 
   const { personalCards, sharedCards } = useMemo(() => {
     const split = splitPinsByScope(pinned.map((c) => c.pin));
@@ -253,6 +291,25 @@ export default function PortalOverview() {
           </CardContent>
         </Card>
       </section>
+
+      {activeProfitCenter && lowStockCount !== null && lowStockCount > 0 && (
+        <Card className="border-destructive/40 bg-destructive/5">
+          <CardContent className="flex items-center justify-between gap-4 p-4">
+            <div className="flex items-center gap-3">
+              <div className="rounded-md bg-destructive/15 p-2 text-destructive">
+                <AlertTriangle className="h-5 w-5" />
+              </div>
+              <div>
+                <p className="text-sm font-semibold">{lowStockCount} item{lowStockCount === 1 ? "" : "s"} need attention</p>
+                <p className="text-xs text-muted-foreground">Stock at or below reorder / minimum thresholds.</p>
+              </div>
+            </div>
+            <Button asChild size="sm" variant="outline">
+              <Link to="/portal/inventory/min-max">Review Min-Max</Link>
+            </Button>
+          </CardContent>
+        </Card>
+      )}
 
       <section className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
         {metrics.map((item) => (
