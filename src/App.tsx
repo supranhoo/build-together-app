@@ -31,7 +31,6 @@ import AdminKpis from "./pages/AdminKpis";
 import AdminReportDeliveries from "./pages/AdminReportDeliveries";
 import ModulePlaceholder from "./pages/ModulePlaceholder";
 import PortalProduction from "./pages/PortalProduction";
-import PortalProductionFAD from "./pages/PortalProductionFAD";
 import PortalInventory from "./pages/PortalInventory";
 import PortalInventoryDashboard from "./pages/PortalInventoryDashboard";
 import PortalInventoryStock from "./pages/PortalInventoryStock";
@@ -67,7 +66,6 @@ const App = () => (
                   <Route path="/portal" element={<PortalShell />}>
                     <Route index element={<PortalOverview />} />
                     <Route path="production" element={<PortalProduction />} />
-                    <Route path="production-fad" element={<PortalProductionFAD />} />
                     <Route path="inventory" element={<PortalInventory />}>
                       <Route index element={<PortalInventoryDashboard />} />
                       <Route path="stock" element={<PortalInventoryStock />} />
