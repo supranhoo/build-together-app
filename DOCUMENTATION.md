@@ -380,5 +380,12 @@ SteelFlow ERP now uses a configuration-first workspace foundation for steel and 
 - Bulk-void inline UI is no longer reachable from the Production page. RPC `bulk_void_heat_logs` and the underlying `void_heat_log` flow remain available; they need a new surface (or restoring a void action inside the Heat list within Furnace/Monthly tabs) to be operator-accessible. Logged as a known gap.
 - Tests: no test changes; suite at **167 passing**.
 
+## "Production Entry – FAD" removed from sidebar (Phase 24)
+- The static portal nav entry **"Production Entry – FAD"** (→ `/portal/production-fad`) was removed from `portalStaticNavItems` in `src/components/PortalShell.tsx` at user request.
+- The route `/portal/production-fad` and the page component `PortalProductionFAD` are **unchanged**; deep links continue to work and the embedded **FAD Entry** tab inside `/portal/production` remains the canonical entry surface.
+- Sidebar now contains only: **Overview** plus the dynamic module entries.
+- Tests: route-audit test in `src/test/example.test.tsx` already iterates `portalStaticNavItems`; shrinking the array does not break it. Suite expected to remain at **167 passing**.
+
 ## Version History
 - 2026-04-25 (Phase 23): Removed Heat-wise View tab and the Heat-logs management Card it contained. Default tab is FAD Entry. Heat-log CRUD via the legacy Dialog is gone; FAD wizard is the sole heat-entry surface. Bulk-void surface lost (RPC retained). Suite still 167 passing.
+- 2026-04-25 (Phase 24): Removed "Production Entry – FAD" sidebar entry. Route + page + embedded FAD Entry tab untouched. Pure nav-only change.
