@@ -347,3 +347,23 @@ The user-supplied `Production.tsx` reference was reviewed for any Data Entry cap
 | Heat No / Furnace / Shift / Tap time | `heat_logs` (Phase 16 schema). Already captured. |
 
 No new fields, no new tables, no new tabs, no wizard inside Data Entry. The reference's `productionService` / `production_logs` / `material_issues` tables are explicitly NOT ported (would fork SSOT — rejected in Phase 19 decision).
+
+## Production module surface reduction (Phase 19.2 — 2026-04-25)
+Per user instruction, PortalProduction is now **Data Entry only**. Removed surfaces:
+
+| Removed | Reason | Disposition of artifacts |
+|---|---|---|
+| `/portal/production-fad` route + `src/pages/PortalProductionFAD.tsx` | Single entry surface — Data Entry Dialog covers all metallurgical fields. | File deleted. Route + import removed from `src/App.tsx`. Nav entry removed from `portalStaticNavItems` in `src/components/PortalShell.tsx`. |
+| Heat-wise / Furnace Summary / Monthly Summary tabs in PortalProduction | User scope reduction. | Sibling pages `PortalProductionHeatwise.tsx`, `PortalProductionFurnaceSummary.tsx`, `PortalProductionMonthly.tsx` deleted. |
+| FAD KPI link card (4th card in the strip) | Linked to a route that no longer exists. | Card removed; KPI strip now `lg:grid-cols-3`. |
+| `src/lib/production-entry-fad.ts`, `src/lib/production-formulas.ts` | Used only by the removed FAD page. | Deleted. Test `src/test/production-entry-fad.test.ts` deleted. |
+| `rollupByMonth` lived inside `PortalProductionMonthly.tsx` | Page deleted but the pure function was tested. | Moved into `src/lib/production-rollups.ts` (the rollup library). Existing 4 tests in `src/test/production-monthly.test.ts` updated to import from the lib — all green. |
+
+What remains in `/portal/production`:
+- KPI strip (3 cards: Total Production, Avg Recovery, Avg kWh/MT) — still derived from SSOT.
+- Data Entry surface: heat-log table + filter bar + bulk void + the existing Dialog (heat fields, optional consumption rows, optional metallurgy with live Mn balance and threshold alerts).
+
+Tests after the reduction: **153/153 passing** (was 160 — net −7: deleted 8 FAD-only tests, kept the 4 monthly-rollup tests, kept the 7 production-rollups tests).
+
+### Version History
+- 2026-04-25 (Phase 19.2): Removed `/portal/production-fad` page, route, nav entry, FAD KPI card, and Heat-wise / Furnace / Monthly tabs from PortalProduction. PortalProduction is now Data Entry only. `rollupByMonth` migrated from the deleted Monthly page to `src/lib/production-rollups.ts`. Deleted libs: `production-entry-fad.ts`, `production-formulas.ts`. Net: −5 page files, −2 lib files, −1 test file, +1 lib function. 153/153 tests pass.
