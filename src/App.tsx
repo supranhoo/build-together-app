@@ -29,6 +29,7 @@ import AdminMaterials from "./pages/AdminMaterials";
 import AdminStockLocations from "./pages/AdminStockLocations";
 import AdminKpis from "./pages/AdminKpis";
 import AdminReportDeliveries from "./pages/AdminReportDeliveries";
+import AdminProcurement from "./pages/AdminProcurement";
 import ModulePlaceholder from "./pages/ModulePlaceholder";
 import PortalProduction from "./pages/PortalProduction";
 import PortalProductionFAD from "./pages/PortalProductionFAD";
