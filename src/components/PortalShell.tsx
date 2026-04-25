@@ -176,7 +176,7 @@ export function PortalShell() {
         )}
       >
         <div className="flex h-20 items-center justify-between border-b border-sidebar-border px-5">
-          <BFCLLogo className={cn("transition-all", sidebarOpen ? "w-40" : "w-10")} theme="dark" iconOnly={!sidebarOpen} />
+          <BFCLLogo className={cn("transition-all", sidebarOpen ? "w-40" : "w-10")} theme={logoTheme} iconOnly={!sidebarOpen} />
           {sidebarOpen && (
             <Button variant="ghost" size="icon" className="text-sidebar-foreground hover:bg-sidebar-accent" onClick={() => setSidebarOpen(false)} aria-label="Collapse sidebar">
               <Menu />
@@ -209,7 +209,7 @@ export function PortalShell() {
                 </SheetTrigger>
                 <SheetContent side="left" className="w-72 border-r border-sidebar-border bg-sidebar p-0 text-sidebar-foreground">
                   <div className="flex h-20 items-center border-b border-sidebar-border px-5">
-                    <BFCLLogo className="w-40" theme="dark" />
+                    <BFCLLogo className="w-40" theme={logoTheme} />
                   </div>
                   <div className="flex-1 overflow-y-auto px-3 py-5">
                     {workspaceCard(false)}
@@ -264,6 +264,7 @@ export function PortalShell() {
               >
                 <ClipboardList className="h-4 w-4" />
               </Button>
+              <ThemeToggle />
               <Button variant="ghost" size="icon" className="relative h-11 w-11 rounded-full border border-border bg-panel" aria-label="Notifications">
                 <Bell className="h-5 w-5" />
                 <span className="absolute right-3 top-3 h-2 w-2 rounded-full bg-accent" />
