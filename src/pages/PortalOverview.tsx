@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { Link } from "react-router-dom";
-import { ArrowDown, ArrowRight, ArrowUp, BarChart3, Factory, Gauge, MapPin, Pin, Users, Warehouse } from "lucide-react";
+import { AlertTriangle, ArrowDown, ArrowRight, ArrowUp, BarChart3, Factory, Gauge, MapPin, Pin, Users, Warehouse } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -18,6 +18,9 @@ import {
   type KpiDefinition,
   type KpiPin,
 } from "@/lib/reporting";
+import { computeStockBalances, fetchLedger } from "@/lib/inventory";
+import { fetchMasterItems, type MasterItem } from "@/lib/master-data";
+import { classifyStockStatus } from "@/lib/inventory-min-max";
 
 interface PinnedKpiCard {
   pin: KpiPin;
