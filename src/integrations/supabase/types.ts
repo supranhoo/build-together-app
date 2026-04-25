@@ -189,6 +189,48 @@ export type Database = {
           },
         ]
       }
+      grn_logs: {
+        Row: {
+          created_at: string
+          created_by: string
+          fe_pct: number | null
+          id: string
+          inventory_ledger_id: string
+          invoice_no: string | null
+          mn_pct: number | null
+          moisture_pct: number | null
+          notes: string | null
+          profit_center_id: string
+          vendor: string | null
+        }
+        Insert: {
+          created_at?: string
+          created_by: string
+          fe_pct?: number | null
+          id?: string
+          inventory_ledger_id: string
+          invoice_no?: string | null
+          mn_pct?: number | null
+          moisture_pct?: number | null
+          notes?: string | null
+          profit_center_id: string
+          vendor?: string | null
+        }
+        Update: {
+          created_at?: string
+          created_by?: string
+          fe_pct?: number | null
+          id?: string
+          inventory_ledger_id?: string
+          invoice_no?: string | null
+          mn_pct?: number | null
+          moisture_pct?: number | null
+          notes?: string | null
+          profit_center_id?: string
+          vendor?: string | null
+        }
+        Relationships: []
+      }
       heat_log_events: {
         Row: {
           action: string

@@ -1,87 +1,104 @@
+## Ferro Alloys Division — Build Plan (Phase 2)
 
-# Master Data Configuration — Pushback + Scoped Plan
+This builds on the existing SSOT (Production heat logs, Inventory ledger, Master Data, Furnaces, Materials, Shifts, KPIs). No existing tables are duplicated; all new data is profit-center scoped with RLS.
 
-Per project rules (Simplicity First, Surgical Changes, Pushback Protocol), I'm halting the literal request and proposing a compliant alternative. Please read before approving.
+### What already exists (kept as-is)
+- `heat_logs` + `material_consumption` (heat-linked) — Production
+- `inventory_ledger` (receipts/consumption/adjustments/transfers) — Inventory
+- `materials` (with `type`, `group_name`, `std_cost`, `min_level`, `max_level`, `reorder_level`, `specs` jsonb) — Master
+- `cost_rates` (date-effective, append-only) — Master
+- `furnaces` (with `machine_type`, `power_rating_kw`)
+- KPI engine + Reports page
 
-## Why I'm pushing back
+### New scope (this phase)
 
-The request asks for 12 new master-data modules in a single build. Several **already exist** in this codebase and would be duplicated, breaking SSOT — the very principle the request is asking us to enforce.
+#### 1. Database (one migration)
+- **`grn_logs`** — header for receipts that need quality data
+  - `id, profit_center_id, inventory_ledger_id (uuid, unique), vendor text, invoice_no text, mn_pct numeric, fe_pct numeric, moisture_pct numeric, created_by, created_at`
+  - RLS: select via `has_profit_center_access`; insert by users with `inventory.receipt`; admins manage. No update/delete.
+- **`profit_center_settings`** rows for `costing.power_rate_per_mwh` and `costing.fixed_cost_per_day` (uses existing table — no schema change).
+- No other schema changes. Min/max already on `materials`.
 
-Existing infrastructure that would be duplicated:
+#### 2. Inventory restructure (existing `PortalInventory` becomes a 7-tab host)
+Tabs (route children under `/portal/inventory/...`):
+- `dashboard` — KPI cards (stock value, items below min, today receipts/issues), low-stock alerts table.
+- `stock-ledger` — replaces existing default; keeps current stock-on-hand table + filters.
+- `grn` — list of receipts joined with `grn_logs`; "New GRN" dialog adds quality fields and writes both rows in one transaction (RPC).
+- `issue` — non-heat consumption/issue dialog (movement_type=`consumption`, reference_type=`manual_issue`).
+- `transfers` — paired `transfer_out`/`transfer_in` between locations via RPC.
+- `min-max` — table of materials with current stock vs min/max/reorder; inline edit thresholds (already supported by master).
+- `reports` — links + Excel export buttons (see #6).
 
-| Requested module | Already exists as |
-|---|---|
-| Furnace / Machine Master | `AdminFurnaces` + `furnaces` table |
-| Location & Warehouse | `AdminStockLocations` + `stock_locations` table |
-| Master KPIs | `AdminKpis` + `kpi_definitions` table |
-| Stock Config (min/max/reorder) | partially via `profit_center_settings` |
-| Validation Rules | `permission_grants` already governs configurable rules |
+Stock valuation: `stock_value = qty × latest cost_rate (effective <= today)` computed client-side from existing fetches.
 
-Building parallel "Item Master", "Furnace Master", "Location Master" tables alongside `materials`, `furnaces`, `stock_locations` would:
-- Break SSOT (two truths for the same entity)
-- Break existing Production / Inventory / KPI flows that read from current tables
-- Violate "Zero-Hardcoding" by hardcoding a second master schema
+#### 3. Production additions
+- **`heatwise-view` tab** in `PortalProduction`: groups `material_consumption` by `heat_log_id`, shows materials, qty, UOM, location.
+- **Furnace summary tab**: per-furnace heats, total weight MT, total power MWh, avg recovery (current period).
+- **Monthly summary tab**: by-month rollup from heat_logs.
+- New `src/lib/ferro-alloys.ts` with pure functions:
+  - `mnInput(rows, materials)` = Σ(qty × Mn% × (1 − Moisture%)) using `materials.specs` jsonb keys `mn_pct`, `moisture_pct`
+  - `mnOutput(productionMt, gradeMnPct)` = production × Mn%
+  - `recoveryPct(input, output)` with divide-by-zero guard
+  - `slagMn(slagQty, mnoPct)` = (slagQty × mnoPct) / 1.29
 
-Also: the prompt references "exactly matching the provided UI / screenshot" but **no screenshot is attached** to this conversation. I cannot match a UI I cannot see.
+#### 4. Costing Engine (new page `PortalCosting`, route `/portal/costing`)
+Inputs (no hardcoding):
+- Material consumption from `material_consumption` filtered by date + furnace.
+- Rates from `cost_rates` (latest effective per material).
+- Power MWh from `heat_logs.power_mwh` × `costing.power_rate_per_mwh` setting.
+- Fixed cost from `costing.fixed_cost_per_day` setting × days in range.
+- Production from `heat_logs.weight_mt`.
 
-## What I propose instead
+Outputs (date + furnace filters, table + KPI cards):
+- Material cost, Conversion cost, Total cost
+- Cost / MT = Total / Production
+- Cost / Mn % = (Cost/MT) / (avg grade Mn% / 100), with admin-set target grade in `profit_center_settings`
+- Variance vs target (target stored in settings)
 
-Treat the request as: **"extend the existing master data layer to cover the missing concepts, and group them under one Master Data tab."** This delivers the same business outcome (centralized SSOT) without duplication.
+Pure logic in `src/lib/costing.ts` with full unit tests.
 
-### Proposed scope — Phase 1 only (this approval)
+#### 5. Min-Max alerts surfaced on Portal Overview
+- New small section: count of materials below `min_level` per workspace (read from existing `materials` + `inventory_ledger` sums).
 
-Add **only the genuinely missing concepts**, reusing every existing table:
+#### 6. Excel export
+- Add `xlsx` dependency.
+- New `src/lib/excel-export.ts` with `exportRows(filename, sheets)`.
+- Buttons on Reports + Inventory/Reports tab + Costing page → exports current filtered view.
 
-1. **Extend `materials`** with the columns the prompt actually needs that don't exist yet:
-   - `type` enum: `RM | FG | WIP | Consumable` (today only `category` text exists)
-   - `group_name`, `subgroup` (text)
-   - `std_cost` numeric
-   - `specs` jsonb (Mn/Fe/Si/Moisture/Ash etc. — free-form per item)
-   - `min_level`, `max_level`, `reorder_level` numeric
-   - Keep existing `code`, `name`, `uom`, `is_active`, `profit_center_id` — no rename, no breakage to Inventory/Production.
+#### 7. Tests (mandatory per Policy §11)
+- `src/test/ferro-alloys.test.ts` — recovery, slag Mn, edge cases (zero, missing specs)
+- `src/test/costing.test.ts` — material/conversion/total/per-MT/per-Mn, divide-by-zero, no-rate-found
+- `src/test/grn.test.ts` — GRN insert payload shape, quality validation
+- `src/test/inventory-min-max.test.ts` — alert classification
+- Existing 98 tests must continue to pass.
 
-2. **New table `material_groups`** (workspace-scoped) for the Group & Hierarchy tab (parent + subgroup). RLS mirrors `materials`.
+#### 8. Documentation (Policy §5 — atomic with code)
+- `DOCUMENTATION.md`: new "Ferro Alloys" section covering Costing, GRN, Heat-wise, Min-Max, Excel export, settings keys.
+- `POLICY.md` Phase 16: cost rates remain append-only; GRN quality immutable after insert; min-max thresholds editable by admins only; Mn recovery formulas authoritative.
 
-3. **New table `uom_conversions`** (workspace-scoped): `from_uom`, `to_uom`, `factor`. RLS mirrors `materials`.
+### Files to create
+- `supabase/migrations/<ts>_grn_logs.sql`
+- `src/lib/ferro-alloys.ts`, `src/lib/costing.ts`, `src/lib/excel-export.ts`, `src/lib/grn.ts`
+- `src/pages/PortalCosting.tsx`
+- `src/pages/PortalInventoryDashboard.tsx`, `PortalInventoryGrn.tsx`, `PortalInventoryIssue.tsx`, `PortalInventoryTransfers.tsx`, `PortalInventoryMinMax.tsx`, `PortalInventoryReports.tsx`
+- `src/pages/PortalProductionHeatwise.tsx`, `PortalProductionFurnaceSummary.tsx`, `PortalProductionMonthly.tsx`
+- 4 test files above
 
-4. **New table `cost_rates`** (workspace-scoped, date-effective): `material_id`, `rate`, `effective_from`, `effective_to`, `cost_type` (`fixed` | `variable`). RLS mirrors `materials`. Append-only updates via new rows; no in-place rate edits.
+### Files to edit
+- `src/App.tsx` — add `/portal/costing`; nest new inventory + production children
+- `src/pages/PortalInventory.tsx` — switch to 7-tab strip + Outlet
+- `src/pages/PortalProduction.tsx` — add 4-tab strip (Data Entry / Heat-wise / Furnace summary / Monthly)
+- `src/pages/PortalOverview.tsx` — add Min-Max alert section
+- `src/lib/inventory.ts` — add `fetchGrnForReceipts`, transfer pair helper, latest-rate join helper
+- `DOCUMENTATION.md`, `POLICY.md`
 
-5. **Extend `furnaces`** with `machine_type` (`FAD | CLU | DRI`) and `power_rating_kw`. No new table.
+### Out of scope (explicit)
+- Real-time websocket dashboards, AI variance highlighting, mobile-specific layouts, multi-tenant tenant switching beyond existing profit_center scoping. (Defer — not justified by current data volume; would violate Simplicity-First.)
+- Item Master / UOM / Furnace Master UIs — already exist under Admin → Master Data.
+- Auth/role infra — already in place (`user_roles`, `permission_grants`, RLS).
 
-6. **New "Master Data" tab in `/admin/settings`** that hosts sub-tabs:
-   - Items (extended `materials` editor)
-   - Groups (new `material_groups`)
-   - Furnaces / Machines (link to existing `AdminFurnaces`, no duplication)
-   - Cost Rates (new `cost_rates`)
-   - UOM Conversions (new `uom_conversions`)
-   - Locations (link to existing `AdminStockLocations`)
-   - KPIs (link to existing `AdminKpis`)
-
-   Sub-tabs that "link" mean we reuse the existing tab keys — no second copy.
-
-### Explicitly **out of scope** for this phase (will require separate approvals)
-
-- **Grade Master** — needs business rules I don't have (which grades, what determines a grade boundary, how it ties to heat logs). Will scope after Phase 1.
-- **Process Mapping (RM → Process → FG)** — this is workflow modeling, not master data. Belongs in Phase 8 ("Advanced admin and process workflow builder" — already on the roadmap).
-- **Validation Rules engine** — `permission_grants` already covers role-based rules. A second rules engine needs a written policy first.
-- **Excel import / template download / bulk export** — non-trivial; deserves its own phase with file-size, validation, and audit rules.
-- **Specification Master as a separate tab** — `specs jsonb` on `materials` covers this without a second table. A separate tab adds no value.
-
-### Surgical principles I'll follow
-
-- Zero changes to existing Production / Inventory / KPI read paths. New columns are nullable with safe defaults.
-- All new tables use `profit_center_id` + RLS identical to `materials` / `furnaces`.
-- All admin writes append `audit_logs` rows.
-- No hardcoded enums in code — `type`, `cost_type`, `machine_type` live as DB enums, exposed to UI via the existing pattern.
-- Tests: unit tests for each new lib function + a regression test that existing `AdminMaterials` and `AdminFurnaces` still render after the schema extension.
-
-## What I need from you before building
-
-Please confirm or amend:
-
-1. **Approve the scoped Phase 1 above** (extend, don't duplicate), OR insist on building all 12 modules as parallel tables (I will build it but want the SSOT-duplication risk acknowledged in writing).
-2. **Share the UI screenshot** if exact visual match matters. Without it I'll follow the existing `AdminMaterials` / `AdminFurnaces` table-and-form pattern already in the app.
-3. **Confirm Grade Master, Process Mapping, Validation Rules, and Excel import are deferred** to later phases.
-4. **Item ID format** — auto-UUID (current pattern) or a human-readable code like `RM-0001` per type? The latter requires a sequence per workspace per type.
-
-Once you answer these, I'll switch to build mode and ship Phase 1 in one migration + one new tab with sub-tabs, no churn to existing modules.
+### Risk & impact
+- Data: one new table (`grn_logs`), one new settings key family. No backfill needed.
+- Workflow: Inventory route default changes from a single page to a Dashboard tab — bookmarks to `/portal/inventory` still work (tab strip drives content).
+- Regression: Production page UI gains tabs but existing "New heat log" dialog and consumption flow remain identical (Data Entry tab).
+- Mitigation: full test suite + new tests; cost rates and ledger remain append-only.
