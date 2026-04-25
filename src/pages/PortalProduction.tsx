@@ -114,6 +114,7 @@ export default function PortalProduction() {
   const [furnaces, setFurnaces] = useState<Furnace[]>([]);
   const [shifts, setShifts] = useState<Shift[]>([]);
   const [logs, setLogs] = useState<HeatLog[]>([]);
+  const [allMetallurgy, setAllMetallurgy] = useState<HeatMetallurgy[]>([]);
   const [grants, setGrants] = useState<PermissionGrant[]>([]);
   const [materials, setMaterials] = useState<Material[]>([]);
   const [stockLocations, setStockLocations] = useState<StockLocation[]>([]);
