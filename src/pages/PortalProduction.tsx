@@ -137,7 +137,7 @@ export default function PortalProduction() {
     if (!activeProfitCenter) return;
     setLoading(true);
     try {
-      const [f, s, l, g, m, sl] = await Promise.all([
+      const [f, s, l, g, m, sl, mi, th] = await Promise.all([
         fetchFurnaces(activeProfitCenter.id),
         fetchShifts(activeProfitCenter.id),
         fetchHeatLogs(activeProfitCenter.id, {
@@ -148,6 +148,8 @@ export default function PortalProduction() {
         fetchPermissionGrants(),
         fetchMaterials(activeProfitCenter.id),
         fetchStockLocations(activeProfitCenter.id),
+        fetchMasterItems(activeProfitCenter.id),
+        fetchProductionAlertThresholds(activeProfitCenter.id).catch(() => DEFAULT_PRODUCTION_ALERTS),
       ]);
       setFurnaces(f);
       setShifts(s);
@@ -155,6 +157,8 @@ export default function PortalProduction() {
       setGrants(g);
       setMaterials(m);
       setStockLocations(sl);
+      setMasterItems(mi);
+      setThresholds(th);
     } catch (error) {
       toast({ title: "Failed to load production data", description: error instanceof Error ? error.message : "Try again.", variant: "destructive" });
     } finally {
