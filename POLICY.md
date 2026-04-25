@@ -205,3 +205,10 @@
 ## Phase 23 — Heat-wise tab and lean Dialog retired
 - The Heat-wise View tab inside `/portal/production` and the legacy lean heat-log Dialog were removed at operator request. The FAD Entry tab is the SOLE heat-entry surface in Production. Re-introducing a parallel lean Dialog inside Production violates §5 (SSOT) — corrections to heat fields go through FAD or via admin-managed flows.
 - The `bulk_void_heat_logs` RPC and `void_heat_log` flow remain in the database and are still RLS-protected. They are no longer surfaced in the Production page UI. Any future re-surfacing MUST route through FAD or a dedicated admin screen — never re-open the legacy Dialog.
+
+## Phase 24 — Production Entry – FAD module fully removed
+- The Production Entry – FAD module is **deleted in its entirety** at user request: page (`PortalProductionFAD.tsx`), route (`/portal/production-fad`), sidebar entry, FAD tab inside `PortalProduction`, orchestrator (`production-entry-fad.ts`), and formulas helper (`production-formulas.ts`). Any reintroduction MUST be a fresh user request — do not silently restore the module on the basis of earlier phases (22–23).
+- Phases 22 and 23 above are **superseded for the FAD entry surface**: there is no FAD wizard, no FAD Entry tab, and no `/portal/production-fad` route. Statements in those phases that designate FAD as the SSOT for metallurgy inputs are now informational/historical only — there is no active heat-entry surface in the app.
+- `PortalProduction` is now an **analytics-only** page (Furnace Summary, Monthly Summary, Energy, Quality, Consumption tabs). It MUST NOT host write-back forms. Any future heat-entry surface requires an explicit user request and a fresh phase entry in DOCUMENTATION.md.
+- The `heat_logs`, `heat_metallurgy`, and `material_consumption` tables and their RLS / triggers / void RPCs remain intact — the data plane is unchanged. Only the application-layer entry surface was removed.
+- The PostgreSQL machine_type enum (FAD / CLU / DRI) is **furnace hardware classification**, not the deleted module. It stays.
