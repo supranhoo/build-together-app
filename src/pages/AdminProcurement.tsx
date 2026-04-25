@@ -39,11 +39,15 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
 import { useWorkspace } from "@/hooks/use-workspace";
+import { SuppliersTab } from "@/components/procurement/SuppliersTab";
+import { PRTab } from "@/components/procurement/PRTab";
+import { POTab } from "@/components/procurement/POTab";
 
 type DeepLinkTarget = { to: string; label: string };
 type TabSpec =
   | { id: string; label: string; icon: React.ComponentType<{ className?: string }>; kind: "scaffold"; description: string; phase: "B" | "C" | "D" }
-  | { id: string; label: string; icon: React.ComponentType<{ className?: string }>; kind: "deeplink"; description: string; target: DeepLinkTarget };
+  | { id: string; label: string; icon: React.ComponentType<{ className?: string }>; kind: "deeplink"; description: string; target: DeepLinkTarget }
+  | { id: string; label: string; icon: React.ComponentType<{ className?: string }>; kind: "live"; description: string; render: () => JSX.Element };
 
 const TABS: TabSpec[] = [
   { id: "dashboard", label: "Dashboard", icon: LayoutDashboard, kind: "scaffold", phase: "D",
