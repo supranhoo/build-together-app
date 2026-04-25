@@ -62,7 +62,7 @@ export async function fetchProductionFormulaDefaults(profitCenterId: string): Pr
     materialGroups?: Partial<ProductionFormulaDefaults["materialGroups"]>;
   };
 
-  const mg = v.materialGroups ?? {};
+  const mg: Partial<ProductionFormulaDefaults["materialGroups"]> = v.materialGroups ?? {};
   return {
     fgMnDefaultPct: Number.isFinite(v.fgMnDefaultPct) ? Number(v.fgMnDefaultPct) : DEFAULT_PRODUCTION_FORMULAS.fgMnDefaultPct,
     slagMnoDefaultPct: Number.isFinite(v.slagMnoDefaultPct) ? Number(v.slagMnoDefaultPct) : DEFAULT_PRODUCTION_FORMULAS.slagMnoDefaultPct,
