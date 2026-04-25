@@ -419,7 +419,7 @@ export default function PortalProduction() {
   return (
     <div className="space-y-6">
       {/* Production KPI strip — sits ABOVE the existing tabs. Read-only. */}
-      <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
+      <div className="grid gap-3 sm:grid-cols-3">
         <Card className="border-border bg-card shadow-panel">
           <CardHeader className="pb-2">
             <CardTitle className="text-xs font-medium text-muted-foreground">Total Production</CardTitle>
