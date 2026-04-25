@@ -450,11 +450,12 @@ export default function PortalProduction() {
           </CardContent>
         </Card>
       </div>
-      {/* Phase 22 — Heat-log management Card moved INTO the Heat-wise View tab.
-          The FAD wizard is also a tab now (no separate KPI shortcut needed). */}
-      <Tabs defaultValue="heatwise">
+      {/* Phase 23 — Heat-wise View tab removed at user request. The Heat-logs
+          management Card (entry Dialog, filters, table, bulk-void) lived inside
+          that tab and was removed with it. Heat creation now lives only in the
+          FAD Entry tab. */}
+      <Tabs defaultValue="fad">
         <TabsList className="flex h-auto w-full flex-wrap justify-start gap-1 bg-muted/50 p-1">
-          <TabsTrigger value="heatwise" className="data-[state=active]:bg-primary data-[state=active]:text-primary-foreground">Heat-wise View</TabsTrigger>
           <TabsTrigger value="fad" className="data-[state=active]:bg-primary data-[state=active]:text-primary-foreground">FAD Entry</TabsTrigger>
           <TabsTrigger value="furnace" className="data-[state=active]:bg-primary data-[state=active]:text-primary-foreground">Furnace Summary</TabsTrigger>
           <TabsTrigger value="monthly" className="data-[state=active]:bg-primary data-[state=active]:text-primary-foreground">Monthly Summary</TabsTrigger>
