@@ -4,6 +4,7 @@ import { Toaster as Sonner } from "@/components/ui/sonner";
 import { Toaster } from "@/components/ui/toaster";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { AuthProvider } from "@/hooks/use-auth";
+import { ThemeProvider } from "@/hooks/use-theme";
 import { WorkspaceProvider } from "@/hooks/use-workspace";
 import { ProtectedRoute } from "@/components/ProtectedRoute";
 import { RequireWorkspace } from "@/components/RequireWorkspace";
@@ -40,9 +41,10 @@ const queryClient = new QueryClient();
 
 const App = () => (
   <QueryClientProvider client={queryClient}>
-    <TooltipProvider>
-      <AuthProvider>
-        <WorkspaceProvider>
+    <ThemeProvider>
+      <TooltipProvider>
+        <AuthProvider>
+          <WorkspaceProvider>
           <Toaster />
           <Sonner />
           <BrowserRouter>
