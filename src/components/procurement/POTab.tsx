@@ -568,24 +568,42 @@ export function POTab() {
                   <TableHeader>
                     <TableRow>
                       <TableHead>Material</TableHead>
-                      <TableHead>Ordered</TableHead>
-                      <TableHead>Received</TableHead>
+                      <TableHead className="text-right">Ordered</TableHead>
+                      <TableHead className="text-right">Received</TableHead>
                       <TableHead>UoM</TableHead>
-                      <TableHead>Unit cost</TableHead>
-                      <TableHead>Line total</TableHead>
+                      <TableHead className="text-right">Unit cost</TableHead>
+                      <TableHead className="text-right">Line total</TableHead>
+                      <TableHead className="text-right">Receive</TableHead>
                     </TableRow>
                   </TableHeader>
                   <TableBody>
                     {detailLines.map((l) => {
                       const m = materialMap.get(l.materialId);
+                      const remaining = Math.max(0, l.qtyOrdered - l.qtyReceived);
+                      const canReceive =
+                        remaining > 0 &&
+                        (detailFor.status === "acknowledged" ||
+                          detailFor.status === "partially_received" ||
+                          detailFor.status === "sent");
                       return (
                         <TableRow key={l.id}>
                           <TableCell>{m ? `${m.code} — ${m.name}` : l.materialId.slice(0, 8)}</TableCell>
-                          <TableCell>{l.qtyOrdered}</TableCell>
-                          <TableCell>{l.qtyReceived}</TableCell>
+                          <TableCell className="text-right">{l.qtyOrdered}</TableCell>
+                          <TableCell className="text-right">{l.qtyReceived}</TableCell>
                           <TableCell>{l.uom}</TableCell>
-                          <TableCell>{l.unitCost}</TableCell>
-                          <TableCell>{(l.qtyOrdered * l.unitCost).toLocaleString()}</TableCell>
+                          <TableCell className="text-right">{l.unitCost}</TableCell>
+                          <TableCell className="text-right">{(l.qtyOrdered * l.unitCost).toLocaleString()}</TableCell>
+                          <TableCell className="text-right">
+                            {canReceive ? (
+                              <Button size="sm" variant="outline" onClick={() => openReceive(l)}>
+                                <PackagePlus className="mr-1 h-3 w-3" /> {remaining}
+                              </Button>
+                            ) : (
+                              <span className="text-xs text-muted-foreground">
+                                {remaining === 0 ? "Done" : "—"}
+                              </span>
+                            )}
+                          </TableCell>
                         </TableRow>
                       );
                     })}
