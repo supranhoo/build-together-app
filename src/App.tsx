@@ -92,6 +92,7 @@ const App = () => (
         </WorkspaceProvider>
       </AuthProvider>
     </TooltipProvider>
+    </ThemeProvider>
   </QueryClientProvider>
 );
 
