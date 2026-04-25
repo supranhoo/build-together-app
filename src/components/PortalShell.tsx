@@ -24,6 +24,7 @@ const iconMap = {
 // validate every link against the App router.
 export const portalStaticNavItems = [
   { label: "Overview", to: "/portal" },
+  { label: "Production Entry – FAD", to: "/portal/production-fad" },
 ];
 
 export function PortalShell() {

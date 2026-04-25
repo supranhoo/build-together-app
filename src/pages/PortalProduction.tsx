@@ -26,6 +26,7 @@ import PortalProductionMonthly from "./PortalProductionMonthly";
 import PortalProductionEnergy from "./PortalProductionEnergy";
 import PortalProductionQuality from "./PortalProductionQuality";
 import PortalProductionConsumption from "./PortalProductionConsumption";
+import PortalProductionFAD from "./PortalProductionFAD";
 import { useWorkspace } from "@/hooks/use-workspace";
 import { useAuth } from "@/hooks/use-auth";
 import { useToast } from "@/hooks/use-toast";
@@ -449,13 +450,13 @@ export default function PortalProduction() {
           </CardContent>
         </Card>
       </div>
-      {/* Phase 24 — Production Entry – FAD module removed entirely at user
-          request. Route /portal/production-fad, sidebar link, FAD tab, page
-          component, and supporting libs/tests have been deleted. Production
-          page is now analytics-only; heat creation is no longer available
-          from the Production module. */}
-      <Tabs defaultValue="furnace">
+      {/* Phase 23 — Heat-wise View tab removed at user request. The Heat-logs
+          management Card (entry Dialog, filters, table, bulk-void) lived inside
+          that tab and was removed with it. Heat creation now lives only in the
+          FAD Entry tab. */}
+      <Tabs defaultValue="fad">
         <TabsList className="flex h-auto w-full flex-wrap justify-start gap-1 bg-muted/50 p-1">
+          <TabsTrigger value="fad" className="data-[state=active]:bg-primary data-[state=active]:text-primary-foreground">FAD Entry</TabsTrigger>
           <TabsTrigger value="furnace" className="data-[state=active]:bg-primary data-[state=active]:text-primary-foreground">Furnace Summary</TabsTrigger>
           <TabsTrigger value="monthly" className="data-[state=active]:bg-primary data-[state=active]:text-primary-foreground">Monthly Summary</TabsTrigger>
           <TabsTrigger value="energy" className="data-[state=active]:bg-primary data-[state=active]:text-primary-foreground">Energy</TabsTrigger>
@@ -463,6 +464,10 @@ export default function PortalProduction() {
           <TabsTrigger value="consumption" className="data-[state=active]:bg-primary data-[state=active]:text-primary-foreground">Consumption</TabsTrigger>
         </TabsList>
 
+
+        <TabsContent value="fad" className="mt-4">
+          <PortalProductionFAD />
+        </TabsContent>
         <TabsContent value="furnace" className="mt-4">
           <PortalProductionFurnaceSummary />
         </TabsContent>
