@@ -103,6 +103,45 @@ export type Database = {
           },
         ]
       }
+      cost_rates: {
+        Row: {
+          cost_type: Database["public"]["Enums"]["cost_type"]
+          created_at: string
+          created_by: string
+          effective_from: string
+          effective_to: string | null
+          id: string
+          material_id: string
+          notes: string | null
+          profit_center_id: string
+          rate: number
+        }
+        Insert: {
+          cost_type?: Database["public"]["Enums"]["cost_type"]
+          created_at?: string
+          created_by: string
+          effective_from: string
+          effective_to?: string | null
+          id?: string
+          material_id: string
+          notes?: string | null
+          profit_center_id: string
+          rate: number
+        }
+        Update: {
+          cost_type?: Database["public"]["Enums"]["cost_type"]
+          created_at?: string
+          created_by?: string
+          effective_from?: string
+          effective_to?: string | null
+          id?: string
+          material_id?: string
+          notes?: string | null
+          profit_center_id?: string
+          rate?: number
+        }
+        Relationships: []
+      }
       furnaces: {
         Row: {
           capacity_mt: number | null
@@ -110,7 +149,9 @@ export type Database = {
           created_at: string
           id: string
           is_active: boolean
+          machine_type: Database["public"]["Enums"]["machine_type"] | null
           name: string
+          power_rating_kw: number | null
           profit_center_id: string
           updated_at: string
         }
@@ -120,7 +161,9 @@ export type Database = {
           created_at?: string
           id?: string
           is_active?: boolean
+          machine_type?: Database["public"]["Enums"]["machine_type"] | null
           name: string
+          power_rating_kw?: number | null
           profit_center_id: string
           updated_at?: string
         }
@@ -130,7 +173,9 @@ export type Database = {
           created_at?: string
           id?: string
           is_active?: boolean
+          machine_type?: Database["public"]["Enums"]["machine_type"] | null
           name?: string
+          power_rating_kw?: number | null
           profit_center_id?: string
           updated_at?: string
         }
@@ -538,15 +583,56 @@ export type Database = {
           },
         ]
       }
+      material_groups: {
+        Row: {
+          created_at: string
+          description: string | null
+          id: string
+          is_active: boolean
+          parent_group: string
+          profit_center_id: string
+          subgroup: string | null
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          description?: string | null
+          id?: string
+          is_active?: boolean
+          parent_group: string
+          profit_center_id: string
+          subgroup?: string | null
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          description?: string | null
+          id?: string
+          is_active?: boolean
+          parent_group?: string
+          profit_center_id?: string
+          subgroup?: string | null
+          updated_at?: string
+        }
+        Relationships: []
+      }
       materials: {
         Row: {
           category: string
           code: string
           created_at: string
+          group_name: string | null
           id: string
           is_active: boolean
+          max_level: number | null
+          min_level: number | null
           name: string
           profit_center_id: string
+          reorder_level: number | null
+          specs: Json
+          std_cost: number | null
+          subgroup: string | null
+          type: Database["public"]["Enums"]["material_type"] | null
           uom: string
           updated_at: string
         }
@@ -554,10 +640,18 @@ export type Database = {
           category?: string
           code: string
           created_at?: string
+          group_name?: string | null
           id?: string
           is_active?: boolean
+          max_level?: number | null
+          min_level?: number | null
           name: string
           profit_center_id: string
+          reorder_level?: number | null
+          specs?: Json
+          std_cost?: number | null
+          subgroup?: string | null
+          type?: Database["public"]["Enums"]["material_type"] | null
           uom?: string
           updated_at?: string
         }
@@ -565,10 +659,18 @@ export type Database = {
           category?: string
           code?: string
           created_at?: string
+          group_name?: string | null
           id?: string
           is_active?: boolean
+          max_level?: number | null
+          min_level?: number | null
           name?: string
           profit_center_id?: string
+          reorder_level?: number | null
+          specs?: Json
+          std_cost?: number | null
+          subgroup?: string | null
+          type?: Database["public"]["Enums"]["material_type"] | null
           uom?: string
           updated_at?: string
         }
@@ -918,6 +1020,42 @@ export type Database = {
           },
         ]
       }
+      uom_conversions: {
+        Row: {
+          created_at: string
+          factor: number
+          from_uom: string
+          id: string
+          is_active: boolean
+          notes: string | null
+          profit_center_id: string
+          to_uom: string
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          factor: number
+          from_uom: string
+          id?: string
+          is_active?: boolean
+          notes?: string | null
+          profit_center_id: string
+          to_uom: string
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          factor?: number
+          from_uom?: string
+          id?: string
+          is_active?: boolean
+          notes?: string | null
+          profit_center_id?: string
+          to_uom?: string
+          updated_at?: string
+        }
+        Relationships: []
+      }
       user_profit_centers: {
         Row: {
           assigned_by: string | null
@@ -1105,6 +1243,9 @@ export type Database = {
         | "analyst"
         | "user"
         | "super_admin"
+      cost_type: "fixed" | "variable"
+      machine_type: "FAD" | "CLU" | "DRI"
+      material_type: "RM" | "FG" | "WIP" | "Consumable"
     }
     CompositeTypes: {
       [_ in never]: never
@@ -1240,6 +1381,9 @@ export const Constants = {
         "user",
         "super_admin",
       ],
+      cost_type: ["fixed", "variable"],
+      machine_type: ["FAD", "CLU", "DRI"],
+      material_type: ["RM", "FG", "WIP", "Consumable"],
     },
   },
 } as const
