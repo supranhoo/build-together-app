@@ -349,3 +349,12 @@ SteelFlow ERP now uses a configuration-first workspace foundation for steel and 
 ## Version History
 - 2026-04-25 (Phase 19): Production KPI strip on PortalProduction reading SSOT (`heat_logs` + `heat_metallurgy`); new `production-rollups.ts` lib + 7 tests; FAD entry remains the single metallurgical entry surface, linked from the strip. No new tables, no forked schema, no UI changes to existing tabs/dialog.
 - 2026-04-25 (Phase 20): Three additional read-only tabs in PortalProduction (Energy, Quality, Consumption) using existing lib functions and three new pure classification helpers. New `kwhPerMtTarget` threshold in `profit_center_settings.production.alerts`. 7 new tests; suite at 167 passing. No schema changes, no new entry surfaces, FAD entry unchanged.
+
+## Production tabs: Data Entry tab removed (Phase 21)
+- The "Data Entry" tab in `src/pages/PortalProduction.tsx` was removed at user request. Heat-log creation/editing capability is preserved by lifting the existing **New heat log** button + Dialog (and its filters, table, and bulk-void UI) out of the tab and into a stand-alone Card section that sits above the remaining tabs. Default tab is now `heatwise`.
+- No state, lib, schema, or RBAC changes. Same component, same Dialog, same `createHeatLog`/`updateHeatLog`/`bulkVoidHeatLogs` wiring — only the parent JSX nesting changed.
+- Tabs surviving: Heat-wise View, Furnace Summary, Monthly Summary, Energy, Quality, Consumption. The screenshot-inspired tabs (Planning, MRP, Downtime, FG Inventory, Dispatch Link, Order Closure, Reports, Historical Data, KPIs) were declined because each either (a) requires schema we deliberately did not fork (POLICY §19), (b) belongs to an existing module the portal already routes to, or (c) would be inert placeholder UI (§10 — Zero Hardcoding / no speculative scaffolding).
+- Tests: no test changes required; suite unchanged at **167 passing**.
+
+## Version History
+- 2026-04-25 (Phase 21): Removed "Data Entry" tab from PortalProduction; lifted entry Dialog + filters/table/bulk-void above the tabs. Default tab now `heatwise`. No logic/schema changes; suite still 167 passing.
