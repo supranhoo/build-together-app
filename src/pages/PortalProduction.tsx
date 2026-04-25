@@ -407,8 +407,8 @@ export default function PortalProduction() {
 
   return (
     <div className="space-y-6">
-      {/* Production KPI strip — sits ABOVE the existing tabs. Read-only. */}
-      <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
+      {/* Production KPI strip — read-only summary above the Data Entry surface. */}
+      <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
         <Card className="border-border bg-card shadow-panel">
           <CardHeader className="pb-2">
             <CardTitle className="text-xs font-medium text-muted-foreground">Total Production</CardTitle>
@@ -785,18 +785,6 @@ export default function PortalProduction() {
           </AlertDialog>
         </CardContent>
       </Card>
-        </TabsContent>
-
-        <TabsContent value="heatwise" className="mt-4">
-          <PortalProductionHeatwise />
-        </TabsContent>
-        <TabsContent value="furnace" className="mt-4">
-          <PortalProductionFurnaceSummary />
-        </TabsContent>
-        <TabsContent value="monthly" className="mt-4">
-          <PortalProductionMonthly />
-        </TabsContent>
-      </Tabs>
     </div>
   );
 }
