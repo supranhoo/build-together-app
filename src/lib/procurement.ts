@@ -982,3 +982,303 @@ export async function fetchOpenPoLinesForMrp(
   }
   return { map };
 }
+
+// ---------- SUPPLIER PERFORMANCE (Phase D) ----------
+
+export interface SupplierEvaluation {
+  id: string;
+  profitCenterId: string;
+  supplierId: string;
+  periodStart: string;
+  periodEnd: string;
+  onTimePct: number | null;
+  qualityPct: number | null;
+  priceScore: number | null;
+  overallScore: number | null;
+  notes: string | null;
+  createdBy: string;
+  createdAt: string;
+}
+
+function toEvaluation(r: any): SupplierEvaluation {
+  return {
+    id: r.id,
+    profitCenterId: r.profit_center_id,
+    supplierId: r.supplier_id,
+    periodStart: r.period_start,
+    periodEnd: r.period_end,
+    onTimePct: r.on_time_pct !== null && r.on_time_pct !== undefined ? Number(r.on_time_pct) : null,
+    qualityPct: r.quality_pct !== null && r.quality_pct !== undefined ? Number(r.quality_pct) : null,
+    priceScore: r.price_score !== null && r.price_score !== undefined ? Number(r.price_score) : null,
+    overallScore: r.overall_score !== null && r.overall_score !== undefined ? Number(r.overall_score) : null,
+    notes: r.notes ?? null,
+    createdBy: r.created_by,
+    createdAt: r.created_at,
+  };
+}
+
+/**
+ * Compute the overall supplier score as the equally-weighted average of the
+ * three sub-scores that are present. Returns null if all three are null.
+ *
+ * NOTE: weighting is currently fixed at 1/1/1. If the policy changes to
+ * weighted scoring (e.g. quality 50% / on-time 30% / price 20%), update
+ * POLICY.md AND this function in the same change.
+ */
+export function computeOverallScore(
+  onTimePct: number | null,
+  qualityPct: number | null,
+  priceScore: number | null,
+): number | null {
+  const parts = [onTimePct, qualityPct, priceScore].filter(
+    (v): v is number => v !== null && Number.isFinite(v),
+  );
+  if (parts.length === 0) return null;
+  const avg = parts.reduce((s, v) => s + v, 0) / parts.length;
+  return Math.round(avg * 10) / 10;
+}
+
+export async function fetchSupplierEvaluations(profitCenterId: string): Promise<SupplierEvaluation[]> {
+  const { data, error } = await client
+    .from("supplier_evaluations")
+    .select(
+      "id, profit_center_id, supplier_id, period_start, period_end, on_time_pct, quality_pct, price_score, overall_score, notes, created_by, created_at",
+    )
+    .eq("profit_center_id", profitCenterId)
+    .order("period_end", { ascending: false })
+    .limit(500);
+  if (error) throw error;
+  return (data ?? []).map(toEvaluation);
+}
+
+export async function createSupplierEvaluation(input: {
+  profitCenterId: string;
+  supplierId: string;
+  periodStart: string;
+  periodEnd: string;
+  onTimePct: number | null;
+  qualityPct: number | null;
+  priceScore: number | null;
+  notes: string | null;
+  createdBy: string;
+}): Promise<void> {
+  if (!input.supplierId) throw new Error("Supplier is required");
+  if (!input.periodStart || !input.periodEnd) throw new Error("Period start and end are required");
+  if (input.periodEnd < input.periodStart) throw new Error("Period end must be on or after period start");
+  for (const [k, v] of [
+    ["on-time %", input.onTimePct],
+    ["quality %", input.qualityPct],
+    ["price score", input.priceScore],
+  ] as const) {
+    if (v !== null && (v < 0 || v > 100)) throw new Error(`${k} must be between 0 and 100`);
+  }
+
+  const overall = computeOverallScore(input.onTimePct, input.qualityPct, input.priceScore);
+
+  const { error } = await client.from("supplier_evaluations").insert({
+    profit_center_id: input.profitCenterId,
+    supplier_id: input.supplierId,
+    period_start: input.periodStart,
+    period_end: input.periodEnd,
+    on_time_pct: input.onTimePct,
+    quality_pct: input.qualityPct,
+    price_score: input.priceScore,
+    overall_score: overall,
+    notes: input.notes,
+    created_by: input.createdBy,
+  });
+  if (error) throw error;
+}
+
+// ---------- RISK EVENTS (Phase D) ----------
+
+export type RiskSeverity = "low" | "medium" | "high" | "critical";
+export type RiskStatus = "open" | "mitigated" | "closed";
+
+export interface RiskEvent {
+  id: string;
+  profitCenterId: string;
+  supplierId: string | null;
+  riskType: string;
+  severity: RiskSeverity;
+  status: RiskStatus;
+  description: string;
+  mitigationPlan: string | null;
+  occurredAt: string;
+  resolvedAt: string | null;
+  createdBy: string;
+  createdAt: string;
+  updatedAt: string;
+}
+
+function toRisk(r: any): RiskEvent {
+  return {
+    id: r.id,
+    profitCenterId: r.profit_center_id,
+    supplierId: r.supplier_id ?? null,
+    riskType: r.risk_type,
+    severity: r.severity as RiskSeverity,
+    status: r.status as RiskStatus,
+    description: r.description,
+    mitigationPlan: r.mitigation_plan ?? null,
+    occurredAt: r.occurred_at,
+    resolvedAt: r.resolved_at ?? null,
+    createdBy: r.created_by,
+    createdAt: r.created_at,
+    updatedAt: r.updated_at,
+  };
+}
+
+/** Risk status workflow: open → mitigated → closed (no reopen). */
+export function canTransitionRisk(from: RiskStatus, to: RiskStatus): boolean {
+  const map: Record<RiskStatus, RiskStatus[]> = {
+    open: ["mitigated", "closed"],
+    mitigated: ["closed", "open"],
+    closed: [],
+  };
+  return (map[from] ?? []).includes(to);
+}
+
+export async function fetchRiskEvents(profitCenterId: string): Promise<RiskEvent[]> {
+  const { data, error } = await client
+    .from("risk_events")
+    .select(
+      "id, profit_center_id, supplier_id, risk_type, severity, status, description, mitigation_plan, occurred_at, resolved_at, created_by, created_at, updated_at",
+    )
+    .eq("profit_center_id", profitCenterId)
+    .order("occurred_at", { ascending: false })
+    .limit(500);
+  if (error) throw error;
+  return (data ?? []).map(toRisk);
+}
+
+export async function upsertRiskEvent(input: {
+  id?: string;
+  profitCenterId: string;
+  supplierId: string | null;
+  riskType: string;
+  severity: RiskSeverity;
+  description: string;
+  mitigationPlan: string | null;
+  occurredAt: string;
+  createdBy: string;
+}): Promise<void> {
+  if (!input.riskType.trim()) throw new Error("Risk type is required");
+  if (!input.description.trim() || input.description.trim().length < 5) {
+    throw new Error("Description must be at least 5 characters");
+  }
+  const payload: Record<string, unknown> = {
+    profit_center_id: input.profitCenterId,
+    supplier_id: input.supplierId,
+    risk_type: input.riskType.trim(),
+    severity: input.severity,
+    description: input.description.trim(),
+    mitigation_plan: input.mitigationPlan,
+    occurred_at: input.occurredAt,
+  };
+  if (input.id) {
+    const { error } = await client.from("risk_events").update(payload).eq("id", input.id);
+    if (error) throw error;
+  } else {
+    payload.created_by = input.createdBy;
+    payload.status = "open";
+    const { error } = await client.from("risk_events").insert(payload);
+    if (error) throw error;
+  }
+}
+
+export async function transitionRiskEvent(input: {
+  riskId: string;
+  fromStatus: RiskStatus;
+  toStatus: RiskStatus;
+}): Promise<void> {
+  if (!canTransitionRisk(input.fromStatus, input.toStatus)) {
+    throw new Error(`Transition ${input.fromStatus} → ${input.toStatus} is not allowed`);
+  }
+  const patch: Record<string, unknown> = { status: input.toStatus };
+  if (input.toStatus === "closed") {
+    patch.resolved_at = new Date().toISOString();
+  } else if (input.toStatus === "open") {
+    patch.resolved_at = null;
+  }
+  const { error } = await client.from("risk_events").update(patch).eq("id", input.riskId);
+  if (error) throw error;
+}
+
+// ---------- DASHBOARD KPIs (Phase D) ----------
+
+export interface ProcurementDashboardKpis {
+  prsOpen: number;          // draft + submitted
+  prsAwaitingApproval: number;
+  posOpen: number;          // draft/sent/acknowledged/partially_received
+  posValueOpen: Record<string, number>; // by currency
+  shipmentsInTransit: number;
+  shipmentsCustoms: number;
+  suppliersActive: number;
+  shortagesBelowMin: number;
+  shortagesReorder: number;
+  risksOpen: number;
+  risksCritical: number;
+  avgSupplierScore: number | null; // most recent eval per supplier, mean
+}
+
+/**
+ * Aggregates dashboard KPIs from already-loaded slices. Pure function so it is
+ * unit-testable; the caller fetches the source data via the existing services.
+ */
+export function buildDashboardKpis(input: {
+  prs: PurchaseRequisition[];
+  pos: PurchaseOrder[];
+  shipments: ImportShipment[];
+  suppliers: Supplier[];
+  shortages: ShortageRow[];
+  risks: RiskEvent[];
+  evaluations: SupplierEvaluation[];
+}): ProcurementDashboardKpis {
+  const prsOpen = input.prs.filter((p) => p.status === "draft" || p.status === "submitted").length;
+  const prsAwaitingApproval = input.prs.filter((p) => p.status === "submitted").length;
+
+  const openPoStatuses: PoStatus[] = ["draft", "sent", "acknowledged", "partially_received"];
+  const openPos = input.pos.filter((p) => openPoStatuses.includes(p.status));
+  const posValueOpen: Record<string, number> = {};
+  for (const po of openPos) {
+    posValueOpen[po.currencyCode] = (posValueOpen[po.currencyCode] ?? 0) + po.totalAmount;
+  }
+
+  const shipmentsInTransit = input.shipments.filter((s) => s.status === "in_transit").length;
+  const shipmentsCustoms = input.shipments.filter((s) => s.status === "customs").length;
+
+  const suppliersActive = input.suppliers.filter((s) => s.isActive).length;
+  const shortagesBelowMin = input.shortages.filter((s) => s.status === "below_min").length;
+  const shortagesReorder = input.shortages.filter((s) => s.status === "reorder").length;
+  const risksOpen = input.risks.filter((r) => r.status === "open").length;
+  const risksCritical = input.risks.filter((r) => r.status !== "closed" && r.severity === "critical").length;
+
+  // Most recent evaluation per supplier, then mean of overall_score
+  const latestBySupplier = new Map<string, SupplierEvaluation>();
+  for (const ev of input.evaluations) {
+    const existing = latestBySupplier.get(ev.supplierId);
+    if (!existing || ev.periodEnd > existing.periodEnd) latestBySupplier.set(ev.supplierId, ev);
+  }
+  const scores = Array.from(latestBySupplier.values())
+    .map((ev) => ev.overallScore)
+    .filter((v): v is number => v !== null);
+  const avgSupplierScore = scores.length === 0
+    ? null
+    : Math.round((scores.reduce((s, v) => s + v, 0) / scores.length) * 10) / 10;
+
+  return {
+    prsOpen,
+    prsAwaitingApproval,
+    posOpen: openPos.length,
+    posValueOpen,
+    shipmentsInTransit,
+    shipmentsCustoms,
+    suppliersActive,
+    shortagesBelowMin,
+    shortagesReorder,
+    risksOpen,
+    risksCritical,
+    avgSupplierScore,
+  };
+}
