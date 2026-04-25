@@ -389,3 +389,38 @@ SteelFlow ERP now uses a configuration-first workspace foundation for steel and 
 ## Version History
 - 2026-04-25 (Phase 23): Removed Heat-wise View tab and the Heat-logs management Card it contained. Default tab is FAD Entry. Heat-log CRUD via the legacy Dialog is gone; FAD wizard is the sole heat-entry surface. Bulk-void surface lost (RPC retained). Suite still 167 passing.
 - 2026-04-25 (Phase 24): Removed "Production Entry – FAD" sidebar entry. Route + page + embedded FAD Entry tab untouched. Pure nav-only change.
+
+## Procurement module — Phase A (2026-04-25)
+- New admin-gated module mounted at `/admin/procurement` (registered under `RequireAdmin` in `src/App.tsx`). Sidebar entry added to `adminNavItems` in `src/components/AdminShell.tsx`.
+- Phase A delivers the **schema, RLS, audit triggers, permission grants, module registration, and the 16-tab page shell**. No new business UI yet.
+
+### Schema (additive, zero changes to existing tables)
+- `currencies` (global master, super-admin managed; seeded INR/USD/EUR/GBP/CNY).
+- `fx_rates` (per-workspace, daily, admin-managed) — supports multi-currency PO/shipment values.
+- `suppliers` (per-workspace; code+name unique per PC; lead_time, default_currency, is_preferred).
+- `purchase_requisitions` + `purchase_requisition_lines` (PR status enum: draft/submitted/approved/rejected/converted/closed).
+- `purchase_orders` + `purchase_order_lines` (PO status enum: draft/sent/acknowledged/partially_received/received/closed/cancelled; optional `source_pr_id` link; line-level `source_pr_line_id`).
+- `import_shipments` (status enum: planned/in_transit/arrived/customs/delivered/delayed/cancelled; optional `po_id` link; freight + customs cost in shipment currency).
+- `supplier_evaluations` (period scorecard: on_time / quality / price / overall, all 0–100).
+- `risk_events` (severity & status enums; optional supplier link; mitigation_plan).
+
+### RLS pattern
+- Every table scoped by `profit_center_id`. Read = `has_profit_center_access`. Write = `user_can_act(auth.uid(), 'procurement', <action>)` plus workspace access.
+- Write actions added to `permission_grants`: `requisition`, `approve`, `order`, `manage_supplier`, `evaluate`, `risk`. Seeded as `never` for `user`, `always` for `admin` and `super_admin`. Admins can override per-role from Roles & Access (no hardcoded role checks in app code, per §10).
+- PR updates restricted to status ∈ {draft, submitted}. PO updates blocked when status ∈ {cancelled, closed}. Line tables enforce parent-status guard.
+
+### Audit
+- Generic `log_procurement_event()` SECURITY DEFINER trigger on suppliers / PR / PO / shipments / risk_events writes a row to existing `audit_logs` with full before/after JSON. Mirrors the `heat_log_events` pattern but unified per table family.
+
+### UI (Phase A only)
+- `src/pages/AdminProcurement.tsx` — 16-tab shell using shadcn `Tabs`, semantic tokens only.
+  - **8 tabs deep-link** to existing SSOT pages (RM Master → `/admin/settings?tab=materials`, MIN-MAX → `/portal/inventory/min-max`, GRN → `/portal/inventory/grn`, Quality → `/portal/inventory/grn`, Inventory → `/portal/inventory/stock`, Cost → `/admin/settings?tab=cost-rates`, Reports → `/portal/reports`, KPIs → `/admin/settings?tab=kpis`). No data duplication.
+  - **8 tabs are scaffolds** awaiting Phases B/C/D: Dashboard, Suppliers, MRP, Purchase Requisitions, Purchase Orders, Import Shipments, Supplier Performance, Risk Monitoring. Each shows the schema is live and labels its activation phase.
+
+### Tests
+- `src/test/procurement-phase-a.test.ts` — 4 tests covering route registration, sidebar entry, all 16 tab IDs present, every deep-link target resolves to a real route.
+- Route-audit catalog in `src/test/example.test.tsx` updated to include `/admin/procurement`.
+- Suite: **171 passing** (was 167 + 4 new).
+
+## Version History
+- 2026-04-25 (Procurement Phase A): Schema (currencies, fx_rates, suppliers, PR/PR-lines, PO/PO-lines, import_shipments, supplier_evaluations, risk_events) + RLS + audit triggers + permission grants seeded + module registered + 16-tab shell at `/admin/procurement` with 8 deep-links live and 8 scaffolds. 171/171 tests passing.
