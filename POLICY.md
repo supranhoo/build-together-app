@@ -98,6 +98,13 @@
 - KPI pins are personal preference, not configuration. Users see and manage only their own pins; admins (including super_admin) MUST NOT view or modify pins belonging to other users.
 - Pin count per `(user, workspace)` is hard-capped at 12 by a database trigger to keep `/portal/overview` rendering responsive. Client-side cap checks are a UX courtesy only — the trigger is the source of truth.
 - Pinning a KPI from another workspace is rejected by RLS (`has_profit_center_access` must hold). Removing a workspace assignment removes the user's ability to read those pins, but pin rows are retained until explicitly unpinned.
+
+## Master Data Governance (Phase 9)
+- Master data is the single source of truth (SSOT) for all downstream modules (Production, Inventory, Costing, Reporting). New master concepts MUST extend existing tables (`materials`, `furnaces`, `stock_locations`) rather than introducing parallel tables for the same entity.
+- All master data is workspace-scoped via `profit_center_id` and protected by RLS identical to the parent table (`materials` / `furnaces` patterns). Only workspace admins or super admins may create or modify master data.
+- `cost_rates` is append-only: rate corrections must be posted as new rows with a new `effective_from`. Existing rate rows must never be edited or deleted; this preserves a full price history for costing back-calculations.
+- Material `type` (RM / FG / WIP / Consumable), `machine_type` (FAD / CLU / DRI), and `cost_type` (fixed / variable) are PostgreSQL enums — never hardcoded as string literals in business logic. UI dropdown options derive from these enums.
+- Every master data create or update appends an `audit_logs` row.
 - Pin sort_order is user-controlled. Reordering MUST NOT trigger any KPI recomputation — pins are display metadata only.
 
 ## Pin Reorder & Forecast Display Governance (Phase 9, extended in Phase 11)
