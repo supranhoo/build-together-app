@@ -92,3 +92,68 @@ export function groupConsumptionByHeat<T extends { heatLogId: string }>(rows: T[
   }
   return map;
 }
+
+/**
+ * Full Mn balance breakdown for one heat. All percentages are returned in
+ * 0–100 form so the UI can render directly. `recoveryPct`, `slagLossPct`,
+ * `dustLossPct` and `diffLossPct` sum to 100 when input > 0.
+ */
+export interface MnBalance {
+  metalMn: number;
+  slagMn: number;
+  dustMn: number;
+  totalOutputMn: number;
+  recoveryPct: number | null;
+  slagLossPct: number | null;
+  dustLossPct: number | null;
+  diffLossPct: number | null;
+}
+
+export function mnBalance(args: {
+  inputMn: number;
+  productionMt: number;
+  fgMnPct: number;
+  slagQty: number;
+  slagMnoPct: number;
+  dustQty: number;
+  dustMnPct: number;
+}): MnBalance {
+  const metal = mnOutput(args.productionMt, args.fgMnPct);
+  const slag = slagMn(args.slagQty, args.slagMnoPct);
+  // Dust Mn = qty × Mn% / 100 (Mn already, not MnO — no 1.29 factor).
+  const dust =
+    Number.isFinite(args.dustQty) && Number.isFinite(args.dustMnPct) && args.dustQty > 0 && args.dustMnPct > 0
+      ? args.dustQty * (args.dustMnPct / 100)
+      : 0;
+  const total = metal + slag + dust;
+
+  if (!Number.isFinite(args.inputMn) || args.inputMn <= 0) {
+    return {
+      metalMn: metal,
+      slagMn: slag,
+      dustMn: dust,
+      totalOutputMn: total,
+      recoveryPct: null,
+      slagLossPct: null,
+      dustLossPct: null,
+      diffLossPct: null,
+    };
+  }
+
+  const recovery = (metal / args.inputMn) * 100;
+  const slagLoss = (slag / args.inputMn) * 100;
+  const dustLoss = (dust / args.inputMn) * 100;
+  // Diff loss can be negative if measured outputs exceed input — reported as-is so users can spot bad data.
+  const diff = 100 - (recovery + slagLoss + dustLoss);
+
+  return {
+    metalMn: metal,
+    slagMn: slag,
+    dustMn: dust,
+    totalOutputMn: total,
+    recoveryPct: recovery,
+    slagLossPct: slagLoss,
+    dustLossPct: dustLoss,
+    diffLossPct: diff,
+  };
+}

@@ -355,6 +355,78 @@ export type Database = {
           },
         ]
       }
+      heat_metallurgy: {
+        Row: {
+          aux_power_mwh: number | null
+          avg_power_factor: number | null
+          batch_no: string | null
+          created_at: string
+          created_by: string
+          dust_mn_pct: number | null
+          dust_qty_mt: number | null
+          fg_mn_pct: number | null
+          furnace_power_mwh: number | null
+          grade: string | null
+          heat_log_id: string
+          id: string
+          notes: string | null
+          product: string | null
+          profit_center_id: string
+          slag_mno_pct: number | null
+          slag_qty_mt: number | null
+          status: Database["public"]["Enums"]["heat_metallurgy_status"]
+          tapping_no: string | null
+          tapping_power_mwh: number | null
+          updated_at: string
+        }
+        Insert: {
+          aux_power_mwh?: number | null
+          avg_power_factor?: number | null
+          batch_no?: string | null
+          created_at?: string
+          created_by: string
+          dust_mn_pct?: number | null
+          dust_qty_mt?: number | null
+          fg_mn_pct?: number | null
+          furnace_power_mwh?: number | null
+          grade?: string | null
+          heat_log_id: string
+          id?: string
+          notes?: string | null
+          product?: string | null
+          profit_center_id: string
+          slag_mno_pct?: number | null
+          slag_qty_mt?: number | null
+          status?: Database["public"]["Enums"]["heat_metallurgy_status"]
+          tapping_no?: string | null
+          tapping_power_mwh?: number | null
+          updated_at?: string
+        }
+        Update: {
+          aux_power_mwh?: number | null
+          avg_power_factor?: number | null
+          batch_no?: string | null
+          created_at?: string
+          created_by?: string
+          dust_mn_pct?: number | null
+          dust_qty_mt?: number | null
+          fg_mn_pct?: number | null
+          furnace_power_mwh?: number | null
+          grade?: string | null
+          heat_log_id?: string
+          id?: string
+          notes?: string | null
+          product?: string | null
+          profit_center_id?: string
+          slag_mno_pct?: number | null
+          slag_qty_mt?: number | null
+          status?: Database["public"]["Enums"]["heat_metallurgy_status"]
+          tapping_no?: string | null
+          tapping_power_mwh?: number | null
+          updated_at?: string
+        }
+        Relationships: []
+      }
       inventory_ledger: {
         Row: {
           created_at: string
@@ -1286,6 +1358,7 @@ export type Database = {
         | "user"
         | "super_admin"
       cost_type: "fixed" | "variable"
+      heat_metallurgy_status: "draft" | "submitted"
       machine_type: "FAD" | "CLU" | "DRI"
       material_type: "RM" | "FG" | "WIP" | "Consumable"
     }
@@ -1424,6 +1497,7 @@ export const Constants = {
         "super_admin",
       ],
       cost_type: ["fixed", "variable"],
+      heat_metallurgy_status: ["draft", "submitted"],
       machine_type: ["FAD", "CLU", "DRI"],
       material_type: ["RM", "FG", "WIP", "Consumable"],
     },

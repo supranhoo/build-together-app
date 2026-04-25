@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { mnInput, mnOutput, recoveryPct, slagMn, groupConsumptionByHeat, type MaterialSpecLookup } from "@/lib/ferro-alloys";
+import { mnInput, mnOutput, recoveryPct, slagMn, groupConsumptionByHeat, mnBalance, type MaterialSpecLookup } from "@/lib/ferro-alloys";
 
 describe("mnInput", () => {
   const specs: Record<string, MaterialSpecLookup> = {
@@ -78,5 +78,59 @@ describe("groupConsumptionByHeat", () => {
     const grouped = groupConsumptionByHeat(rows);
     expect(grouped.get("h1")?.map((r) => r.materialId)).toEqual(["a", "c"]);
     expect(grouped.get("h2")?.map((r) => r.materialId)).toEqual(["b"]);
+  });
+});
+
+describe("mnBalance", () => {
+  it("computes recovery, slag/dust loss, and diff loss summing to 100", () => {
+    // 100 MT input Mn, 50 MT metal Mn (production 100 × 50%), slag 0, dust 0
+    const b = mnBalance({
+      inputMn: 100,
+      productionMt: 100,
+      fgMnPct: 50,
+      slagQty: 0,
+      slagMnoPct: 0,
+      dustQty: 0,
+      dustMnPct: 0,
+    });
+    expect(b.metalMn).toBeCloseTo(50);
+    expect(b.recoveryPct).toBeCloseTo(50);
+    expect(b.slagLossPct).toBeCloseTo(0);
+    expect(b.dustLossPct).toBeCloseTo(0);
+    expect(b.diffLossPct).toBeCloseTo(50);
+    expect((b.recoveryPct! + b.slagLossPct! + b.dustLossPct! + b.diffLossPct!)).toBeCloseTo(100);
+  });
+
+  it("includes slag and dust Mn correctly", () => {
+    const b = mnBalance({
+      inputMn: 50,
+      productionMt: 10,
+      fgMnPct: 78,
+      slagQty: 20, // slag Mn = 20 * 0.10 / 1.29 ≈ 1.5504
+      slagMnoPct: 10,
+      dustQty: 1,
+      dustMnPct: 30, // dust Mn = 0.30
+    });
+    expect(b.metalMn).toBeCloseTo(7.8);
+    expect(b.slagMn).toBeCloseTo(1.5504, 3);
+    expect(b.dustMn).toBeCloseTo(0.3);
+    expect(b.recoveryPct).toBeCloseTo((7.8 / 50) * 100);
+  });
+
+  it("returns null percentages when input is zero", () => {
+    const b = mnBalance({
+      inputMn: 0,
+      productionMt: 10,
+      fgMnPct: 78,
+      slagQty: 0,
+      slagMnoPct: 0,
+      dustQty: 0,
+      dustMnPct: 0,
+    });
+    expect(b.recoveryPct).toBeNull();
+    expect(b.slagLossPct).toBeNull();
+    expect(b.dustLossPct).toBeNull();
+    expect(b.diffLossPct).toBeNull();
+    expect(b.metalMn).toBeCloseTo(7.8);
   });
 });

@@ -319,3 +319,4 @@ SteelFlow ERP now uses a configuration-first workspace foundation for steel and 
 
 ## Version History
 - 2026-04-25 (Phase 16): Ferro Alloys layer — `grn_logs` table; 7-tab Inventory shell; Costing engine; Production Heat-wise/Furnace/Monthly tabs; Overview min-max alert; Excel export utility; pure logic libs (`ferro-alloys`, `costing`, `inventory-min-max`, `grn`); 44 new unit tests.
+- 2026-04-25 (Phase 17): Heat metallurgy capture — new `heat_metallurgy` table (1:1 with `heat_logs`) for product/grade/tapping/batch, FG Mn%, slag/dust qty+grades, power breakdown, draft→submitted lock. SSOT preserved (no inventory duplication). New libs: `heat-metallurgy.ts`, `production-alerts.ts`. Extended `ferro-alloys.ts` with `mnBalance()`. Production dialog now shows live Mn balance + threshold alerts (recovery/slag MnO/moisture) sourced from `profit_center_settings.production.alerts`. 3 new tests, total 146 passing.

@@ -46,6 +46,15 @@ import {
   type StockLocation,
 } from "@/lib/inventory";
 import { bulkVoidHeatLogs, userCanAct } from "@/lib/reporting";
+import { fetchMasterItems, type MasterItem } from "@/lib/master-data";
+import {
+  fetchMetallurgy,
+  upsertMetallurgy,
+  type HeatMetallurgy,
+  type HeatMetallurgyStatus,
+} from "@/lib/heat-metallurgy";
+import { mnBalance, mnInput, type MaterialSpecLookup } from "@/lib/ferro-alloys";
+import { fetchProductionAlertThresholds, DEFAULT_PRODUCTION_ALERTS, type ProductionAlertThresholds } from "@/lib/production-alerts";
 
 
 interface FormState {
@@ -58,11 +67,34 @@ interface FormState {
   notes: string;
 }
 
+interface MetallurgyFormState {
+  product: string;
+  grade: string;
+  tappingNo: string;
+  batchNo: string;
+  fgMnPct: string;
+  slagQtyMt: string;
+  slagMnoPct: string;
+  dustQtyMt: string;
+  dustMnPct: string;
+  tappingPowerMwh: string;
+  furnacePowerMwh: string;
+  auxPowerMwh: string;
+  avgPowerFactor: string;
+  status: HeatMetallurgyStatus;
+}
+
 interface ConsumptionRow extends ConsumptionInput {
   key: string;
 }
 
 const emptyForm: FormState = { furnaceId: "", shiftId: "", heatNumber: "", tapTime: "", weightMt: "", powerMwh: "", notes: "" };
+const emptyMetallurgy: MetallurgyFormState = {
+  product: "", grade: "", tappingNo: "", batchNo: "",
+  fgMnPct: "", slagQtyMt: "", slagMnoPct: "", dustQtyMt: "", dustMnPct: "",
+  tappingPowerMwh: "", furnacePowerMwh: "", auxPowerMwh: "", avgPowerFactor: "",
+  status: "draft",
+};
 
 function nowLocalForInput() {
   const d = new Date();
@@ -88,6 +120,10 @@ export default function PortalProduction() {
   const [createOpen, setCreateOpen] = useState(false);
   const [editing, setEditing] = useState<HeatLog | null>(null);
   const [form, setForm] = useState<FormState>(emptyForm);
+  const [metallurgy, setMetallurgy] = useState<MetallurgyFormState>(emptyMetallurgy);
+  const [existingMetallurgy, setExistingMetallurgy] = useState<HeatMetallurgy | null>(null);
+  const [masterItems, setMasterItems] = useState<MasterItem[]>([]);
+  const [thresholds, setThresholds] = useState<ProductionAlertThresholds>(DEFAULT_PRODUCTION_ALERTS);
   const [consumption, setConsumption] = useState<ConsumptionRow[]>([]);
   const [saving, setSaving] = useState(false);
   const [loading, setLoading] = useState(false);
@@ -101,7 +137,7 @@ export default function PortalProduction() {
     if (!activeProfitCenter) return;
     setLoading(true);
     try {
-      const [f, s, l, g, m, sl] = await Promise.all([
+      const [f, s, l, g, m, sl, mi, th] = await Promise.all([
         fetchFurnaces(activeProfitCenter.id),
         fetchShifts(activeProfitCenter.id),
         fetchHeatLogs(activeProfitCenter.id, {
@@ -112,6 +148,8 @@ export default function PortalProduction() {
         fetchPermissionGrants(),
         fetchMaterials(activeProfitCenter.id),
         fetchStockLocations(activeProfitCenter.id),
+        fetchMasterItems(activeProfitCenter.id),
+        fetchProductionAlertThresholds(activeProfitCenter.id).catch(() => DEFAULT_PRODUCTION_ALERTS),
       ]);
       setFurnaces(f);
       setShifts(s);
@@ -119,6 +157,8 @@ export default function PortalProduction() {
       setGrants(g);
       setMaterials(m);
       setStockLocations(sl);
+      setMasterItems(mi);
+      setThresholds(th);
     } catch (error) {
       toast({ title: "Failed to load production data", description: error instanceof Error ? error.message : "Try again.", variant: "destructive" });
     } finally {
@@ -151,6 +191,8 @@ export default function PortalProduction() {
   const openCreate = () => {
     setEditing(null);
     setForm({ ...emptyForm, tapTime: nowLocalForInput() });
+    setMetallurgy(emptyMetallurgy);
+    setExistingMetallurgy(null);
     setConsumption([]);
     setCreateOpen(true);
   };
@@ -167,6 +209,33 @@ export default function PortalProduction() {
       notes: log.notes ?? "",
     });
     setConsumption([]);
+    // Lazy-load metallurgy for the selected heat
+    setExistingMetallurgy(null);
+    setMetallurgy(emptyMetallurgy);
+    fetchMetallurgy(log.id)
+      .then((m) => {
+        if (!m) return;
+        setExistingMetallurgy(m);
+        setMetallurgy({
+          product: m.product ?? "",
+          grade: m.grade ?? "",
+          tappingNo: m.tappingNo ?? "",
+          batchNo: m.batchNo ?? "",
+          fgMnPct: m.fgMnPct?.toString() ?? "",
+          slagQtyMt: m.slagQtyMt?.toString() ?? "",
+          slagMnoPct: m.slagMnoPct?.toString() ?? "",
+          dustQtyMt: m.dustQtyMt?.toString() ?? "",
+          dustMnPct: m.dustMnPct?.toString() ?? "",
+          tappingPowerMwh: m.tappingPowerMwh?.toString() ?? "",
+          furnacePowerMwh: m.furnacePowerMwh?.toString() ?? "",
+          auxPowerMwh: m.auxPowerMwh?.toString() ?? "",
+          avgPowerFactor: m.avgPowerFactor?.toString() ?? "",
+          status: m.status,
+        });
+      })
+      .catch((e) =>
+        toast({ title: "Failed to load metallurgy", description: e instanceof Error ? e.message : "", variant: "destructive" }),
+      );
     setCreateOpen(true);
   };
 
@@ -180,6 +249,42 @@ export default function PortalProduction() {
     setConsumption((rows) => rows.filter((r) => r.key !== key));
   };
 
+  // Live Mn balance derived from current consumption rows + master item specs +
+  // entered output. Pure read; never mutates state.
+  const liveBalance = useMemo(() => {
+    const specs: Record<string, MaterialSpecLookup> = {};
+    for (const mi of masterItems) {
+      const s = (mi.specs ?? {}) as Record<string, unknown>;
+      specs[mi.id] = {
+        mnPct: typeof s.mnPct === "number" ? s.mnPct : Number(s.mnPct ?? NaN),
+        moisturePct: typeof s.moisturePct === "number" ? s.moisturePct : Number(s.moisturePct ?? NaN),
+        fePct: typeof s.fePct === "number" ? s.fePct : Number(s.fePct ?? NaN),
+      };
+    }
+    const inputMn = mnInput(
+      consumption.map((c) => ({ materialId: c.materialId, quantity: Number(c.quantity) || 0 })),
+      specs,
+    );
+    return mnBalance({
+      inputMn,
+      productionMt: Number(form.weightMt) || 0,
+      fgMnPct: Number(metallurgy.fgMnPct) || 0,
+      slagQty: Number(metallurgy.slagQtyMt) || 0,
+      slagMnoPct: Number(metallurgy.slagMnoPct) || 0,
+      dustQty: Number(metallurgy.dustQtyMt) || 0,
+      dustMnPct: Number(metallurgy.dustMnPct) || 0,
+    });
+  }, [masterItems, consumption, form.weightMt, metallurgy]);
+
+  const moistureWarn = useMemo(() => {
+    const specsById = new Map(masterItems.map((m) => [m.id, m.specs as Record<string, unknown>]));
+    return consumption.some((c) => {
+      const s = specsById.get(c.materialId);
+      const m = s ? Number(s.moisturePct) : NaN;
+      return Number.isFinite(m) && m > thresholds.moistureMaxPct;
+    });
+  }, [consumption, masterItems, thresholds.moistureMaxPct]);
+
   const validate = (): string | null => {
     if (!form.furnaceId) return "Furnace is required";
     if (!form.shiftId) return "Shift is required";
@@ -191,6 +296,18 @@ export default function PortalProduction() {
     }
     return null;
   };
+
+  const hasMetallurgyInput = (): boolean => {
+    return Boolean(
+      metallurgy.product || metallurgy.grade || metallurgy.tappingNo || metallurgy.batchNo ||
+      metallurgy.fgMnPct || metallurgy.slagQtyMt || metallurgy.slagMnoPct ||
+      metallurgy.dustQtyMt || metallurgy.dustMnPct ||
+      metallurgy.tappingPowerMwh || metallurgy.furnacePowerMwh || metallurgy.auxPowerMwh ||
+      metallurgy.avgPowerFactor,
+    );
+  };
+
+  const numOrNull = (v: string): number | null => (v === "" ? null : Number.isFinite(Number(v)) ? Number(v) : null);
 
   const handleSave = async () => {
     if (!activeProfitCenter || !session?.user) return;
@@ -204,6 +321,7 @@ export default function PortalProduction() {
       const tapIso = new Date(form.tapTime).toISOString();
       const weightMt = form.weightMt ? Number(form.weightMt) : null;
       const powerMwh = form.powerMwh ? Number(form.powerMwh) : null;
+      let heatLogId: string;
       if (editing) {
         await updateHeatLog(editing.id, {
           heatNumber: form.heatNumber,
@@ -212,8 +330,9 @@ export default function PortalProduction() {
           powerMwh,
           notes: form.notes || null,
         });
+        heatLogId = editing.id;
       } else {
-        const newId = await createHeatLog({
+        heatLogId = await createHeatLog({
           profitCenterId: activeProfitCenter.id,
           furnaceId: form.furnaceId,
           shiftId: form.shiftId,
@@ -226,12 +345,36 @@ export default function PortalProduction() {
         });
         if (consumption.length > 0) {
           await recordHeatConsumption({
-            heatLogId: newId,
+            heatLogId,
             profitCenterId: activeProfitCenter.id,
             createdBy: session.user.id,
             rows: consumption.map((r) => ({ materialId: r.materialId, stockLocationId: r.stockLocationId, quantity: r.quantity })),
           });
         }
+      }
+
+      // Save metallurgy when any field provided OR when an existing draft row needs updating.
+      if (hasMetallurgyInput() || existingMetallurgy) {
+        await upsertMetallurgy({
+          heatLogId,
+          profitCenterId: activeProfitCenter.id,
+          createdBy: session.user.id,
+          product: metallurgy.product || null,
+          grade: metallurgy.grade || null,
+          tappingNo: metallurgy.tappingNo || null,
+          batchNo: metallurgy.batchNo || null,
+          fgMnPct: numOrNull(metallurgy.fgMnPct),
+          slagQtyMt: numOrNull(metallurgy.slagQtyMt),
+          slagMnoPct: numOrNull(metallurgy.slagMnoPct),
+          dustQtyMt: numOrNull(metallurgy.dustQtyMt),
+          dustMnPct: numOrNull(metallurgy.dustMnPct),
+          tappingPowerMwh: numOrNull(metallurgy.tappingPowerMwh),
+          furnacePowerMwh: numOrNull(metallurgy.furnacePowerMwh),
+          auxPowerMwh: numOrNull(metallurgy.auxPowerMwh),
+          avgPowerFactor: numOrNull(metallurgy.avgPowerFactor),
+          status: metallurgy.status,
+          notes: null,
+        });
       }
       toast({ title: editing ? "Heat log updated" : "Heat log recorded" });
       setCreateOpen(false);
@@ -272,7 +415,7 @@ export default function PortalProduction() {
                 New heat log
               </Button>
             </DialogTrigger>
-            <DialogContent className="max-w-xl">
+            <DialogContent className="max-w-3xl max-h-[90vh] overflow-y-auto">
               <DialogHeader>
                 <DialogTitle>{editing ? "Edit heat log" : "Record heat log"}</DialogTitle>
               </DialogHeader>
@@ -353,6 +496,75 @@ export default function PortalProduction() {
                   ))}
                 </div>
               )}
+
+              {/* ── Metallurgy & Mn balance (Phase 17 — Ferro Alloys) ── */}
+              <div className="space-y-3 rounded-md border border-border bg-panel p-3">
+                <div className="flex items-center justify-between">
+                  <Label className="text-sm font-semibold">Metallurgy & output (optional)</Label>
+                  <span className="text-xs text-muted-foreground">
+                    Status: {metallurgy.status}
+                    {existingMetallurgy?.status === "submitted" && " — read-only"}
+                  </span>
+                </div>
+                <div className="grid gap-3 sm:grid-cols-4">
+                  <div><Label className="text-xs">Product</Label><Input value={metallurgy.product} onChange={(e) => setMetallurgy({ ...metallurgy, product: e.target.value })} disabled={existingMetallurgy?.status === "submitted"} /></div>
+                  <div><Label className="text-xs">Grade</Label><Input value={metallurgy.grade} onChange={(e) => setMetallurgy({ ...metallurgy, grade: e.target.value })} disabled={existingMetallurgy?.status === "submitted"} /></div>
+                  <div><Label className="text-xs">Tapping #</Label><Input value={metallurgy.tappingNo} onChange={(e) => setMetallurgy({ ...metallurgy, tappingNo: e.target.value })} disabled={existingMetallurgy?.status === "submitted"} /></div>
+                  <div><Label className="text-xs">Batch #</Label><Input value={metallurgy.batchNo} onChange={(e) => setMetallurgy({ ...metallurgy, batchNo: e.target.value })} disabled={existingMetallurgy?.status === "submitted"} /></div>
+                </div>
+                <div className="grid gap-3 sm:grid-cols-4">
+                  <div><Label className="text-xs">FG Mn %</Label><Input type="number" step="0.01" value={metallurgy.fgMnPct} onChange={(e) => setMetallurgy({ ...metallurgy, fgMnPct: e.target.value })} disabled={existingMetallurgy?.status === "submitted"} /></div>
+                  <div><Label className="text-xs">Slag (MT)</Label><Input type="number" step="0.001" value={metallurgy.slagQtyMt} onChange={(e) => setMetallurgy({ ...metallurgy, slagQtyMt: e.target.value })} disabled={existingMetallurgy?.status === "submitted"} /></div>
+                  <div><Label className="text-xs">Slag MnO %</Label><Input type="number" step="0.01" value={metallurgy.slagMnoPct} onChange={(e) => setMetallurgy({ ...metallurgy, slagMnoPct: e.target.value })} disabled={existingMetallurgy?.status === "submitted"} /></div>
+                  <div><Label className="text-xs">Dust (MT)</Label><Input type="number" step="0.001" value={metallurgy.dustQtyMt} onChange={(e) => setMetallurgy({ ...metallurgy, dustQtyMt: e.target.value })} disabled={existingMetallurgy?.status === "submitted"} /></div>
+                </div>
+                <div className="grid gap-3 sm:grid-cols-4">
+                  <div><Label className="text-xs">Dust Mn %</Label><Input type="number" step="0.01" value={metallurgy.dustMnPct} onChange={(e) => setMetallurgy({ ...metallurgy, dustMnPct: e.target.value })} disabled={existingMetallurgy?.status === "submitted"} /></div>
+                  <div><Label className="text-xs">Tapping kWh→MWh</Label><Input type="number" step="0.001" value={metallurgy.tappingPowerMwh} onChange={(e) => setMetallurgy({ ...metallurgy, tappingPowerMwh: e.target.value })} disabled={existingMetallurgy?.status === "submitted"} /></div>
+                  <div><Label className="text-xs">Furnace MWh</Label><Input type="number" step="0.001" value={metallurgy.furnacePowerMwh} onChange={(e) => setMetallurgy({ ...metallurgy, furnacePowerMwh: e.target.value })} disabled={existingMetallurgy?.status === "submitted"} /></div>
+                  <div><Label className="text-xs">Aux MWh</Label><Input type="number" step="0.001" value={metallurgy.auxPowerMwh} onChange={(e) => setMetallurgy({ ...metallurgy, auxPowerMwh: e.target.value })} disabled={existingMetallurgy?.status === "submitted"} /></div>
+                </div>
+                <div className="grid gap-3 sm:grid-cols-4">
+                  <div><Label className="text-xs">Avg Power Factor</Label><Input type="number" step="0.001" value={metallurgy.avgPowerFactor} onChange={(e) => setMetallurgy({ ...metallurgy, avgPowerFactor: e.target.value })} disabled={existingMetallurgy?.status === "submitted"} /></div>
+                  <div className="sm:col-span-3 flex items-end justify-end gap-2">
+                    <Label className="text-xs">Mark as submitted (locks edits)</Label>
+                    <Checkbox
+                      checked={metallurgy.status === "submitted"}
+                      onCheckedChange={(v) => setMetallurgy({ ...metallurgy, status: v === true ? "submitted" : "draft" })}
+                      disabled={existingMetallurgy?.status === "submitted"}
+                    />
+                  </div>
+                </div>
+
+                {/* Live Mn balance summary */}
+                <div className="rounded-md border border-border bg-background p-3 text-sm">
+                  <p className="mb-2 font-semibold">Mn balance (live)</p>
+                  <div className="grid grid-cols-2 gap-x-4 gap-y-1 sm:grid-cols-4">
+                    <div>Metal Mn: <span className="font-mono">{liveBalance.metalMn.toFixed(3)}</span> MT</div>
+                    <div>Slag Mn: <span className="font-mono">{liveBalance.slagMn.toFixed(3)}</span> MT</div>
+                    <div>Dust Mn: <span className="font-mono">{liveBalance.dustMn.toFixed(3)}</span> MT</div>
+                    <div>Total out: <span className="font-mono">{liveBalance.totalOutputMn.toFixed(3)}</span> MT</div>
+                    <div className={liveBalance.recoveryPct !== null && liveBalance.recoveryPct < thresholds.recoveryMinPct ? "text-destructive font-semibold" : ""}>
+                      Recovery: <span className="font-mono">{liveBalance.recoveryPct !== null ? `${liveBalance.recoveryPct.toFixed(2)}%` : "—"}</span>
+                    </div>
+                    <div>Slag loss: <span className="font-mono">{liveBalance.slagLossPct !== null ? `${liveBalance.slagLossPct.toFixed(2)}%` : "—"}</span></div>
+                    <div>Dust loss: <span className="font-mono">{liveBalance.dustLossPct !== null ? `${liveBalance.dustLossPct.toFixed(2)}%` : "—"}</span></div>
+                    <div>Diff loss: <span className="font-mono">{liveBalance.diffLossPct !== null ? `${liveBalance.diffLossPct.toFixed(2)}%` : "—"}</span></div>
+                  </div>
+                  <div className="mt-2 space-y-1">
+                    {liveBalance.recoveryPct !== null && liveBalance.recoveryPct < thresholds.recoveryMinPct && (
+                      <p className="text-xs text-destructive">⚠ Recovery below {thresholds.recoveryMinPct}% threshold.</p>
+                    )}
+                    {Number(metallurgy.slagMnoPct) > thresholds.slagMnoMaxPct && (
+                      <p className="text-xs text-amber-600">⚠ Slag MnO above {thresholds.slagMnoMaxPct}% threshold.</p>
+                    )}
+                    {moistureWarn && (
+                      <p className="text-xs text-amber-600">⚠ One or more consumption materials exceed {thresholds.moistureMaxPct}% moisture.</p>
+                    )}
+                  </div>
+                </div>
+              </div>
+
               <DialogFooter>
                 <Button variant="outline" onClick={() => setCreateOpen(false)}>Cancel</Button>
                 <Button onClick={() => void handleSave()} disabled={saving}>{saving ? "Saving…" : "Save"}</Button>
