@@ -82,7 +82,8 @@ function recoveryColor(pct: number | null, minOk: number): string {
 
 export default function PortalProductionFAD() {
   const { activeProfitCenter, activeProfitCenterId } = useWorkspace();
-  const { user } = useAuth() as any;
+  const { session } = useAuth();
+  const userId = session?.user?.id;
   const { toast } = useToast();
 
   // ---- Master data ----
@@ -300,7 +301,7 @@ export default function PortalProductionFAD() {
   }, [tappingPower, furnacePower, auxiliaryPower]);
 
   async function handleSave(status: "draft" | "submitted") {
-    if (!activeProfitCenterId || !user?.id) {
+    if (!activeProfitCenterId || !userId) {
       toast({ title: "Not signed in", variant: "destructive" });
       return;
     }
@@ -322,7 +323,7 @@ export default function PortalProductionFAD() {
     try {
       await submitFadEntry({
         profitCenterId: activeProfitCenterId,
-        createdBy: user.id,
+        createdBy: userId,
         furnaceId,
         shiftId,
         heatNumber,
