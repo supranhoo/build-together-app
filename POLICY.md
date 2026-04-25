@@ -209,3 +209,12 @@
 ## Phase 24 — FAD removed from sidebar nav
 - The "Production Entry – FAD" entry was removed from the portal sidebar (`portalStaticNavItems`). Operators reach FAD exclusively via the **FAD Entry** tab inside `/portal/production`.
 - `/portal/production-fad` remains a live route for deep-link compatibility but MUST NOT be re-added to the sidebar — the Production module's tab bar is the canonical navigation surface (§5 SSOT, reaffirms Phase 22).
+
+## Procurement module (Phase A, 2026-04-25)
+- Procurement is an **admin-only** module mounted at `/admin/procurement`. Operators do not see it under `/portal`. Reclassifying it as a portal/operator surface requires a §9 risk-and-impact report.
+- **SSOT enforcement**: tabs that overlap existing modules (RM Master, MIN-MAX, GRN, Quality, Inventory Update, Cost, Reports, KPIs) MUST deep-link to the existing canonical page. Re-implementing those flows inside Procurement is forbidden — that is a §5 violation.
+- **Permission model**: every Procurement write action (`requisition`, `approve`, `order`, `manage_supplier`, `evaluate`, `risk`) is gated by `permission_grants` + `user_can_act`. Hardcoding role checks in React or in service code is forbidden (§10). Admins reconfigure who can do what from Roles & Access; no code change required.
+- **Status immutability**: PRs can only be edited while status ∈ {draft, submitted}. POs cannot be edited once status ∈ {cancelled, closed}. These guards are enforced both in RLS `USING` clauses and in any service-layer mutations added in Phases B–D — never bypass via RPC.
+- **Audit**: every write to suppliers / PR / PO / shipments / risk_events MUST flow through the `log_procurement_event` trigger. Adding a new procurement table requires attaching the same trigger; bypassing audit is forbidden (§8).
+- **Multi-currency**: PO `total_amount`, PO-line `unit_cost`, and shipment `freight_cost` / `customs_cost` are stored in their entered currency (`currency_code`). Conversion to workspace base currency MUST go through `fx_rates` lookup, never hardcoded factors. Missing FX rate = display "—", not a silent zero.
+- **Phasing rule**: Phases B/C/D must each ship migration + code + tests + DOCUMENTATION + POLICY in the same response (§5 atomic). No phase may add UI for a tab whose underlying schema is not already live in the database.
