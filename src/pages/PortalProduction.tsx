@@ -808,6 +808,15 @@ export default function PortalProduction() {
         <TabsContent value="monthly" className="mt-4">
           <PortalProductionMonthly />
         </TabsContent>
+        <TabsContent value="energy" className="mt-4">
+          <PortalProductionEnergy />
+        </TabsContent>
+        <TabsContent value="quality" className="mt-4">
+          <PortalProductionQuality />
+        </TabsContent>
+        <TabsContent value="consumption" className="mt-4">
+          <PortalProductionConsumption />
+        </TabsContent>
       </Tabs>
     </div>
   );
