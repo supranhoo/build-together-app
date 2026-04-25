@@ -415,7 +415,7 @@ export default function PortalProduction() {
                 New heat log
               </Button>
             </DialogTrigger>
-            <DialogContent className="max-w-xl">
+            <DialogContent className="max-w-3xl max-h-[90vh] overflow-y-auto">
               <DialogHeader>
                 <DialogTitle>{editing ? "Edit heat log" : "Record heat log"}</DialogTitle>
               </DialogHeader>
@@ -496,6 +496,75 @@ export default function PortalProduction() {
                   ))}
                 </div>
               )}
+
+              {/* ── Metallurgy & Mn balance (Phase 17 — Ferro Alloys) ── */}
+              <div className="space-y-3 rounded-md border border-border bg-panel p-3">
+                <div className="flex items-center justify-between">
+                  <Label className="text-sm font-semibold">Metallurgy & output (optional)</Label>
+                  <span className="text-xs text-muted-foreground">
+                    Status: {metallurgy.status}
+                    {existingMetallurgy?.status === "submitted" && " — read-only"}
+                  </span>
+                </div>
+                <div className="grid gap-3 sm:grid-cols-4">
+                  <div><Label className="text-xs">Product</Label><Input value={metallurgy.product} onChange={(e) => setMetallurgy({ ...metallurgy, product: e.target.value })} disabled={existingMetallurgy?.status === "submitted"} /></div>
+                  <div><Label className="text-xs">Grade</Label><Input value={metallurgy.grade} onChange={(e) => setMetallurgy({ ...metallurgy, grade: e.target.value })} disabled={existingMetallurgy?.status === "submitted"} /></div>
+                  <div><Label className="text-xs">Tapping #</Label><Input value={metallurgy.tappingNo} onChange={(e) => setMetallurgy({ ...metallurgy, tappingNo: e.target.value })} disabled={existingMetallurgy?.status === "submitted"} /></div>
+                  <div><Label className="text-xs">Batch #</Label><Input value={metallurgy.batchNo} onChange={(e) => setMetallurgy({ ...metallurgy, batchNo: e.target.value })} disabled={existingMetallurgy?.status === "submitted"} /></div>
+                </div>
+                <div className="grid gap-3 sm:grid-cols-4">
+                  <div><Label className="text-xs">FG Mn %</Label><Input type="number" step="0.01" value={metallurgy.fgMnPct} onChange={(e) => setMetallurgy({ ...metallurgy, fgMnPct: e.target.value })} disabled={existingMetallurgy?.status === "submitted"} /></div>
+                  <div><Label className="text-xs">Slag (MT)</Label><Input type="number" step="0.001" value={metallurgy.slagQtyMt} onChange={(e) => setMetallurgy({ ...metallurgy, slagQtyMt: e.target.value })} disabled={existingMetallurgy?.status === "submitted"} /></div>
+                  <div><Label className="text-xs">Slag MnO %</Label><Input type="number" step="0.01" value={metallurgy.slagMnoPct} onChange={(e) => setMetallurgy({ ...metallurgy, slagMnoPct: e.target.value })} disabled={existingMetallurgy?.status === "submitted"} /></div>
+                  <div><Label className="text-xs">Dust (MT)</Label><Input type="number" step="0.001" value={metallurgy.dustQtyMt} onChange={(e) => setMetallurgy({ ...metallurgy, dustQtyMt: e.target.value })} disabled={existingMetallurgy?.status === "submitted"} /></div>
+                </div>
+                <div className="grid gap-3 sm:grid-cols-4">
+                  <div><Label className="text-xs">Dust Mn %</Label><Input type="number" step="0.01" value={metallurgy.dustMnPct} onChange={(e) => setMetallurgy({ ...metallurgy, dustMnPct: e.target.value })} disabled={existingMetallurgy?.status === "submitted"} /></div>
+                  <div><Label className="text-xs">Tapping kWh→MWh</Label><Input type="number" step="0.001" value={metallurgy.tappingPowerMwh} onChange={(e) => setMetallurgy({ ...metallurgy, tappingPowerMwh: e.target.value })} disabled={existingMetallurgy?.status === "submitted"} /></div>
+                  <div><Label className="text-xs">Furnace MWh</Label><Input type="number" step="0.001" value={metallurgy.furnacePowerMwh} onChange={(e) => setMetallurgy({ ...metallurgy, furnacePowerMwh: e.target.value })} disabled={existingMetallurgy?.status === "submitted"} /></div>
+                  <div><Label className="text-xs">Aux MWh</Label><Input type="number" step="0.001" value={metallurgy.auxPowerMwh} onChange={(e) => setMetallurgy({ ...metallurgy, auxPowerMwh: e.target.value })} disabled={existingMetallurgy?.status === "submitted"} /></div>
+                </div>
+                <div className="grid gap-3 sm:grid-cols-4">
+                  <div><Label className="text-xs">Avg Power Factor</Label><Input type="number" step="0.001" value={metallurgy.avgPowerFactor} onChange={(e) => setMetallurgy({ ...metallurgy, avgPowerFactor: e.target.value })} disabled={existingMetallurgy?.status === "submitted"} /></div>
+                  <div className="sm:col-span-3 flex items-end justify-end gap-2">
+                    <Label className="text-xs">Mark as submitted (locks edits)</Label>
+                    <Checkbox
+                      checked={metallurgy.status === "submitted"}
+                      onCheckedChange={(v) => setMetallurgy({ ...metallurgy, status: v === true ? "submitted" : "draft" })}
+                      disabled={existingMetallurgy?.status === "submitted"}
+                    />
+                  </div>
+                </div>
+
+                {/* Live Mn balance summary */}
+                <div className="rounded-md border border-border bg-background p-3 text-sm">
+                  <p className="mb-2 font-semibold">Mn balance (live)</p>
+                  <div className="grid grid-cols-2 gap-x-4 gap-y-1 sm:grid-cols-4">
+                    <div>Metal Mn: <span className="font-mono">{liveBalance.metalMn.toFixed(3)}</span> MT</div>
+                    <div>Slag Mn: <span className="font-mono">{liveBalance.slagMn.toFixed(3)}</span> MT</div>
+                    <div>Dust Mn: <span className="font-mono">{liveBalance.dustMn.toFixed(3)}</span> MT</div>
+                    <div>Total out: <span className="font-mono">{liveBalance.totalOutputMn.toFixed(3)}</span> MT</div>
+                    <div className={liveBalance.recoveryPct !== null && liveBalance.recoveryPct < thresholds.recoveryMinPct ? "text-destructive font-semibold" : ""}>
+                      Recovery: <span className="font-mono">{liveBalance.recoveryPct !== null ? `${liveBalance.recoveryPct.toFixed(2)}%` : "—"}</span>
+                    </div>
+                    <div>Slag loss: <span className="font-mono">{liveBalance.slagLossPct !== null ? `${liveBalance.slagLossPct.toFixed(2)}%` : "—"}</span></div>
+                    <div>Dust loss: <span className="font-mono">{liveBalance.dustLossPct !== null ? `${liveBalance.dustLossPct.toFixed(2)}%` : "—"}</span></div>
+                    <div>Diff loss: <span className="font-mono">{liveBalance.diffLossPct !== null ? `${liveBalance.diffLossPct.toFixed(2)}%` : "—"}</span></div>
+                  </div>
+                  <div className="mt-2 space-y-1">
+                    {liveBalance.recoveryPct !== null && liveBalance.recoveryPct < thresholds.recoveryMinPct && (
+                      <p className="text-xs text-destructive">⚠ Recovery below {thresholds.recoveryMinPct}% threshold.</p>
+                    )}
+                    {Number(metallurgy.slagMnoPct) > thresholds.slagMnoMaxPct && (
+                      <p className="text-xs text-amber-600">⚠ Slag MnO above {thresholds.slagMnoMaxPct}% threshold.</p>
+                    )}
+                    {moistureWarn && (
+                      <p className="text-xs text-amber-600">⚠ One or more consumption materials exceed {thresholds.moistureMaxPct}% moisture.</p>
+                    )}
+                  </div>
+                </div>
+              </div>
+
               <DialogFooter>
                 <Button variant="outline" onClick={() => setCreateOpen(false)}>Cancel</Button>
                 <Button onClick={() => void handleSave()} disabled={saving}>{saving ? "Saving…" : "Save"}</Button>
