@@ -445,7 +445,21 @@ SteelFlow ERP now uses a configuration-first workspace foundation for steel and 
 - POTab integration: per-line **Receive** button in detail dialog opens a small dialog (qty, stock location, notes); on success refreshes lines and auto-advances PO header to `partially_received` or `received` based on aggregate completion. Manual "Partial/Fully received" buttons removed (auto-derived). Cancel still requires reason ≥3 chars.
 - Tests: `src/test/procurement-phase-c.test.ts` — 21 tests (shipment workflow matrix, MRP classification incl. inactive/unconfigured/on-order/sort). Suite: **208 passing** (was 187 + 21 new).
 
+## Procurement module — Phase D (2026-04-25)
+- Activates the final 3 tabs: **Dashboard**, **Supplier Performance**, **Risk Monitoring**. All 16 tabs are now live (8 functional + 8 deep-links).
+- Service layer additions in `src/lib/procurement.ts`:
+  - `computeOverallScore(onTimePct, qualityPct, priceScore)` — equally-weighted mean of present sub-scores, rounded to 1 decimal. Returns null when all three are null. Weighting is intentionally fixed and policy-controlled — see POLICY §25/D.
+  - `fetchSupplierEvaluations` + `createSupplierEvaluation` — append-only scorecards over `supplier_evaluations` (corrections are added as a new row covering the same period; existing rows are never mutated).
+  - `canTransitionRisk` + `fetchRiskEvents` + `upsertRiskEvent` + `transitionRiskEvent` — risk register over `risk_events` with workflow `open → mitigated → closed` (reopen from `mitigated → open` allowed; `closed` terminal). Closing sets `resolved_at`; reopening clears it.
+  - `buildDashboardKpis(input)` — pure aggregator that consumes already-loaded slices (PRs, POs, shipments, suppliers, shortages, risks, evaluations) and returns the KPIs displayed on the dashboard. No new DB queries — keeps SSOT with each tab's services.
+- New components:
+  - `src/components/procurement/DashboardTab.tsx` — 7 KPI tiles + explainer card. Refresh button re-runs the same fetches the underlying tabs use. Open PO value is grouped by currency (no FX consolidation; deferred to Reports).
+  - `src/components/procurement/SupplierPerformanceTab.tsx` — leaderboard (latest evaluation per supplier, sorted by overall) + full history table + "New Evaluation" dialog with live preview of the computed overall score.
+  - `src/components/procurement/RiskTab.tsx` — register table with severity/status badges, edit + workflow buttons (Mitigate / Reopen / Close), CRUD dialog with optional supplier link and required mitigation plan field.
+- Tests: `src/test/procurement-phase-d.test.ts` — 20 tests (overall-score rounding, risk workflow matrix, dashboard aggregation across all KPI fields incl. multi-currency PO grouping and "latest evaluation per supplier" rule). Suite: **228 passing** (was 208 + 20 new).
+
 ## Version History
 - 2026-04-25 (Procurement Phase A): Schema (currencies, fx_rates, suppliers, PR/PR-lines, PO/PO-lines, import_shipments, supplier_evaluations, risk_events) + RLS + audit triggers + permission grants seeded + module registered + 16-tab shell at `/admin/procurement` with 8 deep-links live and 8 scaffolds. 171/171 tests passing.
 - 2026-04-25 (Procurement Phase B): Suppliers + PR + PO tabs live with full CRUD, multi-currency, single-step PR approval, PR→PO conversion. Service layer + 16 new tests. 187/187 tests passing.
 - 2026-04-25 (Procurement Phase C): MRP shortages tab, Import Shipments tab, PO↔GRN linkage (per-line Receive posting to inventory_ledger with auto PO status advance). 21 new tests. 208/208 tests passing.
+- 2026-04-25 (Procurement Phase D): Dashboard KPI roll-up, Supplier Performance scorecards (append-only, equally-weighted overall), Risk Monitoring register (open/mitigated/closed workflow). 20 new tests. 228/228 tests passing. All 16 procurement tabs now live.
