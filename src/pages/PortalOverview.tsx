@@ -21,7 +21,6 @@ import {
 import { computeStockBalances, fetchLedger } from "@/lib/inventory";
 import { fetchMasterItems, type MasterItem } from "@/lib/master-data";
 import { classifyStockStatus } from "@/lib/inventory-min-max";
-import { PlantHeadDashboard } from "@/components/portal/PlantHeadDashboard";
 
 interface PinnedKpiCard {
   pin: KpiPin;
@@ -292,10 +291,6 @@ export default function PortalOverview() {
           </CardContent>
         </Card>
       </section>
-
-      {activeProfitCenter && (
-        <PlantHeadDashboard profitCenterId={activeProfitCenter.id} />
-      )}
 
       {activeProfitCenter && lowStockCount !== null && lowStockCount > 0 && (
         <Card className="border-destructive/40 bg-destructive/5">

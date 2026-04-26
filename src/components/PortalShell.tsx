@@ -30,6 +30,7 @@ const iconMap = {
 // and FAD remains embedded in PortalProduction as the "FAD Entry" tab (SSOT).
 export const portalStaticNavItems = [
   { label: "Overview", to: "/portal" },
+  { label: "Command Deck", to: "/portal/command-deck" },
 ];
 
 export function PortalShell() {
