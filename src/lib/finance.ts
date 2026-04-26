@@ -201,3 +201,209 @@ export function byproductRateOn(
     .sort((a, b) => (a.effectiveFrom < b.effectiveFrom ? 1 : -1));
   return candidates[0]?.rate ?? null;
 }
+
+// ---------------------------------------------------------------------------
+// Phase B mutations — Standard BOM
+// ---------------------------------------------------------------------------
+
+export interface CreateBomInput {
+  profitCenterId: string;
+  grade: string;
+  product: string | null;
+  materialId: string;
+  stdQtyPerMt: number;
+  stdRate: number | null;
+  uom: string;
+  effectiveFrom: string;
+  effectiveTo: string | null;
+  notes: string | null;
+  createdBy: string;
+}
+
+export async function createBomEntry(input: CreateBomInput): Promise<StandardCostBom> {
+  const { data, error } = await client
+    .from("standard_cost_bom")
+    .insert({
+      profit_center_id: input.profitCenterId,
+      grade: input.grade,
+      product: input.product,
+      material_id: input.materialId,
+      std_qty_per_mt: input.stdQtyPerMt,
+      std_rate: input.stdRate,
+      uom: input.uom,
+      effective_from: input.effectiveFrom,
+      effective_to: input.effectiveTo,
+      notes: input.notes,
+      created_by: input.createdBy,
+    })
+    .select("*")
+    .single();
+  if (error) throw error;
+  return mapBom(data);
+}
+
+export async function deactivateBomEntry(id: string): Promise<void> {
+  const { error } = await client
+    .from("standard_cost_bom")
+    .update({ is_active: false })
+    .eq("id", id);
+  if (error) throw error;
+}
+
+// ---------------------------------------------------------------------------
+// Phase B engine — IDEAL vs ACTUAL variance decomposition
+// ---------------------------------------------------------------------------
+
+/**
+ * Per-material variance row.
+ *
+ * Decomposition (managerial accounting):
+ *   priceVariance = (actualRate − stdRate) × actualQty
+ *   usageVariance = (actualQty − stdQty)   × stdRate
+ *   totalVariance = actualCost − idealCost = priceVariance + usageVariance
+ *
+ * Positive variance = overspend (actual > ideal). Sign is consistent across
+ * all materials so totals can be summed.
+ */
+export interface MaterialVarianceRow {
+  materialId: string;
+  /** Standard recipe qty for the production volume (stdQtyPerMt × productionMt). */
+  idealQty: number;
+  /** Actual consumed qty over the same scope. */
+  actualQty: number;
+  /** Standard rate (per UOM) — null when no BOM row applies. */
+  stdRate: number | null;
+  /** Actual rate (per UOM) — null when no cost rate is effective. */
+  actualRate: number | null;
+  idealCost: number;
+  actualCost: number;
+  priceVariance: number;
+  usageVariance: number;
+  totalVariance: number;
+}
+
+export interface VarianceInputs {
+  /** Production volume in MT for the period+grade being analyzed. */
+  productionMt: number;
+  /** Grade being analyzed (used to pick BOM rows). */
+  grade: string;
+  /** Date used for both BOM and rate effectivity lookup (YYYY-MM-DD). */
+  onDate: string;
+  /** Aggregated actual quantities consumed, keyed by materialId. */
+  actualByMaterial: Record<string, number>;
+  bom: StandardCostBom[];
+  /** Pre-resolved rates per materialId (consumer pre-resolves via latestRateOn). */
+  rateByMaterial: Record<string, number | null>;
+}
+
+/**
+ * Build per-material variance rows. Materials present in EITHER the BOM or
+ * the actual consumption are included so unplanned consumption surfaces.
+ *
+ * Edge cases:
+ *  - production = 0 → idealQty = 0 → priceVariance dominates (actualCost itself).
+ *  - missing stdRate → priceVariance = 0 (cannot compute), usageVariance = 0.
+ *  - missing actualRate → actualCost contribution = 0; row still flags qty mismatch.
+ */
+export function buildVarianceRows(input: VarianceInputs): MaterialVarianceRow[] {
+  const bomForGrade = input.bom.filter(
+    (b) => b.isActive && b.grade === input.grade
+      && b.effectiveFrom <= input.onDate
+      && (!b.effectiveTo || b.effectiveTo >= input.onDate),
+  );
+  // Latest BOM row per material (in case of overlapping rows post-filter).
+  const bomByMaterial = new Map<string, StandardCostBom>();
+  for (const b of bomForGrade.sort((a, b) => (a.effectiveFrom < b.effectiveFrom ? 1 : -1))) {
+    if (!bomByMaterial.has(b.materialId)) bomByMaterial.set(b.materialId, b);
+  }
+
+  const materialIds = new Set<string>([
+    ...bomByMaterial.keys(),
+    ...Object.keys(input.actualByMaterial),
+  ]);
+
+  const rows: MaterialVarianceRow[] = [];
+  for (const materialId of materialIds) {
+    const bomRow = bomByMaterial.get(materialId) ?? null;
+    const actualQty = input.actualByMaterial[materialId] ?? 0;
+    const idealQty = bomRow ? bomRow.stdQtyPerMt * Math.max(0, input.productionMt) : 0;
+    const stdRate = bomRow?.stdRate ?? null;
+    const actualRate = input.rateByMaterial[materialId] ?? null;
+
+    const idealCost = stdRate !== null ? idealQty * stdRate : 0;
+    const actualCost = actualRate !== null ? actualQty * actualRate : 0;
+
+    const priceVariance =
+      stdRate !== null && actualRate !== null ? (actualRate - stdRate) * actualQty : 0;
+    const usageVariance = stdRate !== null ? (actualQty - idealQty) * stdRate : 0;
+    const totalVariance = actualCost - idealCost;
+
+    rows.push({
+      materialId,
+      idealQty,
+      actualQty,
+      stdRate,
+      actualRate,
+      idealCost,
+      actualCost,
+      priceVariance,
+      usageVariance,
+      totalVariance,
+    });
+  }
+
+  return rows.sort((a, b) => Math.abs(b.totalVariance) - Math.abs(a.totalVariance));
+}
+
+export interface VarianceTotals {
+  idealCost: number;
+  actualCost: number;
+  priceVariance: number;
+  usageVariance: number;
+  totalVariance: number;
+}
+
+export function sumVariance(rows: MaterialVarianceRow[]): VarianceTotals {
+  return rows.reduce<VarianceTotals>(
+    (acc, r) => ({
+      idealCost: acc.idealCost + r.idealCost,
+      actualCost: acc.actualCost + r.actualCost,
+      priceVariance: acc.priceVariance + r.priceVariance,
+      usageVariance: acc.usageVariance + r.usageVariance,
+      totalVariance: acc.totalVariance + r.totalVariance,
+    }),
+    { idealCost: 0, actualCost: 0, priceVariance: 0, usageVariance: 0, totalVariance: 0 },
+  );
+}
+
+/**
+ * By-product credit for the period. Returns total ₹ credit summed across
+ * all by-product types whose tonnage was provided.
+ */
+export function byproductCreditTotal(
+  credits: ByproductCredit[],
+  tonnageByType: Record<string, number>,
+  onDate: string,
+): number {
+  let total = 0;
+  for (const [type, mt] of Object.entries(tonnageByType)) {
+    const rate = byproductRateOn(credits, type, onDate);
+    if (rate !== null && mt > 0) total += rate * mt;
+  }
+  return total;
+}
+
+/**
+ * Net cost per MT after by-product credit.
+ *
+ * netCost = grossCost − byproductCredit
+ * netCostPerMt = netCost / productionMt   (null when productionMt = 0)
+ */
+export function netCostPerMt(input: {
+  grossCost: number;
+  byproductCredit: number;
+  productionMt: number;
+}): number | null {
+  if (input.productionMt <= 0) return null;
+  return (input.grossCost - input.byproductCredit) / input.productionMt;
+}
