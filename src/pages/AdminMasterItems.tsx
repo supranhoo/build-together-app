@@ -130,13 +130,15 @@ export default function AdminMasterItems() {
       toast({ title: "Code and name are required", variant: "destructive" });
       return;
     }
-    let specs: Record<string, unknown>;
-    try {
-      specs = parseSpecsJson(form.specsRaw);
-    } catch (error) {
-      toast({ title: "Invalid Specs JSON", description: error instanceof Error ? error.message : "", variant: "destructive" });
+    if (specErrors.length > 0) {
+      toast({
+        title: "Fix spec errors before saving",
+        description: specErrors.map((e) => e.message).join("; "),
+        variant: "destructive",
+      });
       return;
     }
+    const specs = specRowsToObject(form.specRows);
     setSaving(true);
     try {
       await upsertMasterItem({
@@ -292,8 +294,11 @@ export default function AdminMasterItems() {
                 <div><Label>Min level</Label><Input type="number" step="0.001" value={form.minLevel} onChange={(e) => setForm({ ...form, minLevel: e.target.value })} /></div>
                 <div><Label>Max level</Label><Input type="number" step="0.001" value={form.maxLevel} onChange={(e) => setForm({ ...form, maxLevel: e.target.value })} /></div>
                 <div className="sm:col-span-2">
-                  <Label>Specs (JSON: Mn, Fe, Si, Moisture, Ash…)</Label>
-                  <Textarea rows={5} value={form.specsRaw} onChange={(e) => setForm({ ...form, specsRaw: e.target.value })} className="font-mono text-xs" />
+                  <SpecsEditor
+                    rows={form.specRows}
+                    errors={specErrors}
+                    onChange={(specRows) => setForm({ ...form, specRows })}
+                  />
                 </div>
                 <div className="sm:col-span-2 flex items-center justify-between rounded-md border border-border bg-panel px-4 py-3">
                   <span>Active</span>
