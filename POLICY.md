@@ -297,7 +297,9 @@
 
 ## Policy Change Log (continued)
 - 2026-04-26 (Maintenance Phase A): Established workspace isolation, furnace SSOT linkage rule, auto-numbering immutability, monotonic WO lifecycle, computed-condition-status rule, MTBF/MTTR approximation contract, `<=` stockout semantics, independent maintenance-spares catalog, and append-only cost convention. Mounted 10-tab Maintenance module at `/portal/maintenance`.
-- **Plant Head Dashboard is read-only and derivation-only.** All values come from existing module SSOTs via pure helpers in `src/lib/plant-health.ts`. The dashboard MUST NOT introduce its own tables, write paths, or business thresholds — module-level rules (PM windows, stock min/max, complaint lifecycle, cost alerts) remain owned by their respective modules. Health-pill thresholds are display-only and explicitly documented in the helper.
+- **Plant Head Command Deck is read-only and derivation-only.** All values come from existing module SSOTs via pure helpers in `src/lib/plant-health.ts`. The deck MUST NOT introduce its own tables, write paths, or business thresholds — module-level rules (PM windows, stock min/max, complaint lifecycle, cost alerts) remain owned by their respective modules. Health-pill thresholds are display-only and explicitly documented in the helper.
+- **Command Deck is its own module, not part of Overview.** Mounted at `/portal/command-deck` with a dedicated static nav entry. The `/portal` Overview page MUST NOT re-embed the cross-module dashboard; this preserves Overview's role as a workspace/pins/modules launcher and keeps the unified plant view discoverable as a first-class module.
 
 ## Policy Change Log (continued)
-- 2026-04-26 (Plant Head Dashboard): added cross-module monitoring deck on `/portal` with derivation-only contract.
+- 2026-04-26 (Plant Head Dashboard): added cross-module monitoring deck with derivation-only contract.
+- 2026-04-26 (Command Deck module): moved the dashboard out of `/portal` Overview into its own `/portal/command-deck` route + static nav entry.
