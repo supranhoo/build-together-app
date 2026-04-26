@@ -160,6 +160,51 @@ export type Database = {
         }
         Relationships: []
       }
+      byproduct_credits: {
+        Row: {
+          byproduct_type: string
+          created_at: string
+          created_by: string
+          effective_from: string
+          effective_to: string | null
+          id: string
+          is_active: boolean
+          notes: string | null
+          profit_center_id: string
+          rate: number
+          uom: string
+          updated_at: string
+        }
+        Insert: {
+          byproduct_type: string
+          created_at?: string
+          created_by: string
+          effective_from: string
+          effective_to?: string | null
+          id?: string
+          is_active?: boolean
+          notes?: string | null
+          profit_center_id: string
+          rate: number
+          uom?: string
+          updated_at?: string
+        }
+        Update: {
+          byproduct_type?: string
+          created_at?: string
+          created_by?: string
+          effective_from?: string
+          effective_to?: string | null
+          id?: string
+          is_active?: boolean
+          notes?: string | null
+          profit_center_id?: string
+          rate?: number
+          uom?: string
+          updated_at?: string
+        }
+        Relationships: []
+      }
       compliance_records: {
         Row: {
           attachments: Json
@@ -208,6 +253,87 @@ export type Database = {
           reference_no?: string
           responsible_user_id?: string | null
           updated_at?: string
+        }
+        Relationships: []
+      }
+      cost_alert_rules: {
+        Row: {
+          comparator: string
+          created_at: string
+          created_by: string
+          id: string
+          is_active: boolean
+          kpi_key: string
+          notes: string | null
+          profit_center_id: string
+          rule_name: string
+          severity: string
+          threshold: number
+          updated_at: string
+        }
+        Insert: {
+          comparator: string
+          created_at?: string
+          created_by: string
+          id?: string
+          is_active?: boolean
+          kpi_key: string
+          notes?: string | null
+          profit_center_id: string
+          rule_name: string
+          severity?: string
+          threshold: number
+          updated_at?: string
+        }
+        Update: {
+          comparator?: string
+          created_at?: string
+          created_by?: string
+          id?: string
+          is_active?: boolean
+          kpi_key?: string
+          notes?: string | null
+          profit_center_id?: string
+          rule_name?: string
+          severity?: string
+          threshold?: number
+          updated_at?: string
+        }
+        Relationships: []
+      }
+      cost_period_snapshots: {
+        Row: {
+          created_at: string
+          id: string
+          locked_at: string
+          locked_by: string
+          notes: string | null
+          payload: Json
+          period_end: string
+          period_start: string
+          profit_center_id: string
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          locked_at?: string
+          locked_by: string
+          notes?: string | null
+          payload?: Json
+          period_end: string
+          period_start: string
+          profit_center_id: string
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          locked_at?: string
+          locked_by?: string
+          notes?: string | null
+          payload?: Json
+          period_end?: string
+          period_start?: string
+          profit_center_id?: string
         }
         Relationships: []
       }
@@ -1925,6 +2051,60 @@ export type Database = {
             referencedColumns: ["id"]
           },
         ]
+      }
+      standard_cost_bom: {
+        Row: {
+          created_at: string
+          created_by: string
+          effective_from: string
+          effective_to: string | null
+          grade: string
+          id: string
+          is_active: boolean
+          material_id: string
+          notes: string | null
+          product: string | null
+          profit_center_id: string
+          std_qty_per_mt: number
+          std_rate: number | null
+          uom: string
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          created_by: string
+          effective_from: string
+          effective_to?: string | null
+          grade: string
+          id?: string
+          is_active?: boolean
+          material_id: string
+          notes?: string | null
+          product?: string | null
+          profit_center_id: string
+          std_qty_per_mt: number
+          std_rate?: number | null
+          uom?: string
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          created_by?: string
+          effective_from?: string
+          effective_to?: string | null
+          grade?: string
+          id?: string
+          is_active?: boolean
+          material_id?: string
+          notes?: string | null
+          product?: string | null
+          profit_center_id?: string
+          std_qty_per_mt?: number
+          std_rate?: number | null
+          uom?: string
+          updated_at?: string
+        }
+        Relationships: []
       }
       stock_locations: {
         Row: {
