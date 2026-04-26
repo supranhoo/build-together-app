@@ -34,6 +34,7 @@ import AdminQuality from "./pages/AdminQuality";
 import AdminFinance from "./pages/AdminFinance";
 import PortalFinance from "./pages/PortalFinance";
 import PortalSales from "./pages/PortalSales";
+import PortalMaintenance from "./pages/PortalMaintenance";
 import ModulePlaceholder from "./pages/ModulePlaceholder";
 import PortalProduction from "./pages/PortalProduction";
 import PortalProductionFAD from "./pages/PortalProductionFAD";
@@ -94,6 +95,7 @@ const App = () => (
                     <Route path="quality" element={<AdminQuality />} />
                     <Route path="finance" element={<PortalFinance />} />
                     <Route path="sales" element={<PortalSales />} />
+                    <Route path="maintenance" element={<PortalMaintenance />} />
                     <Route path=":module" element={<ModulePlaceholder />} />
                   </Route>
                 </Route>
