@@ -2185,6 +2185,233 @@ export type Database = {
           },
         ]
       }
+      sales_customers: {
+        Row: {
+          code: string
+          contact_email: string | null
+          contact_phone: string | null
+          country: string | null
+          created_at: string
+          created_by: string
+          credit_limit: number | null
+          currency_code: string
+          customer_type: Database["public"]["Enums"]["sales_customer_type"]
+          gst_or_tax_id: string | null
+          id: string
+          is_active: boolean
+          is_export: boolean
+          name: string
+          notes: string | null
+          payment_terms_days: number
+          profit_center_id: string
+          region: string | null
+          updated_at: string
+        }
+        Insert: {
+          code: string
+          contact_email?: string | null
+          contact_phone?: string | null
+          country?: string | null
+          created_at?: string
+          created_by: string
+          credit_limit?: number | null
+          currency_code?: string
+          customer_type?: Database["public"]["Enums"]["sales_customer_type"]
+          gst_or_tax_id?: string | null
+          id?: string
+          is_active?: boolean
+          is_export?: boolean
+          name: string
+          notes?: string | null
+          payment_terms_days?: number
+          profit_center_id: string
+          region?: string | null
+          updated_at?: string
+        }
+        Update: {
+          code?: string
+          contact_email?: string | null
+          contact_phone?: string | null
+          country?: string | null
+          created_at?: string
+          created_by?: string
+          credit_limit?: number | null
+          currency_code?: string
+          customer_type?: Database["public"]["Enums"]["sales_customer_type"]
+          gst_or_tax_id?: string | null
+          id?: string
+          is_active?: boolean
+          is_export?: boolean
+          name?: string
+          notes?: string | null
+          payment_terms_days?: number
+          profit_center_id?: string
+          region?: string | null
+          updated_at?: string
+        }
+        Relationships: []
+      }
+      sales_inquiries: {
+        Row: {
+          created_at: string
+          created_by: string
+          currency_code: string
+          customer_id: string
+          expected_price: number | null
+          grade: string | null
+          id: string
+          incoterms: string | null
+          inquiry_date: string
+          inquiry_no: string
+          is_export: boolean
+          notes: string | null
+          port: string | null
+          product: string
+          profit_center_id: string
+          qty_mt: number
+          status: Database["public"]["Enums"]["sales_inquiry_status"]
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          created_by: string
+          currency_code?: string
+          customer_id: string
+          expected_price?: number | null
+          grade?: string | null
+          id?: string
+          incoterms?: string | null
+          inquiry_date?: string
+          inquiry_no: string
+          is_export?: boolean
+          notes?: string | null
+          port?: string | null
+          product: string
+          profit_center_id: string
+          qty_mt: number
+          status?: Database["public"]["Enums"]["sales_inquiry_status"]
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          created_by?: string
+          currency_code?: string
+          customer_id?: string
+          expected_price?: number | null
+          grade?: string | null
+          id?: string
+          incoterms?: string | null
+          inquiry_date?: string
+          inquiry_no?: string
+          is_export?: boolean
+          notes?: string | null
+          port?: string | null
+          product?: string
+          profit_center_id?: string
+          qty_mt?: number
+          status?: Database["public"]["Enums"]["sales_inquiry_status"]
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "sales_inquiries_customer_id_fkey"
+            columns: ["customer_id"]
+            isOneToOne: false
+            referencedRelation: "sales_customers"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      sales_orders: {
+        Row: {
+          created_at: string
+          created_by: string
+          currency_code: string
+          customer_id: string
+          fx_rate: number | null
+          grade: string | null
+          id: string
+          incoterms: string | null
+          inquiry_id: string | null
+          is_export: boolean
+          notes: string | null
+          order_date: string
+          port_of_discharge: string | null
+          port_of_loading: string | null
+          price_per_mt: number
+          product: string
+          profit_center_id: string
+          qty_mt: number
+          so_number: string
+          status: Database["public"]["Enums"]["sales_order_status"]
+          total_value: number | null
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          created_by: string
+          currency_code?: string
+          customer_id: string
+          fx_rate?: number | null
+          grade?: string | null
+          id?: string
+          incoterms?: string | null
+          inquiry_id?: string | null
+          is_export?: boolean
+          notes?: string | null
+          order_date?: string
+          port_of_discharge?: string | null
+          port_of_loading?: string | null
+          price_per_mt: number
+          product: string
+          profit_center_id: string
+          qty_mt: number
+          so_number: string
+          status?: Database["public"]["Enums"]["sales_order_status"]
+          total_value?: number | null
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          created_by?: string
+          currency_code?: string
+          customer_id?: string
+          fx_rate?: number | null
+          grade?: string | null
+          id?: string
+          incoterms?: string | null
+          inquiry_id?: string | null
+          is_export?: boolean
+          notes?: string | null
+          order_date?: string
+          port_of_discharge?: string | null
+          port_of_loading?: string | null
+          price_per_mt?: number
+          product?: string
+          profit_center_id?: string
+          qty_mt?: number
+          so_number?: string
+          status?: Database["public"]["Enums"]["sales_order_status"]
+          total_value?: number | null
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "sales_orders_customer_id_fkey"
+            columns: ["customer_id"]
+            isOneToOne: false
+            referencedRelation: "sales_customers"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "sales_orders_inquiry_id_fkey"
+            columns: ["inquiry_id"]
+            isOneToOne: false
+            referencedRelation: "sales_inquiries"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       selling_prices: {
         Row: {
           created_at: string
@@ -2756,6 +2983,24 @@ export type Database = {
         | "closed"
       risk_severity: "low" | "medium" | "high" | "critical"
       risk_status: "open" | "mitigated" | "closed"
+      sales_customer_type:
+        | "steel_mill"
+        | "trader"
+        | "foundry"
+        | "distributor"
+        | "other"
+      sales_inquiry_status: "open" | "quoted" | "won" | "lost" | "cancelled"
+      sales_order_status:
+        | "draft"
+        | "confirmed"
+        | "in_production"
+        | "ready_for_dispatch"
+        | "dispatched"
+        | "sailed"
+        | "delivered"
+        | "invoiced"
+        | "paid"
+        | "cancelled"
       sample_status:
         | "planned"
         | "collected"
@@ -2938,6 +3183,26 @@ export const Constants = {
       ],
       risk_severity: ["low", "medium", "high", "critical"],
       risk_status: ["open", "mitigated", "closed"],
+      sales_customer_type: [
+        "steel_mill",
+        "trader",
+        "foundry",
+        "distributor",
+        "other",
+      ],
+      sales_inquiry_status: ["open", "quoted", "won", "lost", "cancelled"],
+      sales_order_status: [
+        "draft",
+        "confirmed",
+        "in_production",
+        "ready_for_dispatch",
+        "dispatched",
+        "sailed",
+        "delivered",
+        "invoiced",
+        "paid",
+        "cancelled",
+      ],
       sample_status: ["planned", "collected", "tested", "released", "rejected"],
       shipment_status: [
         "planned",
