@@ -36,6 +36,7 @@ export default function PortalInventory() {
     // Map legacy routes back to the closest tab so the strip still highlights.
     if (location.pathname.endsWith("/receipts")) return "grn";
     if (location.pathname.endsWith("/ledger")) return "stock";
+    if (location.pathname.includes("/master-data")) return "master-data";
     return "dashboard";
   }, [location.pathname]);
 
