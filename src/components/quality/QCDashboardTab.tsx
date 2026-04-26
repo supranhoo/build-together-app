@@ -36,7 +36,9 @@ const EMPTY: QualityKpis = {
   compliance: { total: 0, expired: 0, dueSoon: 0, ok: 0, noExpiry: 0 },
 };
 
-function MiniStat({ label, value, tone = "default" }: { label: string; value: number | string; tone?: "default" | "danger" | "warn" | "ok" }) {
+type Tone = "default" | "danger" | "warn" | "ok";
+
+function MiniStat({ label, value, tone = "default" }: { label: string; value: number | string; tone?: Tone }) {
   const cls =
     tone === "danger" ? "text-destructive"
     : tone === "warn" ? "text-amber-600"
@@ -79,13 +81,13 @@ export function QCDashboardTab() {
     return () => { cancelled = true; };
   }, [pcId, toast]);
 
-  const headline = useMemo(() => ([
-    { label: "Open samples",          value: kpis.samples.openCount,           tone: kpis.samples.openCount > 0 ? "warn" : "default" as const },
-    { label: "Bunker fail-rate (%)",  value: kpis.bunkerTests.failRatePct,     tone: kpis.bunkerTests.failRatePct > 0 ? "warn" : "ok" as const },
-    { label: "FG pending",            value: kpis.fgInspections.pending,       tone: kpis.fgInspections.pending > 0 ? "warn" : "default" as const },
-    { label: "Dispatch held",         value: kpis.dispatch.held,               tone: kpis.dispatch.held > 0 ? "warn" : "default" as const },
-    { label: "Active complaints",     value: kpis.complaints.activeCount,      tone: kpis.complaints.activeCount > 0 ? "danger" : "ok" as const },
-    { label: "Compliance expired",    value: kpis.compliance.expired,          tone: kpis.compliance.expired > 0 ? "danger" : "ok" as const },
+  const headline = useMemo<Array<{ label: string; value: number | string; tone: Tone }>>(() => ([
+    { label: "Open samples",          value: kpis.samples.openCount,           tone: kpis.samples.openCount > 0 ? "warn" : "default" },
+    { label: "Bunker fail-rate (%)",  value: kpis.bunkerTests.failRatePct,     tone: kpis.bunkerTests.failRatePct > 0 ? "warn" : "ok" },
+    { label: "FG pending",            value: kpis.fgInspections.pending,       tone: kpis.fgInspections.pending > 0 ? "warn" : "default" },
+    { label: "Dispatch held",         value: kpis.dispatch.held,               tone: kpis.dispatch.held > 0 ? "warn" : "default" },
+    { label: "Active complaints",     value: kpis.complaints.activeCount,      tone: kpis.complaints.activeCount > 0 ? "danger" : "ok" },
+    { label: "Compliance expired",    value: kpis.compliance.expired,          tone: kpis.compliance.expired > 0 ? "danger" : "ok" },
   ]), [kpis]);
 
   if (!pcId) {
