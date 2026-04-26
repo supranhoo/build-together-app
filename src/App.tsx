@@ -31,6 +31,8 @@ import AdminKpis from "./pages/AdminKpis";
 import AdminReportDeliveries from "./pages/AdminReportDeliveries";
 import AdminProcurement from "./pages/AdminProcurement";
 import AdminQuality from "./pages/AdminQuality";
+import AdminFinance from "./pages/AdminFinance";
+import PortalFinance from "./pages/PortalFinance";
 import ModulePlaceholder from "./pages/ModulePlaceholder";
 import PortalProduction from "./pages/PortalProduction";
 import PortalProductionFAD from "./pages/PortalProductionFAD";
@@ -89,6 +91,7 @@ const App = () => (
                         for Control Panel access. */}
                     <Route path="procurement" element={<AdminProcurement />} />
                     <Route path="quality" element={<AdminQuality />} />
+                    <Route path="finance" element={<PortalFinance />} />
                     <Route path=":module" element={<ModulePlaceholder />} />
                   </Route>
                 </Route>

@@ -1,6 +1,6 @@
 import { useMemo, useState } from "react";
 import { Outlet, useLocation, useNavigate } from "react-router-dom";
-import { Bell, ChevronRight, ClipboardList, Factory, FileBarChart2, LayoutDashboard, LogOut, Menu, Search, Settings2, ShieldCheck, Warehouse } from "lucide-react";
+import { Bell, Calculator, ChevronRight, ClipboardList, Factory, FileBarChart2, FlaskConical, LayoutDashboard, LogOut, Menu, Search, Settings2, ShieldCheck, ShoppingCart, Warehouse } from "lucide-react";
 import { BFCLLogo } from "@/components/BFCLLogo";
 import { ThemeToggle } from "@/components/ThemeToggle";
 import { Button } from "@/components/ui/button";
@@ -18,6 +18,9 @@ const iconMap = {
   inventory: Warehouse,
   production: Factory,
   reports: FileBarChart2,
+  procurement: ShoppingCart,
+  quality: FlaskConical,
+  finance: Calculator,
 };
 
 // Static (non-module) portal nav entries. Exported so the route-audit test can
