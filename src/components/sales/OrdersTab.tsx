@@ -1,9 +1,15 @@
 /**
  * Orders tab — list + create (optionally from inquiry) + status update.
  * Converting from an inquiry locks the inquiry to status='won'.
+ *
+ * URL-driven filters (added 2026-04-26 with KPI drilldown rollout):
+ *   ?status=<one>           → single status filter
+ *   ?status=a,b,c           → multi-status (used by 'Dispatched Qty' KPI)
+ *   ?detail=<order_id>      → opens the right-side detail sheet
  */
-import { useEffect, useState } from "react";
-import { Plus } from "lucide-react";
+import { useEffect, useMemo, useState } from "react";
+import { useSearchParams } from "react-router-dom";
+import { Eye, Plus } from "lucide-react";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -15,6 +21,9 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { useToast } from "@/hooks/use-toast";
 import { useAuth } from "@/hooks/use-auth";
 import { createAuditLog } from "@/lib/workspace";
+import { FilterBanner } from "@/components/ui/filter-banner";
+import { RecordDetailSheet } from "@/components/ui/record-detail-sheet";
+import { applyFilters } from "@/lib/url-filters";
 import {
   convertInquiryToOrder, createOrder, fetchCustomers, fetchInquiries, fetchOrders,
   updateInquiryStatus, updateOrderStatus,
