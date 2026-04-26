@@ -1,26 +1,19 @@
 /**
- * Quality Control (Phase A — shell only).
+ * Quality Control (Phases A + B).
  *
- * 9-tab control panel surface for the Ferro Alloys Division. Per Phase A scope:
- *  - 2 tabs deep-link to existing single-source-of-truth pages
- *    (Raw Material QC → GRN, Furnace Quality → PortalProductionQuality).
- *  - 7 new tabs (Dashboard, Sampling, Bunker Feed QC, Finished Goods, Dispatch,
- *    Complaints, Compliance) render scaffolds and become functional in
- *    Phases B/C/D per .lovable/plan.md.
+ * 9-tab control panel for the Ferro Alloys Division.
+ *  - 2 tabs deep-link to SSOT pages (Raw Material QC → GRN, Furnace Quality → Production Quality).
+ *  - Sampling Management and Bunker Feed QC are functional (Phase B).
+ *  - Dashboard, Finished Goods, Dispatch, Complaints, Compliance remain
+ *    scaffolds and activate in Phases C/D per .lovable/plan.md.
  *
- * Notes vs. uploaded reference module:
- *  - "CLU Quality" was removed (not part of Ferro Alloys Division).
- *  - "Bunker Feed QC" was added — pre-consumption ore/reductant testing
- *    against material specs.
- *
- * Hard rules followed:
- *  - Uses semantic tokens only (no bg-white / text-slate-* hardcoding).
- *  - Uses shadcn Tabs + Card primitives.
- *  - Workspace-scoped via useWorkspace (no manual profit_center props).
- *  - Admin-gated by the /admin route's RequireAdmin wrapper; also mounted
- *    inside PortalShell so the plant sidebar stays visible (same pattern
- *    as Procurement).
+ * Hard rules:
+ *  - Semantic tokens only.
+ *  - Workspace-scoped via useWorkspace.
+ *  - Admin-gated; also mounted inside PortalShell so plant sidebar stays visible.
  */
+import { SamplingTab } from "@/components/quality/SamplingTab";
+import { BunkerFeedQCTab } from "@/components/quality/BunkerFeedQCTab";
 import { useNavigate } from "react-router-dom";
 import {
   AlertCircle,
