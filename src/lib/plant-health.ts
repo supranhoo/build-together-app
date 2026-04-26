@@ -199,10 +199,10 @@ export function aggregateCrossModuleKpis(input: AggregateInput): CrossModuleKpis
     if (status === "below_min") itemsBelowMin += 1;
     else if (status === "reorder") itemsAtReorder += 1;
   }
-  // Stock value = sum of unit_cost × quantity from receipt entries (running cost basis).
-  // Conservative: only sum ledger rows with a unit_cost; ignore unpriced rows.
+  // Stock value = sum of unit_cost × quantity from ledger entries that carry a
+  // unit cost. Conservative: rows without a unit cost are excluded.
   const totalStockValue = input.ledger.reduce(
-    (s, e) => (e.unitCost !== null ? s + e.unitCost * e.quantity : s),
+    (s, e) => (typeof e.unitCost === "number" ? s + e.unitCost * e.quantity : s),
     0,
   );
 
