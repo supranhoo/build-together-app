@@ -476,3 +476,24 @@ SteelFlow ERP now uses a configuration-first workspace foundation for steel and 
 - 2026-04-25 (Procurement Phase C): MRP shortages tab, Import Shipments tab, PO↔GRN linkage (per-line Receive posting to inventory_ledger with auto PO status advance). 21 new tests. 208/208 tests passing.
 - 2026-04-25 (Procurement Phase D): Dashboard KPI roll-up, Supplier Performance scorecards (append-only, equally-weighted overall), Risk Monitoring register (open/mitigated/closed workflow). 20 new tests. 228/228 tests passing. All 16 procurement tabs now live.
 - 2026-04-26 (Quality Control Phase A): Schema (quality_samples, bunker_feed_tests, fg_inspections, dispatch_clearances, quality_complaints, compliance_records) + RLS + audit triggers + permission grants seeded + 9-tab shell at `/admin/quality` and `/portal/quality` with 2 deep-links live and 7 scaffolds. CLU removed; Bunker Feed QC added per Ferro Alloys Division scope.
+- 2026-04-26 (Quality Control Phase B): **Sampling Management** and **Bunker Feed QC** tabs are now functional. Service layer `src/lib/quality.ts` adds: `canTransitionSample` / `nextSampleStatuses` (lifecycle rules), `evaluateBunkerTest` (pure verdict from observed values + spec map → pass/conditional/fail + deviation list), `specsFromMaterial` (maps `materials.specs` jsonb → `BunkerSpecMap`), and thin DB helpers (`fetchSamples`, `createSample`, `transitionSample`, `fetchBunkerTests`, `fetchMaterialSpecs`, `createBunkerTest`). Components: `src/components/quality/SamplingTab.tsx`, `src/components/quality/BunkerFeedQCTab.tsx`. Tests: `src/test/quality-phase-b.test.ts` (13 cases). 245/245 tests passing.
+
+### Quality Phase B — material spec convention
+Bunker test evaluation reads `materials.specs` (jsonb) using this snake_case shape:
+```json
+{
+  "mn_pct":       { "min": 46, "max": 52, "critical_min": 44 },
+  "fc_pct":       { "min": 80,             "critical_min": 75 },
+  "moisture_pct": {            "max": 6,   "critical_max": 8 }
+}
+```
+Verdict rules (mirrored in POLICY.md):
+- All observed values inside `[min, max]` → **pass**.
+- Any soft-bound breach → **conditional**.
+- Any critical-bound breach → **fail** (overrides any conditional).
+- Missing observation on a spec'd field → recorded as a major deviation and the verdict is **conditional** (never silently pass).
+- Fields without a spec entry are ignored.
+- Empty spec book → **pass** with no deviations (no rule to check against).
+
+Sample lifecycle (single source of truth in `src/lib/quality.ts`):
+`planned → collected → tested → released | rejected`. `released` and `rejected` are terminal (RLS blocks further updates).

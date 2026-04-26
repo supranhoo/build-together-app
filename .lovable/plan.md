@@ -62,10 +62,11 @@ Build a Quality Control surface modeled on the uploaded `QualityControlModule.ts
 - Routes registered, sidebar entry added.
 - Tests: `src/test/quality-phase-a.test.ts` (route audit, tab list, RLS smoke).
 
-**Phase B — Sampling + Raw Material QC + Bunker Feed QC + Furnace deep-link**
-- `SamplingTab.tsx`, `RawMaterialQCTab.tsx`, `BunkerFeedQCTab.tsx`, `FurnaceQualityTab.tsx`.
-- `src/lib/quality.ts` service layer — including `evaluateBunkerTest(materialSpec, tolerances, measurements) → { result, deviations[] }`.
-- Tests: `quality-phase-b.test.ts` covering pass/conditional/fail spec evaluation + deep-link routing.
+**Phase B — Sampling + Bunker Feed QC** ✅ done 2026-04-26
+- `src/components/quality/SamplingTab.tsx`, `src/components/quality/BunkerFeedQCTab.tsx`.
+- `src/lib/quality.ts` service layer — `canTransitionSample`, `evaluateBunkerTest(observed, specs) → { result, deviations[] }`, `specsFromMaterial`, plus DB I/O wrappers.
+- Raw Material QC and Furnace Quality remain SSOT deep-links (no duplicate UI built).
+- Tests: `src/test/quality-phase-b.test.ts` — 13 cases covering lifecycle + verdict ladder + AdminQuality wiring. 245/245 suite green.
 
 **Phase C — FG + Dispatch**
 - `FinishedGoodsTab.tsx`, `DispatchQCTab.tsx`.

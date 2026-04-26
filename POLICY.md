@@ -254,3 +254,4 @@
 
 ## Policy Change Log (continued)
 - 2026-04-26: Added Quality Control governance for Ferro Alloys Division — 9-tab module at `/admin/quality` and `/portal/quality`, with Bunker Feed QC replacing CLU. Consumption-gate enforced as policy + UI warning (Phase A/B); promotion to hard DB trigger deferred.
+- 2026-04-26 (Quality Phase B): **Sampling lifecycle** and **Bunker Feed QC verdict rules** are now codified in `src/lib/quality.ts` and enforced both client-side (transition guards, live verdict preview) and DB-side (RLS blocks updates to released samples). Verdict ladder: pass < conditional < fail (any critical breach overrides). Missing readings on spec'd fields are conditional, never silent pass. Spec source remains `materials.specs` jsonb — no business number is hardcoded in evaluator.
