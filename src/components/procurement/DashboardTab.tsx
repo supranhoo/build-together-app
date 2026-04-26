@@ -117,18 +117,15 @@ export function DashboardTab() {
             <div className="py-8 text-center text-sm text-muted-foreground">Loading…</div>
           ) : (
             <div className="grid grid-cols-2 gap-3 md:grid-cols-3 lg:grid-cols-4">
-              <KpiCard
-                icon={FileText}
-                label="Open PRs"
-                value={kpis.prsOpen}
-                hint={`${kpis.prsAwaitingApproval} awaiting approval`}
-                tone={kpis.prsAwaitingApproval > 0 ? "warning" : "default"}
+              <AccentKpiCard
+                module="procurement" icon={FileText}
+                title="Open PRs" value={String(kpis.prsOpen)}
+                sub={`${kpis.prsAwaitingApproval} awaiting approval`}
               />
-              <KpiCard
-                icon={ShoppingCart}
-                label="Open POs"
-                value={kpis.posOpen}
-                hint={
+              <AccentKpiCard
+                module="procurement" icon={ShoppingCart}
+                title="Open POs" value={String(kpis.posOpen)}
+                sub={
                   Object.keys(kpis.posValueOpen).length === 0
                     ? "No open value"
                     : Object.entries(kpis.posValueOpen)
@@ -136,43 +133,30 @@ export function DashboardTab() {
                         .join(" · ")
                 }
               />
-              <KpiCard
-                icon={Ship}
-                label="Shipments In Transit"
-                value={kpis.shipmentsInTransit}
-                hint={`${kpis.shipmentsCustoms} in customs`}
-                tone={kpis.shipmentsCustoms > 0 ? "warning" : "default"}
+              <AccentKpiCard
+                module="procurement" icon={Ship}
+                title="Shipments In Transit" value={String(kpis.shipmentsInTransit)}
+                sub={`${kpis.shipmentsCustoms} in customs`}
               />
-              <KpiCard
-                icon={Users}
-                label="Active Suppliers"
-                value={kpis.suppliersActive}
+              <AccentKpiCard
+                module="procurement" icon={Users}
+                title="Active Suppliers" value={String(kpis.suppliersActive)}
               />
-              <KpiCard
-                icon={AlertTriangle}
-                label="Shortages: Below Min"
-                value={kpis.shortagesBelowMin}
-                hint={`${kpis.shortagesReorder} at reorder`}
-                tone={kpis.shortagesBelowMin > 0 ? "danger" : kpis.shortagesReorder > 0 ? "warning" : "good"}
+              <AccentKpiCard
+                module="procurement" icon={AlertTriangle}
+                title="Shortages: Below Min" value={String(kpis.shortagesBelowMin)}
+                sub={`${kpis.shortagesReorder} at reorder`}
               />
-              <KpiCard
-                icon={ShieldAlert}
-                label="Open Risks"
-                value={kpis.risksOpen}
-                hint={`${kpis.risksCritical} critical`}
-                tone={kpis.risksCritical > 0 ? "danger" : kpis.risksOpen > 0 ? "warning" : "good"}
+              <AccentKpiCard
+                module="procurement" icon={ShieldAlert}
+                title="Open Risks" value={String(kpis.risksOpen)}
+                sub={`${kpis.risksCritical} critical`}
               />
-              <KpiCard
-                icon={TrendingUp}
-                label="Avg Supplier Score"
+              <AccentKpiCard
+                module="procurement" icon={TrendingUp}
+                title="Avg Supplier Score"
                 value={kpis.avgSupplierScore === null ? "—" : kpis.avgSupplierScore.toFixed(1)}
-                hint="Latest evaluation per supplier"
-                tone={
-                  kpis.avgSupplierScore === null ? "default"
-                  : kpis.avgSupplierScore >= 85 ? "good"
-                  : kpis.avgSupplierScore >= 70 ? "warning"
-                  : "danger"
-                }
+                sub="Latest evaluation per supplier"
               />
             </div>
           )}
