@@ -24,7 +24,8 @@ const SEVERITY_VARIANT: Record<BreakdownSeverity, string> = {
 };
 
 export function BreakdownMaintenanceTab({ profitCenterId }: { profitCenterId: string }) {
-  const { user } = useAuth();
+  const { session } = useAuth();
+  const user = session?.user;
   const { toast } = useToast();
   const [items, setItems] = useState<Breakdown[]>([]);
   const [equipment, setEquipment] = useState<Equipment[]>([]);

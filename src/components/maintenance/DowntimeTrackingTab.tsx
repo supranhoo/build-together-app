@@ -20,7 +20,8 @@ import { fetchDowntime, fetchEquipment, createDowntime, type Downtime, type Equi
 const REASONS = ["mechanical", "electrical", "hydraulic", "operator", "material_shortage", "power_failure", "planned_pm", "other"];
 
 export function DowntimeTrackingTab({ profitCenterId }: { profitCenterId: string }) {
-  const { user } = useAuth();
+  const { session } = useAuth();
+  const user = session?.user;
   const { toast } = useToast();
   const [items, setItems] = useState<Downtime[]>([]);
   const [equipment, setEquipment] = useState<Equipment[]>([]);

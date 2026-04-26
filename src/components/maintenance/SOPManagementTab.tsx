@@ -17,7 +17,8 @@ import { useAuth } from "@/hooks/use-auth";
 import { fetchSOPs, fetchEquipment, createSOP, type SOP, type Equipment } from "@/lib/maintenance";
 
 export function SOPManagementTab({ profitCenterId }: { profitCenterId: string }) {
-  const { user } = useAuth();
+  const { session } = useAuth();
+  const user = session?.user;
   const { toast } = useToast();
   const [items, setItems] = useState<SOP[]>([]);
   const [equipment, setEquipment] = useState<Equipment[]>([]);

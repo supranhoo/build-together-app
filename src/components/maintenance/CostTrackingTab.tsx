@@ -24,7 +24,8 @@ const TYPE_VARIANT: Record<CostType, string> = {
 };
 
 export function CostTrackingTab({ profitCenterId }: { profitCenterId: string }) {
-  const { user } = useAuth();
+  const { session } = useAuth();
+  const user = session?.user;
   const { toast } = useToast();
   const [items, setItems] = useState<MaintenanceCost[]>([]);
   const [equipment, setEquipment] = useState<Equipment[]>([]);

@@ -31,7 +31,8 @@ const CRIT_VARIANT: Record<Criticality, string> = {
 };
 
 export function EquipmentMasterTab({ profitCenterId }: { profitCenterId: string }) {
-  const { user } = useAuth();
+  const { session } = useAuth();
+  const user = session?.user;
   const { toast } = useToast();
   const [items, setItems] = useState<Equipment[]>([]);
   const [open, setOpen] = useState(false);

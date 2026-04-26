@@ -16,7 +16,8 @@ import { useAuth } from "@/hooks/use-auth";
 import { fetchSpares, createSpare, type Spare } from "@/lib/maintenance";
 
 export function SparePartsTab({ profitCenterId }: { profitCenterId: string }) {
-  const { user } = useAuth();
+  const { session } = useAuth();
+  const user = session?.user;
   const { toast } = useToast();
   const [items, setItems] = useState<Spare[]>([]);
   const [open, setOpen] = useState(false);

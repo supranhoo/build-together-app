@@ -33,7 +33,8 @@ const PRI_VARIANT: Record<Priority, string> = {
 };
 
 export function WorkOrderTab({ profitCenterId }: { profitCenterId: string }) {
-  const { user } = useAuth();
+  const { session } = useAuth();
+  const user = session?.user;
   const { toast } = useToast();
   const [items, setItems] = useState<WorkOrder[]>([]);
   const [equipment, setEquipment] = useState<Equipment[]>([]);
