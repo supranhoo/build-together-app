@@ -192,23 +192,4 @@ export function MaintenanceDashboardTab({ profitCenterId, onJumpTab }: Props) {
   );
 }
 
-function KpiCard({ icon: Icon, accent, iconBg, label, value, sub, onClick }: {
-  icon: any; accent: string; iconBg: string; label: string; value: string;
-  sub?: string; onClick?: () => void;
-}) {
-  return (
-    <Card
-      className={`border-l-4 ${accent} ${onClick ? "cursor-pointer hover:shadow-md transition-shadow" : ""}`}
-      onClick={onClick}
-    >
-      <CardContent className="p-4 flex items-start justify-between">
-        <div>
-          <p className="text-xs font-medium text-muted-foreground uppercase tracking-wide">{label}</p>
-          <p className="text-2xl font-bold mt-1 text-foreground">{value}</p>
-          {sub && <p className="text-xs text-muted-foreground mt-1">{sub}</p>}
-        </div>
-        <div className={`p-2 rounded-lg ${iconBg}`}><Icon className="h-5 w-5" /></div>
-      </CardContent>
-    </Card>
-  );
-}
+// Local KpiCard removed — now uses shared @/components/ui/accent-kpi-card.
