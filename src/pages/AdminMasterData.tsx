@@ -3,6 +3,7 @@ import { useSearchParams } from "react-router-dom";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
 import AdminMasterItems from "./AdminMasterItems";
 import AdminMaterialGroups from "./AdminMaterialGroups";
+import AdminSpecTemplates from "./AdminSpecTemplates";
 import AdminFurnaces from "./AdminFurnaces";
 import AdminCostRates from "./AdminCostRates";
 import AdminUomConversions from "./AdminUomConversions";
@@ -16,6 +17,7 @@ import AdminKpis from "./AdminKpis";
 export const MASTER_DATA_TABS = [
   { key: "items", label: "Item Master", Component: AdminMasterItems },
   { key: "groups", label: "Group & Hierarchy", Component: AdminMaterialGroups },
+  { key: "specs", label: "Specifications", Component: AdminSpecTemplates },
   { key: "furnaces", label: "Furnace / Machine", Component: AdminFurnaces },
   { key: "cost-rates", label: "Rate & Cost Pool", Component: AdminCostRates },
   { key: "uom", label: "UOM & Conversion", Component: AdminUomConversions },
