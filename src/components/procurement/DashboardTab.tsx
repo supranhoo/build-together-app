@@ -24,6 +24,7 @@ import { useWorkspace } from "@/hooks/use-workspace";
 import { useToast } from "@/hooks/use-toast";
 import { fetchMasterItems } from "@/lib/master-data";
 import { fetchLedger, computeStockBalances } from "@/lib/inventory";
+import { AccentKpiCard } from "@/components/ui/accent-kpi-card";
 import {
   buildDashboardKpis,
   computeShortages,
@@ -36,36 +37,6 @@ import {
   fetchSuppliers,
   type ProcurementDashboardKpis,
 } from "@/lib/procurement";
-
-interface KpiCardProps {
-  icon: React.ComponentType<{ className?: string }>;
-  label: string;
-  value: string | number;
-  hint?: string;
-  tone?: "default" | "warning" | "danger" | "good";
-}
-
-const TONE: Record<NonNullable<KpiCardProps["tone"]>, string> = {
-  default: "text-foreground",
-  warning: "text-amber-700 dark:text-amber-300",
-  danger:  "text-destructive",
-  good:    "text-emerald-700 dark:text-emerald-300",
-};
-
-function KpiCard({ icon: Icon, label, value, hint, tone = "default" }: KpiCardProps) {
-  return (
-    <Card>
-      <CardContent className="flex items-start gap-3 p-4">
-        <div className="rounded-md bg-muted p-2"><Icon className="h-4 w-4 text-primary" /></div>
-        <div className="min-w-0 flex-1">
-          <div className="text-xs text-muted-foreground">{label}</div>
-          <div className={`text-2xl font-semibold ${TONE[tone]}`}>{value}</div>
-          {hint && <div className="text-xs text-muted-foreground">{hint}</div>}
-        </div>
-      </CardContent>
-    </Card>
-  );
-}
 
 export function DashboardTab() {
   const { activeProfitCenter } = useWorkspace();
