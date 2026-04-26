@@ -66,32 +66,45 @@ export function DashboardTab({ profitCenterId, isExport, onJumpTab }: Props) {
     <div className="space-y-6">
       {/* Row 1: 5 colored-border KPI cards — all `module="sales"` so the
           colour rail stays consistent with every other Sales-owned KPI
-          across the app (see MODULE_ACCENTS contract). */}
+          across the app (see MODULE_ACCENTS contract).
+
+          Drilldown targets (decided 2026-04-26):
+          - Total Inquiries     → Inquiries tab, no status filter
+          - Active Offers       → Inquiries tab, status=quoted
+          - Confirmed Orders    → Orders tab, status=confirmed
+          - Available Stock     → cross-module: Inventory FG stock
+          - Dispatched Qty      → Orders tab, status=dispatched,sailed,delivered
+          Zero values still navigate (per project decision). */}
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-4">
         <AccentKpiCard
           module="sales" icon={Search}
           title="Total Inquiries" value={String(totalInquiries)}
           sub={`Active ${viewLabel} requests`}
+          drilldown={{ to: "/portal/sales", filters: { tab: "inquiries" } }}
         />
         <AccentKpiCard
           module="sales" icon={FileText}
           title="Active Offers" value={String(kpis.quotedInquiries)}
           sub={`Pending ${viewLabel} approval`}
+          drilldown={{ to: "/portal/sales", filters: { tab: "inquiries", status: "quoted" } }}
         />
         <AccentKpiCard
           module="sales" icon={ShoppingCart}
           title="Confirmed Orders" value={String(kpis.confirmedOrders)}
           sub={`In ${viewLabel} production`}
+          drilldown={{ to: "/portal/sales", filters: { tab: "orders", status: "confirmed" } }}
         />
         <AccentKpiCard
           module="sales" icon={Truck}
           title="Available Stock" value="0" unit="MT"
           sub="Ready for release"
+          drilldown={{ to: "/portal/inventory/stock" }}
         />
         <AccentKpiCard
           module="sales" icon={CheckCircle2}
           title="Dispatched Qty" value={fmtMt(kpis.dispatchedMt)} unit="MT"
           sub="Historical performance"
+          drilldown={{ to: "/portal/sales", filters: { tab: "orders", status: "dispatched,sailed,delivered" } }}
         />
       </div>
 
