@@ -302,6 +302,20 @@ export default function AdminMasterItems() {
         </div>
       </CardHeader>
       <CardContent>
+        {importReport && (
+          <div className={`mb-4 rounded-md border p-3 text-sm ${importReport.failed > 0 ? "border-destructive/40 bg-destructive/5 text-destructive" : "border-emerald-500/40 bg-emerald-500/5 text-emerald-700 dark:text-emerald-400"}`}>
+            <div className="flex items-center justify-between">
+              <span><strong>{importReport.inserted}</strong> rows saved · <strong>{importReport.failed}</strong> skipped</span>
+              <Button size="sm" variant="ghost" onClick={() => setImportReport(null)}>Dismiss</Button>
+            </div>
+            {importReport.errors.length > 0 && (
+              <ul className="mt-2 max-h-40 list-disc overflow-y-auto pl-5 text-xs">
+                {importReport.errors.slice(0, 100).map((msg, i) => <li key={i}>{msg}</li>)}
+                {importReport.errors.length > 100 && <li>…and {importReport.errors.length - 100} more</li>}
+              </ul>
+            )}
+          </div>
+        )}
         <Table>
           <TableHeader>
             <TableRow>
