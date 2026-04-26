@@ -47,12 +47,12 @@ const TABS: TabSpec[] = [
   { id: "raw_material", label: "Raw Material QC", icon: FlaskConical, kind: "deeplink",
     description: "Incoming material quality (Mn %, Fe %, moisture %) is captured on each GRN. Single source of truth.",
     target: { to: "/portal/inventory/grn", label: "Open GRN with quality fields" } },
-  { id: "sampling", label: "Sampling Management", icon: Target, kind: "scaffold",
+  { id: "sampling", label: "Sampling Management", icon: Target, kind: "live",
     description: "Sample plans, lot tracking and status workflow (planned → collected → tested → released/rejected).",
-    phase: "B" },
-  { id: "bunker_feed", label: "Bunker Feed QC", icon: ClipboardCheck, kind: "scaffold",
+    render: () => <SamplingTab /> },
+  { id: "bunker_feed", label: "Bunker Feed QC", icon: ClipboardCheck, kind: "live",
     description: "Per-bunker test of ore and reductant before charging. Verifies consumed material meets spec.",
-    phase: "B" },
+    render: () => <BunkerFeedQCTab /> },
   { id: "furnace", label: "Furnace Quality", icon: Thermometer, kind: "deeplink",
     description: "FG Mn %, slag MnO % and dust Mn % per heat are recorded with each heat in the production module.",
     target: { to: "/portal/production", label: "Open production quality" } },
@@ -86,7 +86,7 @@ export default function AdminQuality() {
           </p>
         </div>
         <Badge variant="outline" className="border-primary/40 bg-primary/10">
-          Phase A — schema live · UI activates in Phases B / C / D
+          Phase B live · Sampling + Bunker Feed QC active
         </Badge>
       </div>
 
@@ -102,41 +102,45 @@ export default function AdminQuality() {
 
         {TABS.map((t) => (
           <TabsContent key={t.id} value={t.id} className="space-y-4">
-            <Card>
-              <CardHeader className="flex flex-row items-start justify-between gap-4 space-y-0">
-                <div className="space-y-1">
-                  <CardTitle className="flex items-center gap-2">
-                    <t.icon className="h-5 w-5 text-primary" />
-                    {t.label}
-                  </CardTitle>
-                  <CardDescription>{t.description}</CardDescription>
-                </div>
-                {t.kind === "deeplink" && (
-                  <Button onClick={() => navigate(t.target.to)} variant="outline" className="gap-2">
-                    <ExternalLink className="h-4 w-4" /> {t.target.label}
-                  </Button>
-                )}
-                {t.kind === "scaffold" && (
-                  <Badge variant="secondary">Activates in Phase {t.phase}</Badge>
-                )}
-              </CardHeader>
-              <CardContent>
-                {t.kind === "deeplink" ? (
-                  <div className="rounded-md border border-dashed border-border bg-muted/30 p-6 text-sm text-muted-foreground">
-                    This screen lives in another module to keep a single source of truth.
-                    The button above opens the existing page; data shown there is shared with Quality.
+            {t.kind === "live" ? (
+              t.render()
+            ) : (
+              <Card>
+                <CardHeader className="flex flex-row items-start justify-between gap-4 space-y-0">
+                  <div className="space-y-1">
+                    <CardTitle className="flex items-center gap-2">
+                      <t.icon className="h-5 w-5 text-primary" />
+                      {t.label}
+                    </CardTitle>
+                    <CardDescription>{t.description}</CardDescription>
                   </div>
-                ) : (
-                  <div className="rounded-md border border-dashed border-border bg-muted/30 p-6 text-sm text-muted-foreground space-y-2">
-                    <p>Schema, RLS, audit triggers and permission grants for this tab are live in the database.</p>
-                    <p className="flex items-center gap-2 text-xs">
-                      <CheckCircle className="h-3.5 w-3.5 text-primary" />
-                      The interactive UI is delivered in Phase {t.phase}.
-                    </p>
-                  </div>
-                )}
-              </CardContent>
-            </Card>
+                  {t.kind === "deeplink" && (
+                    <Button onClick={() => navigate(t.target.to)} variant="outline" className="gap-2">
+                      <ExternalLink className="h-4 w-4" /> {t.target.label}
+                    </Button>
+                  )}
+                  {t.kind === "scaffold" && (
+                    <Badge variant="secondary">Activates in Phase {t.phase}</Badge>
+                  )}
+                </CardHeader>
+                <CardContent>
+                  {t.kind === "deeplink" ? (
+                    <div className="rounded-md border border-dashed border-border bg-muted/30 p-6 text-sm text-muted-foreground">
+                      This screen lives in another module to keep a single source of truth.
+                      The button above opens the existing page; data shown there is shared with Quality.
+                    </div>
+                  ) : (
+                    <div className="rounded-md border border-dashed border-border bg-muted/30 p-6 text-sm text-muted-foreground space-y-2">
+                      <p>Schema, RLS, audit triggers and permission grants for this tab are live in the database.</p>
+                      <p className="flex items-center gap-2 text-xs">
+                        <CheckCircle className="h-3.5 w-3.5 text-primary" />
+                        The interactive UI is delivered in Phase {t.phase}.
+                      </p>
+                    </div>
+                  )}
+                </CardContent>
+              </Card>
+            )}
           </TabsContent>
         ))}
       </Tabs>
