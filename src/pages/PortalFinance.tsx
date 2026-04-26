@@ -33,6 +33,9 @@ import { Badge } from "@/components/ui/badge";
 import { useWorkspace } from "@/hooks/use-workspace";
 import PortalCosting from "@/pages/PortalCosting";
 import PortalFinanceVariance from "@/pages/PortalFinanceVariance";
+import PortalPowerAnalysis from "@/pages/PortalPowerAnalysis";
+import PortalProfitability from "@/pages/PortalProfitability";
+import PortalSnapshots from "@/pages/PortalSnapshots";
 
 type TabSpec = {
   id: string;
@@ -75,6 +78,7 @@ const TABS: TabSpec[] = [
     label: "Power Analysis",
     icon: Zap,
     description: "kWh per MT trend, Time-Of-Day tariff slab decomposition and demand-charge tracking.",
+    live: true,
     phase: "C",
   },
   {
@@ -89,6 +93,7 @@ const TABS: TabSpec[] = [
     label: "Profitability",
     icon: LineChart,
     description: "Selling price − net cost = margin per MT, split by grade and product.",
+    live: true,
     phase: "C",
   },
   {
@@ -97,6 +102,7 @@ const TABS: TabSpec[] = [
     icon: Calendar,
     description:
       "Locked monthly closes. Once a period is locked, its numbers never change even if rates are back-dated.",
+    live: true,
     phase: "C",
   },
   {
@@ -146,7 +152,7 @@ export default function PortalFinance() {
           <div className="flex flex-wrap items-center gap-2">
             <CardTitle>Finance & Costing — {activeProfitCenter.name}</CardTitle>
             <Badge variant="secondary" className="text-[10px] uppercase tracking-wider">
-              Phase B · variance analysis live
+              Phase C · power, profitability & snapshots live
             </Badge>
           </div>
           <CardDescription>{activeTab.description}</CardDescription>
@@ -174,6 +180,9 @@ export default function PortalFinance() {
               let liveBody: React.ReactNode = null;
               if (t.id === "cost_sheet") liveBody = <PortalCosting />;
               else if (t.id === "variance") liveBody = <PortalFinanceVariance />;
+              else if (t.id === "power") liveBody = <PortalPowerAnalysis />;
+              else if (t.id === "profitability") liveBody = <PortalProfitability />;
+              else if (t.id === "snapshots") liveBody = <PortalSnapshots />;
               return (
                 <TabsContent key={t.id} value={t.id} className="mt-6">
                   {t.live && liveBody ? liveBody : (

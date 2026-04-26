@@ -407,3 +407,355 @@ export function netCostPerMt(input: {
   if (input.productionMt <= 0) return null;
   return (input.grossCost - input.byproductCredit) / input.productionMt;
 }
+
+// ===========================================================================
+// Phase C — Power Tariff (TOD), Selling Prices, Profitability, Period Close
+// ===========================================================================
+
+export interface PowerTariffSlab {
+  id: string;
+  profitCenterId: string;
+  slabName: string;
+  startHour: number; // 0-23 inclusive
+  endHour: number;   // 1-24 exclusive
+  ratePerMwh: number;
+  season: string | null;
+  effectiveFrom: string;
+  effectiveTo: string | null;
+  isActive: boolean;
+  notes: string | null;
+}
+
+export interface SellingPrice {
+  id: string;
+  profitCenterId: string;
+  grade: string;
+  product: string | null;
+  pricePerMt: number;
+  currencyCode: string;
+  effectiveFrom: string;
+  effectiveTo: string | null;
+  isActive: boolean;
+  notes: string | null;
+}
+
+const mapSlab = (r: any): PowerTariffSlab => ({
+  id: r.id,
+  profitCenterId: r.profit_center_id,
+  slabName: r.slab_name,
+  startHour: Number(r.start_hour),
+  endHour: Number(r.end_hour),
+  ratePerMwh: Number(r.rate_per_mwh),
+  season: r.season,
+  effectiveFrom: r.effective_from,
+  effectiveTo: r.effective_to,
+  isActive: r.is_active,
+  notes: r.notes,
+});
+
+const mapPrice = (r: any): SellingPrice => ({
+  id: r.id,
+  profitCenterId: r.profit_center_id,
+  grade: r.grade,
+  product: r.product,
+  pricePerMt: Number(r.price_per_mt),
+  currencyCode: r.currency_code,
+  effectiveFrom: r.effective_from,
+  effectiveTo: r.effective_to,
+  isActive: r.is_active,
+  notes: r.notes,
+});
+
+// ---------- Fetchers ----------
+
+export async function fetchPowerTariffSlabs(profitCenterId: string): Promise<PowerTariffSlab[]> {
+  const { data, error } = await client
+    .from("power_tariff_slabs")
+    .select("*")
+    .eq("profit_center_id", profitCenterId)
+    .order("effective_from", { ascending: false })
+    .order("start_hour", { ascending: true });
+  if (error) throw error;
+  return (data ?? []).map(mapSlab);
+}
+
+export async function fetchSellingPrices(profitCenterId: string): Promise<SellingPrice[]> {
+  const { data, error } = await client
+    .from("selling_prices")
+    .select("*")
+    .eq("profit_center_id", profitCenterId)
+    .order("grade", { ascending: true })
+    .order("effective_from", { ascending: false });
+  if (error) throw error;
+  return (data ?? []).map(mapPrice);
+}
+
+// ---------- Mutations ----------
+
+export interface CreateSlabInput {
+  profitCenterId: string;
+  slabName: string;
+  startHour: number;
+  endHour: number;
+  ratePerMwh: number;
+  season: string | null;
+  effectiveFrom: string;
+  effectiveTo: string | null;
+  notes: string | null;
+  createdBy: string;
+}
+
+export async function createPowerTariffSlab(input: CreateSlabInput): Promise<PowerTariffSlab> {
+  const { data, error } = await client
+    .from("power_tariff_slabs")
+    .insert({
+      profit_center_id: input.profitCenterId,
+      slab_name: input.slabName,
+      start_hour: input.startHour,
+      end_hour: input.endHour,
+      rate_per_mwh: input.ratePerMwh,
+      season: input.season,
+      effective_from: input.effectiveFrom,
+      effective_to: input.effectiveTo,
+      notes: input.notes,
+      created_by: input.createdBy,
+    })
+    .select("*")
+    .single();
+  if (error) throw error;
+  return mapSlab(data);
+}
+
+export async function deactivatePowerTariffSlab(id: string): Promise<void> {
+  const { error } = await client.from("power_tariff_slabs").update({ is_active: false }).eq("id", id);
+  if (error) throw error;
+}
+
+export interface CreateSellingPriceInput {
+  profitCenterId: string;
+  grade: string;
+  product: string | null;
+  pricePerMt: number;
+  currencyCode: string;
+  effectiveFrom: string;
+  effectiveTo: string | null;
+  notes: string | null;
+  createdBy: string;
+}
+
+export async function createSellingPrice(input: CreateSellingPriceInput): Promise<SellingPrice> {
+  const { data, error } = await client
+    .from("selling_prices")
+    .insert({
+      profit_center_id: input.profitCenterId,
+      grade: input.grade,
+      product: input.product,
+      price_per_mt: input.pricePerMt,
+      currency_code: input.currencyCode,
+      effective_from: input.effectiveFrom,
+      effective_to: input.effectiveTo,
+      notes: input.notes,
+      created_by: input.createdBy,
+    })
+    .select("*")
+    .single();
+  if (error) throw error;
+  return mapPrice(data);
+}
+
+export async function deactivateSellingPrice(id: string): Promise<void> {
+  const { error } = await client.from("selling_prices").update({ is_active: false }).eq("id", id);
+  if (error) throw error;
+}
+
+export interface CreateSnapshotInput {
+  profitCenterId: string;
+  periodStart: string;
+  periodEnd: string;
+  payload: Record<string, unknown>;
+  notes: string | null;
+  lockedBy: string;
+}
+
+export async function createPeriodSnapshot(input: CreateSnapshotInput): Promise<CostPeriodSnapshot> {
+  // Guard: refuse overlap with an existing locked period (same start).
+  const { data: existing, error: lookupErr } = await client
+    .from("cost_period_snapshots")
+    .select("id, period_start, period_end")
+    .eq("profit_center_id", input.profitCenterId)
+    .eq("period_start", input.periodStart);
+  if (lookupErr) throw lookupErr;
+  if ((existing ?? []).length > 0) {
+    throw new Error("A snapshot already exists for this period.");
+  }
+  const { data, error } = await client
+    .from("cost_period_snapshots")
+    .insert({
+      profit_center_id: input.profitCenterId,
+      period_start: input.periodStart,
+      period_end: input.periodEnd,
+      payload: input.payload,
+      notes: input.notes,
+      locked_by: input.lockedBy,
+    })
+    .select("*")
+    .single();
+  if (error) throw error;
+  return mapSnapshot(data);
+}
+
+// ---------- Effective-date helpers ----------
+
+/** Pick the slab covering `hour` on `onDate`. Returns null when no slab applies. */
+export function slabForHour(
+  slabs: PowerTariffSlab[],
+  hour: number,
+  onDate: string,
+  season?: string | null,
+): PowerTariffSlab | null {
+  const candidates = slabs
+    .filter((s) => s.isActive)
+    .filter((s) => s.effectiveFrom <= onDate)
+    .filter((s) => !s.effectiveTo || s.effectiveTo >= onDate)
+    .filter((s) => s.startHour <= hour && hour < s.endHour)
+    .filter((s) => !s.season || s.season === season)
+    .sort((a, b) => (a.effectiveFrom < b.effectiveFrom ? 1 : -1));
+  return candidates[0] ?? null;
+}
+
+/** Selling price effective on `onDate` for a grade. */
+export function sellingPriceOn(
+  prices: SellingPrice[],
+  grade: string,
+  onDate: string,
+): number | null {
+  const candidates = prices
+    .filter((p) => p.isActive && p.grade === grade)
+    .filter((p) => p.effectiveFrom <= onDate)
+    .filter((p) => !p.effectiveTo || p.effectiveTo >= onDate)
+    .sort((a, b) => (a.effectiveFrom < b.effectiveFrom ? 1 : -1));
+  return candidates[0]?.pricePerMt ?? null;
+}
+
+// ---------- Pure logic ----------
+
+export interface TodSlice {
+  slabName: string;
+  mwh: number;
+  costRs: number;
+  ratePerMwh: number;
+}
+
+/**
+ * Split heats' MWh across TOD slabs by tap-time hour.
+ * Phase C uses tap_time as the proxy for the consumption hour — half-hourly
+ * meter feeds are not yet ingested. Heats whose hour falls outside any slab
+ * are returned in an "Unassigned" bucket so the total always reconciles.
+ */
+export function splitMwhByTodSlab(
+  heats: Array<{ tapTime: string; powerMwh: number | null; isVoided: boolean }>,
+  slabs: PowerTariffSlab[],
+  onDate: string,
+): TodSlice[] {
+  const bucket = new Map<string, { mwh: number; costRs: number; ratePerMwh: number }>();
+  for (const h of heats) {
+    if (h.isVoided) continue;
+    if (!h.powerMwh || h.powerMwh <= 0) continue;
+    const hour = new Date(h.tapTime).getHours();
+    const slab = slabForHour(slabs, hour, onDate);
+    const key = slab?.slabName ?? "Unassigned";
+    const rate = slab?.ratePerMwh ?? 0;
+    const cur = bucket.get(key) ?? { mwh: 0, costRs: 0, ratePerMwh: rate };
+    cur.mwh += h.powerMwh;
+    cur.costRs += h.powerMwh * rate;
+    cur.ratePerMwh = rate;
+    bucket.set(key, cur);
+  }
+  return Array.from(bucket.entries())
+    .map(([slabName, v]) => ({ slabName, ...v }))
+    .sort((a, b) => b.costRs - a.costRs);
+}
+
+export interface ProfitabilityRow {
+  grade: string;
+  sellingPrice: number | null;
+  netCost: number;
+  marginPerMt: number | null;
+  marginPct: number | null;
+}
+
+export function profitabilityByGrade(input: {
+  netCostPerMt: Record<string, number>;
+  prices: SellingPrice[];
+  onDate: string;
+}): ProfitabilityRow[] {
+  const rows: ProfitabilityRow[] = [];
+  for (const [grade, netCost] of Object.entries(input.netCostPerMt)) {
+    const sellingPrice = sellingPriceOn(input.prices, grade, input.onDate);
+    const marginPerMt = sellingPrice === null ? null : sellingPrice - netCost;
+    const marginPct =
+      sellingPrice === null || sellingPrice === 0 || marginPerMt === null
+        ? null
+        : marginPerMt / sellingPrice;
+    rows.push({ grade, sellingPrice, netCost, marginPerMt, marginPct });
+  }
+  return rows.sort((a, b) => a.grade.localeCompare(b.grade));
+}
+
+export interface SnapshotPayload {
+  summary: {
+    grossCost: number;
+    byproductCredit: number;
+    netCost: number;
+    productionMt: number;
+    netCostPerMt: number | null;
+  };
+  variance: VarianceTotals;
+  power: { totalMwh: number; totalCost: number; kwhPerMt: number | null; byTodSlab: TodSlice[] };
+  byproducts: { totalCredit: number; byType: Record<string, number> };
+  profitability: { byGrade: ProfitabilityRow[] };
+  lockedRates: { bomCount: number; slabCount: number; priceCount: number };
+}
+
+export interface BuildSnapshotInput {
+  productionMt: number;
+  grossCost: number;
+  byproductCredit: number;
+  byproductByType: Record<string, number>;
+  variance: VarianceTotals;
+  totalMwh: number;
+  todSlices: TodSlice[];
+  profitability: ProfitabilityRow[];
+  bomCount: number;
+  slabCount: number;
+  priceCount: number;
+}
+
+/** Deterministic snapshot payload — same inputs → byte-identical JSON. */
+export function buildSnapshotPayload(input: BuildSnapshotInput): SnapshotPayload {
+  const netCost = input.grossCost - input.byproductCredit;
+  const totalPowerCost = input.todSlices.reduce((s, x) => s + x.costRs, 0);
+  return {
+    summary: {
+      grossCost: input.grossCost,
+      byproductCredit: input.byproductCredit,
+      netCost,
+      productionMt: input.productionMt,
+      netCostPerMt: input.productionMt > 0 ? netCost / input.productionMt : null,
+    },
+    variance: input.variance,
+    power: {
+      totalMwh: input.totalMwh,
+      totalCost: totalPowerCost,
+      kwhPerMt: input.productionMt > 0 ? (input.totalMwh * 1000) / input.productionMt : null,
+      byTodSlab: input.todSlices,
+    },
+    byproducts: { totalCredit: input.byproductCredit, byType: input.byproductByType },
+    profitability: { byGrade: input.profitability },
+    lockedRates: {
+      bomCount: input.bomCount,
+      slabCount: input.slabCount,
+      priceCount: input.priceCount,
+    },
+  };
+}

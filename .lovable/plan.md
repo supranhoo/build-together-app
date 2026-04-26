@@ -1,145 +1,193 @@
+# Finance & Costing — Phase C
 
-# Finance & Costing Module — Plan
-
-**Status: Phase A ✅ complete · Phase B / C / D pending**
-
-## Phase A — done (2026-04-26)
-
-- 4 schema tables deployed with RLS: `standard_cost_bom`, `cost_period_snapshots` (immutable — no UPDATE policy), `cost_alert_rules`, `byproduct_credits`
-- `finance` module registered in `app_modules` and auto-enabled for every workspace that has Procurement (Ferro Alloys Division included)
-- 9-tab `AdminFinance` shell at `/admin/finance` (Rate & Cost Pool tab live, 8 placeholders with phase badges)
-- 9-tab `PortalFinance` shell at `/portal/finance` (Cost Sheet tab live, 8 placeholders with phase badges)
-- `src/lib/finance.ts` library — typed fetchers + `bomEffectiveOn` / `byproductRateOn` helpers
-- `src/test/finance-phase-a.test.ts` — 5 tests, all green
-- AdminShell sidebar updated (`Calculator` icon)
-- PortalShell `iconMap` extended (procurement, quality, finance icons added)
-
-## Original gap analysis
-
-## What exists today (audit)
-
-**Engine (`src/lib/costing.ts`)** — 4 pure functions:
-- `latestRateOn` — picks effective `cost_rates` row by date
-- `materialCost` — Σ(qty × rate)
-- `conversionCost` — power × rate + fixed × days (flat, single tariff)
-- `buildCostBreakdown` — total, cost/MT, cost/Mn, single variance vs target
-
-**UI (`src/pages/PortalCosting.tsx`)** — single page, single tab:
-- Date + furnace filter
-- 8 KPI cards (actual cost only)
-- Heat-level table (heat #, tap time, weight, power)
-- Excel export (Summary + Heats sheets)
-
-**Admin** — `AdminCostRates.tsx` (rate master, append-only), 4 settings keys (`costing.power_rate_per_mwh`, `costing.fixed_cost_per_day`, `costing.target_cost_per_mt`, `costing.target_grade_mn_pct`)
-
-**Schema** — `cost_rates`, `material_consumption`, `heat_logs`, `heat_metallurgy` (slag/dust/FG Mn%), `fx_rates`, `currencies` already present.
+Activates 4 of the remaining tabs: **Power Tariff** (admin) + **Power Analysis** (portal), **Selling Prices** (admin) + **Profitability** (portal), and **Period Close** (admin) + **Period Snapshots** (portal). All work is additive — no Phase A/B behavior changes.
 
 ---
 
-## Critical gaps (what's missing for a real ferro-alloys cost system)
+## 1. Schema (one migration)
 
-| # | Gap | Business impact |
+Three new tables, all RLS-secured with the same admin-write / workspace-read pattern used in Phase A.
+
+### `power_tariff_slabs`
+Time-Of-Day power tariff slabs with effective-date tracking.
+
+| column | type | notes |
 |---|---|---|
-| 1 | **No Standard Cost / BOM** — only ACTUAL is computed | Cannot answer "what *should* this heat have cost?" — no benchmark |
-| 2 | **No variance decomposition** — single number, no price/usage split | Can't tell purchasing vs operations who caused the over-spend |
-| 3 | **No by-product credits** — slag and dust thrown away in costing | Net cost/MT overstated by ₹3–8K typical |
-| 4 | **No recovery costing** — Mn lost to slag (heat_metallurgy.slag_mno_pct) ignored | Hidden ₹/MT loss invisible to operators |
-| 5 | **Flat power rate** — no TOD/slab tariff, no kWh-per-MT trend | Ferro plants live and die by power — biggest single cost |
-| 6 | **No period close / snapshot** — recompute on every load, history can shift if rates back-dated | Audit failure: April cost can change in May |
-| 7 | **No furnace-level cost matrix** — single roll-up only | Can't compare F1 vs F2 efficiency |
-| 8 | **No grade/product split** — all heats lumped together | Si-Mn vs Fe-Mn margins invisible |
-| 9 | **No selling price / profitability** — costs only, no margin | Can't drive grade-mix decisions |
-| 10 | **No FX handling on imported ore** — `fx_rates` table exists but unused in costing | Imported Mn ore (USD) marked at stale INR rate |
-| 11 | **No budget vs actual** — no monthly target to track against | No early warning on cost drift |
-| 12 | **No alerts** — silent until month-end | Bad heat caught next month, not next shift |
+| `id` | uuid PK | |
+| `profit_center_id` | uuid | RLS scope |
+| `slab_name` | text | e.g. "Off-peak", "Normal", "Peak" |
+| `start_hour` | int (0-23) | inclusive |
+| `end_hour` | int (1-24) | exclusive |
+| `rate_per_mwh` | numeric | ₹/MWh |
+| `season` | text nullable | "summer" / "monsoon" / null = all-year |
+| `effective_from` | date | |
+| `effective_to` | date nullable | |
+| `is_active` | bool default true | |
+| `notes`, `created_by`, `created_at`, `updated_at` | | standard |
+
+Plus a separate row type for fixed/demand charges via `slab_name = 'demand_charge'` with `start_hour=0, end_hour=24` — keeps one table, one effective-date logic.
+
+### `selling_prices`
+Per-grade selling price, effective-dated. Manual entry now (per the user's earlier choice — no `sales_orders` dependency).
+
+| column | type |
+|---|---|
+| `id` | uuid PK |
+| `profit_center_id` | uuid |
+| `grade` | text |
+| `product` | text nullable |
+| `price_per_mt` | numeric |
+| `currency_code` | text default 'INR' |
+| `effective_from` | date |
+| `effective_to` | date nullable |
+| `is_active` | bool |
+| `notes`, `created_by`, `created_at`, `updated_at` | |
+
+### Period close — reuse existing `cost_period_snapshots`
+Already deployed in Phase A (immutable, no UPDATE policy). Phase C just writes to it from the new "Period Close" workflow. The `payload` jsonb stores:
+```
+{
+  "summary": { grossCost, byproductCredit, netCost, productionMt, netCostPerMt },
+  "variance": { idealCost, actualCost, priceVariance, usageVariance },
+  "power":    { totalMwh, totalCost, kwhPerMt, byTodSlab: [...] },
+  "byproducts": { totals by type },
+  "profitability": { byGrade: [...] },
+  "lockedRates": { /* hash of effective rates at lock time, for audit */ }
+}
+```
+
+### RLS (mirrors Phase A)
+- SELECT: `has_profit_center_access`
+- INSERT/UPDATE/DELETE on `power_tariff_slabs` and `selling_prices`: admin only via `can_manage_profit_center`
+- `cost_period_snapshots`: already correct (insert by admin, no update, super-admin delete)
 
 ---
 
-## Phase plan (4 phases, additive — no breaking change to existing engine)
+## 2. Service layer (`src/lib/finance.ts` — additive)
 
-### Phase A — Foundation: Module shell + 4 schema tables
-- Register `finance` module in `app_modules` (so it shows in Module Configuration sidebar like `quality` was)
-- Create 9-tab `AdminFinance` + `PortalFinance` shells (replace single-page PortalCosting as the legacy "Cost Sheet" tab inside)
-- Migrations for 4 new tables:
-  - `standard_cost_bom` — BOM per (grade, material) with std_qty_per_mt + std_rate
-  - `cost_period_snapshots` — immutable monthly freeze (jsonb payload + locked_at + locked_by)
-  - `cost_alert_rules` — threshold rules per workspace (kpi, op, value)
-  - `byproduct_credits` — slag/dust/fines sold rates by period
-- All RLS via existing `has_profit_center_access` / `can_manage_profit_center` helpers
+New types + pure functions. No changes to existing exports.
 
-### Phase B — Standard Cost & Variance Engine
-- `AdminFinance > Standard BOM` tab — editor for std recipe per grade
-- `PortalFinance > Cost Sheet` upgraded to **IDEAL vs ACTUAL vs VAR** matrix (per furnace, per heat)
-- Extend `src/lib/costing.ts` (additive, keep existing exports) with:
-  - `priceVariance(actualRate, stdRate, actualQty)` — purchasing variance
-  - `usageVariance(actualQty, stdQty, stdRate)` — operations variance
-  - `recoveryLoss(slagQty, slagMnPct, mnRate)` — Mn lost to slag in ₹
-  - `byproductCredit(slagQty, slagRate, dustQty, dustRate)`
-  - `costPerMtNet(grossCost, byproductCredit, productionMt)`
-- Unit tests in `src/test/finance-phase-b.test.ts`
+### Types
+```ts
+PowerTariffSlab, SellingPrice
+```
 
-### Phase C — Power, Profitability & Period Close
-- `PortalFinance > Power Analysis` tab — kWh/MT trend, TOD slab decomposition, demand-charge tracking
-- `PortalFinance > Profitability` tab — selling price (from `profit_center_settings.finance.selling_price.<grade>`) − net cost = margin per MT per grade
-- `PortalFinance > Period Close` tab — admin-only: lock a month, write `cost_period_snapshots` row with full breakdown JSON; subsequent reads of that period serve from snapshot, not live
-- Tariff slabs added to settings: `finance.power_tariff.slabs` JSON
-- Unit tests in `src/test/finance-phase-c.test.ts`
+### Fetchers / mutations
+```ts
+fetchPowerTariffSlabs(pcId)
+createPowerTariffSlab(input) / deactivatePowerTariffSlab(id)
+fetchSellingPrices(pcId)
+createSellingPrice(input) / deactivateSellingPrice(id)
+createPeriodSnapshot({ pcId, periodStart, periodEnd, payload, notes })
+```
 
-### Phase D — Alerts, FX & Dashboard
-- `AdminFinance > Cost Alerts` tab — threshold rules (e.g. cost/MT > ₹95K, kWh/MT > 3800)
-- `PortalFinance > Dashboard` tab — 12-card overview, MTD vs budget, top-3 variance drivers, alert feed
-- FX integration: imported materials priced via `fx_rates` on consumption date (extend `latestRateOn` with optional currency conversion, no breaking change)
-- `PortalFinance > Reports` tab — period-over-period Excel export with all sheets (Summary, Heats, BOM Variance, By-products, Power, Profitability)
-- Unit tests in `src/test/finance-phase-d.test.ts`
+### Pure logic
+```ts
+// TOD decomposition: split a heat's MWh across slabs by tap_time hour.
+// For Phase C we use tap_time as the proxy for the hour — no separate
+// half-hourly meter feed yet. Documented as such in DOCUMENTATION.md.
+splitMwhByTodSlab(heats: HeatLog[], slabs: PowerTariffSlab[], onDate: string)
+  -> { slabName -> { mwh, costRs } }
 
----
+// Selling-price effective lookup (mirrors bomEffectiveOn)
+sellingPriceOn(prices, grade, onDate) -> number | null
 
-## Tab map (final)
+// Profitability per grade
+profitabilityByGrade({
+  netCostPerMt: { grade -> number },
+  prices: SellingPrice[],
+  onDate,
+}) -> Array<{ grade, sellingPrice, netCost, marginPerMt, marginPct }>
 
-```text
-AdminFinance                   PortalFinance
-────────────────               ────────────────
-1. Rate & Cost Pool*           1. Dashboard
-2. Standard BOM (new)          2. Cost Sheet (IDEAL|ACT|VAR)
-3. By-product Credits (new)    3. Power Analysis
-4. Power Tariff Slabs (new)    4. Profitability
-5. Selling Prices (new)        5. By-products
-6. Cost Alerts (new)           6. Variance Analysis
-7. Budget Targets (new)        7. Period Snapshots
-8. Period Close (new)          8. Reports
-9. FX & Currency (new)         9. Cost Sheet (legacy)*
-
-* = wraps existing pages, no rewrite
+// Snapshot builder — assembles the payload from already-computed
+// summary/variance/power/byproducts/profitability objects. Pure function so
+// it is unit-testable and the UI just calls fetchers + assembler + insert.
+buildSnapshotPayload(input) -> SnapshotPayload
 ```
 
 ---
 
-## Architectural rules followed
+## 3. UI surfaces
 
-- **Zero hardcoding** — BOM, tariff slabs, selling prices, alert thresholds all in DB / settings
-- **SSOT** — DOCUMENTATION.md + POLICY.md updated each phase
-- **Surgical** — existing `costing.ts` exports preserved; new functions added, none renamed
-- **RLS-first** — all new tables use existing helper functions
-- **Snapshots = immutable** — once locked, period numbers cannot change even if rates are back-dated
-- **Test-driven** — one test file per phase, happy + failure cases
+### Admin (`/admin/finance`)
+- **Power Tariff** tab (`AdminPowerTariff.tsx`) — table of slabs with grade-style append-only editor: slab name, hour range, rate, season, effective-from. Soft-deactivate. Validation: `start_hour < end_hour`, no overlap warning (warn, not block — matches the user's "warn but allow" rate-change preference from Phase A planning).
+- **Selling Prices** tab (`AdminSellingPrices.tsx`) — same effective-dated editor pattern as Standard BOM: grade, product, price/MT, currency, effective-from. Append-only.
+- **Period Close** tab (`AdminPeriodClose.tsx`) — month selector → "Compute Preview" runs all Phase A/B/C calculations for that month → shows the snapshot payload → "Lock Period" button writes to `cost_period_snapshots`. Locked periods cannot be unlocked from the UI (super-admin DB-level only). Audit log written via existing `audit_logs` insert.
+
+### Portal (`/portal/finance`)
+- **Power Analysis** tab (`PortalPowerAnalysis.tsx`) — KPI cards (kWh/MT, total ₹, % cost from power), TOD slab table (MWh × rate per slab), trend line of kWh/MT by day. Uses `splitMwhByTodSlab` against existing `heat_logs.tap_time` and `heat_logs.power_mwh`.
+- **Profitability** tab (`PortalProfitability.tsx`) — per-grade table: Selling Price | Gross Cost/MT | By-product Credit/MT | Net Cost/MT | **Margin/MT** | **Margin %**. Filters by date range. Reuses Phase B variance scope.
+- **Period Snapshots** tab (`PortalSnapshots.tsx`) — list of locked periods with payload viewer (read-only). Clicking a row opens a drawer with the full snapshot summary.
+
+### Tab activation
+In `AdminFinance.tsx` and `PortalFinance.tsx`:
+- Mark `power_tariff`, `selling_prices`, `period_close` as `live: true` (admin)
+- Mark `power`, `profitability`, `snapshots` as `live: true` (portal)
+- Wire each to its new component
+- Update phase badge to **"Phase C · power, profitability & period close live"**
 
 ---
 
-## Questions before Phase A
+## 4. Tests (`src/test/finance-phase-c.test.ts`)
 
-1. **Module naming** — call it `Finance & Costing` or just `Costing`? (affects sidebar label and route segment)
-2. **Rate change policy** — when a rate is back-dated to a closed period, should the system (a) reject, (b) warn but allow, or (c) require an admin override? This affects snapshot integrity.
-3. **Selling price source** — manual setting per grade now, or wait for a future `sales_orders` table?
-4. **Budget granularity** — monthly cost/MT target only, or also per-cost-element (material / power / fixed) targets?
+Pure-logic only (consistent with Phase B test style):
+1. `splitMwhByTodSlab` distributes a heat's MWh into the correct slab by hour.
+2. Slab effective-date filter respects `effective_from`/`effective_to`.
+3. Demand-charge slab (0–24) catches all hours.
+4. `sellingPriceOn` picks the latest effective row.
+5. `profitabilityByGrade` computes `marginPerMt = sellingPrice − netCost` and `marginPct = margin / sellingPrice`.
+6. `profitabilityByGrade` returns `null`-safe entries when selling price is missing for a grade.
+7. `buildSnapshotPayload` produces the documented JSON shape and includes `lockedRates` hash.
+8. Snapshot payload is deterministic (same inputs → byte-identical JSON) — guards audit integrity.
+9. Period close overlap guard: building a snapshot for an already-locked period throws.
+10. Margin % handles zero selling price without div/0.
 
+Plus extending `example.test.tsx` route audit with the 3 new admin pages + 3 new portal components.
 
-### Phase B — done (2026-04-26)
-- Standard BOM editor live: `AdminStandardBom.tsx` (append-only, soft-deactivate, audit-logged).
-- Variance engine pure functions in `src/lib/finance.ts`: `buildVarianceRows`, `sumVariance`, `byproductCreditTotal`, `netCostPerMt`, plus mutations `createBomEntry`, `deactivateBomEntry`.
-- IDEAL vs ACTUAL vs VARIANCE matrix live in `PortalFinanceVariance.tsx` with grade selector, KPI cards, sorted matrix, Excel export.
-- 10 new tests in `finance-phase-b.test.ts` (identity, grade isolation, missing rate, zero production, unplanned consumption). Full suite 290/290 green.
+---
 
-### Phase C — next
-- TOD power tariff editor + power analysis tab.
-- Period Close workflow → write `cost_period_snapshots` payload with full breakdown JSON.
-- Selling prices per grade + Profitability tab (selling − netCost = margin/MT).
+## 5. Documentation & policy
+
+- **DOCUMENTATION.md**: add Phase C section — schema, TOD computation note (tap_time proxy), snapshot JSON shape, period-close workflow.
+- **POLICY.md**: append rules — *"Once a period is locked, its numbers are immutable. Back-dated rate changes do NOT alter locked periods. New snapshots must use a strictly later `period_start` than any existing locked snapshot for the same workspace."*
+- **Version History**: add `Phase C – Power Tariff (TOD), Selling Prices, Profitability, Period Close`.
+
+---
+
+## 6. Risk & impact (per project policy)
+
+- **Data**: 2 new tables + new rows in existing `cost_period_snapshots`. Zero migration of historical data. RLS mirrors proven Phase A pattern.
+- **Workflow**: Period close is the only destructive-feeling action — it's INSERT-only into an immutable table, surfaced behind a confirm dialog with a 3-character minimum reason (matches `void_heat_log` pattern).
+- **UI**: 6 new components, all rendered inside existing tab shells — no navigation changes.
+- **Regression**: Phase A/B code paths and exports are untouched. Variance engine continues to read live rates; locked snapshots are a separate read path used only by `PortalSnapshots`.
+- **Mitigation**: pure-function tests, deterministic snapshot serialization, append-only rate tables.
+
+---
+
+## 7. Files
+
+**New**
+- `src/pages/AdminPowerTariff.tsx`
+- `src/pages/AdminSellingPrices.tsx`
+- `src/pages/AdminPeriodClose.tsx`
+- `src/pages/PortalPowerAnalysis.tsx`
+- `src/pages/PortalProfitability.tsx`
+- `src/pages/PortalSnapshots.tsx`
+- `src/test/finance-phase-c.test.ts`
+- `supabase/migrations/<ts>_finance_phase_c.sql`
+
+**Edited (additive only)**
+- `src/lib/finance.ts` — new types, fetchers, mutations, pure logic
+- `src/pages/AdminFinance.tsx` — wire 3 tabs, update phase badge
+- `src/pages/PortalFinance.tsx` — wire 3 tabs, update phase badge
+- `src/test/example.test.tsx` — route audit
+- `DOCUMENTATION.md`, `POLICY.md`, `.lovable/plan.md`
+
+After approval I'll execute the migration first, then ship code + tests in one pass and report the green test count.
+
+## Phase C — shipped ✅
+- Migration: `power_tariff_slabs`, `selling_prices` (RLS, admin-write).
+- Service: `splitMwhByTodSlab`, `sellingPriceOn`, `profitabilityByGrade`, `buildSnapshotPayload`, `createPeriodSnapshot` (+ overlap guard).
+- Admin: PowerTariff, SellingPrices, PeriodClose (compute preview → lock).
+- Portal: PowerAnalysis, Profitability, Snapshots (read-only sheet).
+- Tests: 11 new (TOD, sellingPrice, profitability, deterministic snapshot). Total 301/301.
