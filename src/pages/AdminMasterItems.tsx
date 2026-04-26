@@ -44,7 +44,7 @@ interface FormState {
   subgroup: string;
   uom: string;
   stdCost: string;
-  specsRaw: string;
+  specRows: SpecRow[];
   minLevel: string;
   maxLevel: string;
   reorderLevel: string;
@@ -59,7 +59,7 @@ const empty: FormState = {
   subgroup: "",
   uom: "kg",
   stdCost: "",
-  specsRaw: "{}",
+  specRows: [],
   minLevel: "",
   maxLevel: "",
   reorderLevel: "",
