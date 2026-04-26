@@ -41,6 +41,7 @@ import PortalPowerAnalysis from "@/pages/PortalPowerAnalysis";
 import PortalProfitability from "@/pages/PortalProfitability";
 import PortalRecoveryCosting from "@/pages/PortalRecoveryCosting";
 import PortalSnapshots from "@/pages/PortalSnapshots";
+import { FinanceDashboardTab } from "@/components/finance/FinanceDashboardTab";
 
 type TabSpec = {
   id: string;
@@ -58,7 +59,8 @@ const TABS: TabSpec[] = [
     id: "dashboard",
     label: "Dashboard",
     icon: LayoutDashboard,
-    description: "MTD vs budget, top-3 variance drivers and the alert feed.",
+    description: "MTD cost roll-up and recent Ferro Cost Sheets — derived live from approved sheets.",
+    live: true,
     phase: "D",
   },
   {
@@ -201,7 +203,8 @@ export default function PortalFinance() {
 
             {TABS.map((t) => {
               let liveBody: React.ReactNode = null;
-              if (t.id === "heat_approvals") liveBody = <PortalHeatApprovals />;
+              if (t.id === "dashboard") liveBody = <FinanceDashboardTab profitCenterId={activeProfitCenter.id} />;
+              else if (t.id === "heat_approvals") liveBody = <PortalHeatApprovals />;
               else if (t.id === "cost_sheet") liveBody = <PortalFerroCostSheet />;
               else if (t.id === "recovery_costing") liveBody = <PortalRecoveryCosting />;
               else if (t.id === "variance") liveBody = <PortalFinanceVariance />;
