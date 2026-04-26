@@ -136,6 +136,21 @@ export default function AdminMasterItems() {
 
   const specErrors = useMemo(() => validateSpecRows(form.specRows), [form.specRows]);
 
+  const matchedTemplate = useMemo(
+    () => findTemplateForNature(templates, form.type || null, form.groupName, form.subgroup),
+    [templates, form.type, form.groupName, form.subgroup],
+  );
+
+  const handleApplyTemplate = () => {
+    if (!matchedTemplate) return;
+    const next = applyTemplateToRows(matchedTemplate, form.specRows);
+    setForm({ ...form, specRows: next });
+    toast({
+      title: "Template applied",
+      description: `${matchedTemplate.fields.length} field${matchedTemplate.fields.length === 1 ? "" : "s"} from ${matchedTemplate.type} / ${matchedTemplate.groupName}${matchedTemplate.subgroup ? ` / ${matchedTemplate.subgroup}` : ""}`,
+    });
+  };
+
   const handleSave = async () => {
     if (!activeProfitCenter || !session?.user) return;
     if (!form.code.trim() || !form.name.trim()) {
