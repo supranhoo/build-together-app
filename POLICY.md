@@ -282,3 +282,18 @@
 
 ## Policy Change Log (continued)
 - 2026-04-26 (Finance Phase B): Added variance sign convention, decomposition identity, BOM append-only rule, grade-as-variance-unit rule, unplanned-consumption visibility rule, and missing-stdRate handling rule. Promoted `standard_bom` (Admin) and `variance` (Portal) tabs to live in the 9-tab Finance & Costing shell.
+
+## Maintenance Module (Phase A, 2026-04-26)
+
+- **Workspace isolation is absolute.** Every maintenance row carries `profit_center_id`. RLS uses `has_profit_center_access(auth.uid(), profit_center_id)` for select; writes additionally require `created_by = auth.uid()`. There is no cross-workspace read in this module.
+- **Equipment identity is single-source for furnaces.** When `maintenance_equipment.furnace_id` is set, the furnace's name and code are governed by the existing `furnaces` master — they MUST NOT be re-edited from the maintenance UI. Standalone assets (no furnace link) are owned solely by the maintenance module.
+- **Auto-numbering is irrevocable per workspace per year.** Codes (`EQP-`, `WO-`, `BD-`, `SOP-`) are assigned by triggers from per-workspace sequences. Manual override at insert is permitted but discouraged; once assigned a code is never reused.
+- **Work-order lifecycle is monotonic.** Allowed transitions: `open → assigned → in_progress → on_hold → completed`, plus `* → cancelled`. `started_at` is auto-stamped on first transition to `in_progress`; `completed_at` on `completed`. UI must not allow moving a `completed` WO back to `in_progress` — cancel and create a corrective WO instead.
+- **Condition status is computed, not entered.** `status` on `maintenance_condition_readings` is set by the service layer from `(value, warn, critical)` at insert — operators never pick the colour. Null thresholds mean "no constraint" (`normal`). `>=` is the trigger so a reading exactly at the warn limit shows as `warning`.
+- **MTBF and MTTR are approximations of intent, not contracts.** Phase A computes MTBF as `equipmentCount × 720h / breakdowns` over the loaded window and MTTR as the average resolution time of breakdowns with `resolved_at`. Both return `null` when the input set is empty. They are KPI hints, not regulatory metrics — Phase B will add explicit operating-hours tracking.
+- **Spare stockout is `<=`, not `<`.** A spare at exactly its `min_stock` is flagged as a stockout, because reorder lead time has already started. UI must surface these in the dashboard count and the Spare Parts tab.
+- **Maintenance spares are a NEW source of truth.** Per workspace decision (2026-04-26), `maintenance_spares` is independent of `materials`. It is NOT derived from `category = 'spare'` and is NOT auto-synced. Procurement of spares may still go through the Procurement module, but the catalog the maintenance team sees is the one they curate. Future consolidation, if desired, must go through a documented data-migration phase.
+- **Costs are manual and append-only by convention.** `maintenance_costs.amount` is constrained ≥ 0 in the service layer. Negative adjustments must be entered as a separate negated row referencing the original via `notes` so audit history is preserved (no in-place edit of monetary entries).
+
+## Policy Change Log (continued)
+- 2026-04-26 (Maintenance Phase A): Established workspace isolation, furnace SSOT linkage rule, auto-numbering immutability, monotonic WO lifecycle, computed-condition-status rule, MTBF/MTTR approximation contract, `<=` stockout semantics, independent maintenance-spares catalog, and append-only cost convention. Mounted 10-tab Maintenance module at `/portal/maintenance`.
