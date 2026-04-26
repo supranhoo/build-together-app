@@ -303,3 +303,5 @@
 ## Policy Change Log (continued)
 - 2026-04-26 (Plant Head Dashboard): added cross-module monitoring deck with derivation-only contract.
 - 2026-04-26 (Command Deck module): moved the dashboard out of `/portal` Overview into its own `/portal/command-deck` route + static nav entry.
+- **All module dashboards share one KPI tile primitive.** Every dashboard (7 modules + Command Deck) MUST render headline KPI tiles via `<AccentKpiCard module="…" />` (`src/components/ui/accent-kpi-card.tsx`). The colour rail is **By source module (semantic)** and locked by `MODULE_ACCENTS` (contract-tested). New dashboards MUST NOT declare local `border-l-*` / `bg-*` accent classes for KPI tiles.
+- 2026-04-26 (Module dashboard visual system): unified all module dashboards on shared `AccentKpiCard` with semantic per-module colour rail; Finance Dashboard tab elevated to live (MTD cost roll-up).
