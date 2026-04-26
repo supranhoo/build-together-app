@@ -10,6 +10,7 @@ import {
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
+import { AccentKpiCard } from "@/components/ui/accent-kpi-card";
 import {
   fetchEquipment, fetchWorkOrders, fetchPMSchedules, fetchBreakdowns,
   fetchDowntime, fetchCosts, fetchSpares, aggregateMaintenanceKpis,
@@ -63,47 +64,55 @@ export function MaintenanceDashboardTab({ profitCenterId, onJumpTab }: Props) {
 
   return (
     <div className="space-y-6">
-      {/* KPI cards */}
+      {/* KPI cards — every Maintenance KPI uses the shared `maintenance`
+          accent so the colour rail matches the global module map. */}
       <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
-        <KpiCard
-          icon={Settings} accent="border-l-blue-500" iconBg="bg-blue-50 text-blue-600"
-          label="Total Equipment" value={fmtNum(kpis.totalEquipment)}
-          sub={`${kpis.operationalEquipment} operational`} onClick={() => onJumpTab("equipment")}
+        <AccentKpiCard
+          module="maintenance" icon={Settings}
+          title="Total Equipment" value={fmtNum(kpis.totalEquipment)}
+          sub={`${kpis.operationalEquipment} operational`}
+          onClick={() => onJumpTab("equipment")}
         />
-        <KpiCard
-          icon={AlertTriangle} accent="border-l-red-500" iconBg="bg-red-50 text-red-600"
-          label="In Breakdown" value={fmtNum(kpis.inBreakdown)}
-          sub={`${breakdowns.length} total reports`} onClick={() => onJumpTab("breakdown")}
+        <AccentKpiCard
+          module="maintenance" icon={AlertTriangle}
+          title="In Breakdown" value={fmtNum(kpis.inBreakdown)}
+          sub={`${breakdowns.length} total reports`}
+          onClick={() => onJumpTab("breakdown")}
         />
-        <KpiCard
-          icon={ClipboardList} accent="border-l-amber-500" iconBg="bg-amber-50 text-amber-600"
-          label="Open Work Orders" value={fmtNum(kpis.openWorkOrders)}
-          sub={`${workOrders.length} total`} onClick={() => onJumpTab("workorders")}
+        <AccentKpiCard
+          module="maintenance" icon={ClipboardList}
+          title="Open Work Orders" value={fmtNum(kpis.openWorkOrders)}
+          sub={`${workOrders.length} total`}
+          onClick={() => onJumpTab("workorders")}
         />
-        <KpiCard
-          icon={Calendar} accent="border-l-violet-500" iconBg="bg-violet-50 text-violet-600"
-          label="PM Due (7 days)" value={fmtNum(kpis.pmDueThisWeek)}
-          sub={`${kpis.pmOverdue} overdue`} onClick={() => onJumpTab("preventive")}
+        <AccentKpiCard
+          module="maintenance" icon={Calendar}
+          title="PM Due (7 days)" value={fmtNum(kpis.pmDueThisWeek)}
+          sub={`${kpis.pmOverdue} overdue`}
+          onClick={() => onJumpTab("preventive")}
         />
-        <KpiCard
-          icon={Clock} accent="border-l-orange-500" iconBg="bg-orange-50 text-orange-600"
-          label="Downtime (mins)" value={fmtNum(kpis.totalDowntimeMinutes)}
-          sub={`${fmtNum(kpis.totalProductionLossMt)} MT loss`} onClick={() => onJumpTab("downtime")}
+        <AccentKpiCard
+          module="maintenance" icon={Clock}
+          title="Downtime (mins)" value={fmtNum(kpis.totalDowntimeMinutes)}
+          sub={`${fmtNum(kpis.totalProductionLossMt)} MT loss`}
+          onClick={() => onJumpTab("downtime")}
         />
-        <KpiCard
-          icon={TrendingUp} accent="border-l-emerald-500" iconBg="bg-emerald-50 text-emerald-600"
-          label="MTBF" value={fmtHours(kpis.mtbfHours)}
+        <AccentKpiCard
+          module="maintenance" icon={TrendingUp}
+          title="MTBF" value={fmtHours(kpis.mtbfHours)}
           sub={`MTTR ${fmtHours(kpis.mttrHours)}`}
         />
-        <KpiCard
-          icon={DollarSign} accent="border-l-indigo-500" iconBg="bg-indigo-50 text-indigo-600"
-          label="Cost (MTD)" value={`₹${fmtNum(kpis.totalCostMtd)}`}
-          sub={`${costs.length} entries`} onClick={() => onJumpTab("costs")}
+        <AccentKpiCard
+          module="maintenance" icon={DollarSign}
+          title="Cost (MTD)" value={`₹${fmtNum(kpis.totalCostMtd)}`}
+          sub={`${costs.length} entries`}
+          onClick={() => onJumpTab("costs")}
         />
-        <KpiCard
-          icon={Package} accent="border-l-pink-500" iconBg="bg-pink-50 text-pink-600"
-          label="Spares Below Min" value={fmtNum(kpis.spareStockoutCount)}
-          sub={`${spares.length} catalog items`} onClick={() => onJumpTab("spares")}
+        <AccentKpiCard
+          module="maintenance" icon={Package}
+          title="Spares Below Min" value={fmtNum(kpis.spareStockoutCount)}
+          sub={`${spares.length} catalog items`}
+          onClick={() => onJumpTab("spares")}
         />
       </div>
 
