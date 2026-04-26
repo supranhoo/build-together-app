@@ -118,30 +118,18 @@ export default function AdminQuality() {
                     </CardTitle>
                     <CardDescription>{t.description}</CardDescription>
                   </div>
-                  {t.kind === "deeplink" && (
-                    <Button onClick={() => navigate(t.target.to)} variant="outline" className="gap-2">
-                      <ExternalLink className="h-4 w-4" /> {t.target.label}
-                    </Button>
-                  )}
-                  {t.kind === "scaffold" && (
-                    <Badge variant="secondary">Activates in Phase {t.phase}</Badge>
-                  )}
+                  <Button onClick={() => navigate(t.target.to)} variant="outline" className="gap-2">
+                    <ExternalLink className="h-4 w-4" /> {t.target.label}
+                  </Button>
                 </CardHeader>
                 <CardContent>
-                  {t.kind === "deeplink" ? (
-                    <div className="rounded-md border border-dashed border-border bg-muted/30 p-6 text-sm text-muted-foreground">
+                  <div className="rounded-md border border-dashed border-border bg-muted/30 p-6 text-sm text-muted-foreground flex items-start gap-2">
+                    <CheckCircle className="h-4 w-4 text-primary mt-0.5" />
+                    <span>
                       This screen lives in another module to keep a single source of truth.
                       The button above opens the existing page; data shown there is shared with Quality.
-                    </div>
-                  ) : (
-                    <div className="rounded-md border border-dashed border-border bg-muted/30 p-6 text-sm text-muted-foreground space-y-2">
-                      <p>Schema, RLS, audit triggers and permission grants for this tab are live in the database.</p>
-                      <p className="flex items-center gap-2 text-xs">
-                        <CheckCircle className="h-3.5 w-3.5 text-primary" />
-                        The interactive UI is delivered in Phase {t.phase}.
-                      </p>
-                    </div>
-                  )}
+                    </span>
+                  </div>
                 </CardContent>
               </Card>
             )}
