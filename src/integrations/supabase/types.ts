@@ -1260,6 +1260,513 @@ export type Database = {
           },
         ]
       }
+      maintenance_breakdowns: {
+        Row: {
+          breakdown_no: string
+          corrective_action: string | null
+          created_at: string
+          created_by: string
+          downtime_minutes: number | null
+          equipment_id: string
+          id: string
+          notes: string | null
+          occurred_at: string
+          profit_center_id: string
+          reported_by: string | null
+          resolved_at: string | null
+          root_cause: string | null
+          severity: Database["public"]["Enums"]["maintenance_breakdown_severity"]
+          symptom: string
+          updated_at: string
+          work_order_id: string | null
+        }
+        Insert: {
+          breakdown_no: string
+          corrective_action?: string | null
+          created_at?: string
+          created_by: string
+          downtime_minutes?: number | null
+          equipment_id: string
+          id?: string
+          notes?: string | null
+          occurred_at?: string
+          profit_center_id: string
+          reported_by?: string | null
+          resolved_at?: string | null
+          root_cause?: string | null
+          severity?: Database["public"]["Enums"]["maintenance_breakdown_severity"]
+          symptom: string
+          updated_at?: string
+          work_order_id?: string | null
+        }
+        Update: {
+          breakdown_no?: string
+          corrective_action?: string | null
+          created_at?: string
+          created_by?: string
+          downtime_minutes?: number | null
+          equipment_id?: string
+          id?: string
+          notes?: string | null
+          occurred_at?: string
+          profit_center_id?: string
+          reported_by?: string | null
+          resolved_at?: string | null
+          root_cause?: string | null
+          severity?: Database["public"]["Enums"]["maintenance_breakdown_severity"]
+          symptom?: string
+          updated_at?: string
+          work_order_id?: string | null
+        }
+        Relationships: []
+      }
+      maintenance_condition_readings: {
+        Row: {
+          created_at: string
+          created_by: string
+          equipment_id: string
+          id: string
+          notes: string | null
+          parameter: string
+          profit_center_id: string
+          reading_at: string
+          reading_value: number
+          recorded_by: string | null
+          status: Database["public"]["Enums"]["maintenance_condition_status"]
+          threshold_critical: number | null
+          threshold_warning: number | null
+          unit: string | null
+        }
+        Insert: {
+          created_at?: string
+          created_by: string
+          equipment_id: string
+          id?: string
+          notes?: string | null
+          parameter: string
+          profit_center_id: string
+          reading_at?: string
+          reading_value: number
+          recorded_by?: string | null
+          status?: Database["public"]["Enums"]["maintenance_condition_status"]
+          threshold_critical?: number | null
+          threshold_warning?: number | null
+          unit?: string | null
+        }
+        Update: {
+          created_at?: string
+          created_by?: string
+          equipment_id?: string
+          id?: string
+          notes?: string | null
+          parameter?: string
+          profit_center_id?: string
+          reading_at?: string
+          reading_value?: number
+          recorded_by?: string | null
+          status?: Database["public"]["Enums"]["maintenance_condition_status"]
+          threshold_critical?: number | null
+          threshold_warning?: number | null
+          unit?: string | null
+        }
+        Relationships: []
+      }
+      maintenance_costs: {
+        Row: {
+          amount: number
+          cost_date: string
+          cost_type: Database["public"]["Enums"]["maintenance_cost_type"]
+          created_at: string
+          created_by: string
+          description: string
+          equipment_id: string | null
+          id: string
+          invoice_no: string | null
+          notes: string | null
+          profit_center_id: string
+          updated_at: string
+          vendor: string | null
+          work_order_id: string | null
+        }
+        Insert: {
+          amount: number
+          cost_date: string
+          cost_type: Database["public"]["Enums"]["maintenance_cost_type"]
+          created_at?: string
+          created_by: string
+          description: string
+          equipment_id?: string | null
+          id?: string
+          invoice_no?: string | null
+          notes?: string | null
+          profit_center_id: string
+          updated_at?: string
+          vendor?: string | null
+          work_order_id?: string | null
+        }
+        Update: {
+          amount?: number
+          cost_date?: string
+          cost_type?: Database["public"]["Enums"]["maintenance_cost_type"]
+          created_at?: string
+          created_by?: string
+          description?: string
+          equipment_id?: string | null
+          id?: string
+          invoice_no?: string | null
+          notes?: string | null
+          profit_center_id?: string
+          updated_at?: string
+          vendor?: string | null
+          work_order_id?: string | null
+        }
+        Relationships: []
+      }
+      maintenance_downtime: {
+        Row: {
+          breakdown_id: string | null
+          created_at: string
+          created_by: string
+          duration_minutes: number | null
+          end_time: string | null
+          equipment_id: string
+          id: string
+          is_planned: boolean
+          notes: string | null
+          production_loss_mt: number | null
+          profit_center_id: string
+          reason_category: string
+          reason_detail: string | null
+          start_time: string
+          updated_at: string
+        }
+        Insert: {
+          breakdown_id?: string | null
+          created_at?: string
+          created_by: string
+          duration_minutes?: number | null
+          end_time?: string | null
+          equipment_id: string
+          id?: string
+          is_planned?: boolean
+          notes?: string | null
+          production_loss_mt?: number | null
+          profit_center_id: string
+          reason_category: string
+          reason_detail?: string | null
+          start_time: string
+          updated_at?: string
+        }
+        Update: {
+          breakdown_id?: string | null
+          created_at?: string
+          created_by?: string
+          duration_minutes?: number | null
+          end_time?: string | null
+          equipment_id?: string
+          id?: string
+          is_planned?: boolean
+          notes?: string | null
+          production_loss_mt?: number | null
+          profit_center_id?: string
+          reason_category?: string
+          reason_detail?: string | null
+          start_time?: string
+          updated_at?: string
+        }
+        Relationships: []
+      }
+      maintenance_equipment: {
+        Row: {
+          capacity: string | null
+          code: string
+          created_at: string
+          created_by: string
+          criticality: Database["public"]["Enums"]["maintenance_criticality"]
+          equipment_type: string
+          furnace_id: string | null
+          id: string
+          install_date: string | null
+          is_active: boolean
+          location: string | null
+          manufacturer: string | null
+          model_no: string | null
+          name: string
+          notes: string | null
+          profit_center_id: string
+          status: Database["public"]["Enums"]["maintenance_equipment_status"]
+          updated_at: string
+        }
+        Insert: {
+          capacity?: string | null
+          code: string
+          created_at?: string
+          created_by: string
+          criticality?: Database["public"]["Enums"]["maintenance_criticality"]
+          equipment_type: string
+          furnace_id?: string | null
+          id?: string
+          install_date?: string | null
+          is_active?: boolean
+          location?: string | null
+          manufacturer?: string | null
+          model_no?: string | null
+          name: string
+          notes?: string | null
+          profit_center_id: string
+          status?: Database["public"]["Enums"]["maintenance_equipment_status"]
+          updated_at?: string
+        }
+        Update: {
+          capacity?: string | null
+          code?: string
+          created_at?: string
+          created_by?: string
+          criticality?: Database["public"]["Enums"]["maintenance_criticality"]
+          equipment_type?: string
+          furnace_id?: string | null
+          id?: string
+          install_date?: string | null
+          is_active?: boolean
+          location?: string | null
+          manufacturer?: string | null
+          model_no?: string | null
+          name?: string
+          notes?: string | null
+          profit_center_id?: string
+          status?: Database["public"]["Enums"]["maintenance_equipment_status"]
+          updated_at?: string
+        }
+        Relationships: []
+      }
+      maintenance_pm_schedules: {
+        Row: {
+          assigned_to: string | null
+          created_at: string
+          created_by: string
+          equipment_id: string
+          estimated_hours: number | null
+          frequency: Database["public"]["Enums"]["maintenance_pm_frequency"]
+          id: string
+          is_active: boolean
+          last_done: string | null
+          next_due: string
+          notes: string | null
+          profit_center_id: string
+          task_name: string
+          updated_at: string
+        }
+        Insert: {
+          assigned_to?: string | null
+          created_at?: string
+          created_by: string
+          equipment_id: string
+          estimated_hours?: number | null
+          frequency: Database["public"]["Enums"]["maintenance_pm_frequency"]
+          id?: string
+          is_active?: boolean
+          last_done?: string | null
+          next_due: string
+          notes?: string | null
+          profit_center_id: string
+          task_name: string
+          updated_at?: string
+        }
+        Update: {
+          assigned_to?: string | null
+          created_at?: string
+          created_by?: string
+          equipment_id?: string
+          estimated_hours?: number | null
+          frequency?: Database["public"]["Enums"]["maintenance_pm_frequency"]
+          id?: string
+          is_active?: boolean
+          last_done?: string | null
+          next_due?: string
+          notes?: string | null
+          profit_center_id?: string
+          task_name?: string
+          updated_at?: string
+        }
+        Relationships: []
+      }
+      maintenance_sops: {
+        Row: {
+          created_at: string
+          created_by: string
+          description: string | null
+          effective_date: string | null
+          equipment_id: string | null
+          equipment_type: string | null
+          file_url: string | null
+          id: string
+          is_active: boolean
+          profit_center_id: string
+          review_date: string | null
+          sop_number: string
+          title: string
+          updated_at: string
+          version: string
+        }
+        Insert: {
+          created_at?: string
+          created_by: string
+          description?: string | null
+          effective_date?: string | null
+          equipment_id?: string | null
+          equipment_type?: string | null
+          file_url?: string | null
+          id?: string
+          is_active?: boolean
+          profit_center_id: string
+          review_date?: string | null
+          sop_number: string
+          title: string
+          updated_at?: string
+          version?: string
+        }
+        Update: {
+          created_at?: string
+          created_by?: string
+          description?: string | null
+          effective_date?: string | null
+          equipment_id?: string | null
+          equipment_type?: string | null
+          file_url?: string | null
+          id?: string
+          is_active?: boolean
+          profit_center_id?: string
+          review_date?: string | null
+          sop_number?: string
+          title?: string
+          updated_at?: string
+          version?: string
+        }
+        Relationships: []
+      }
+      maintenance_spares: {
+        Row: {
+          category: string | null
+          code: string
+          created_at: string
+          created_by: string
+          current_stock: number
+          id: string
+          is_active: boolean
+          location: string | null
+          min_stock: number
+          name: string
+          notes: string | null
+          profit_center_id: string
+          supplier: string | null
+          unit_cost: number | null
+          uom: string
+          updated_at: string
+        }
+        Insert: {
+          category?: string | null
+          code: string
+          created_at?: string
+          created_by: string
+          current_stock?: number
+          id?: string
+          is_active?: boolean
+          location?: string | null
+          min_stock?: number
+          name: string
+          notes?: string | null
+          profit_center_id: string
+          supplier?: string | null
+          unit_cost?: number | null
+          uom?: string
+          updated_at?: string
+        }
+        Update: {
+          category?: string | null
+          code?: string
+          created_at?: string
+          created_by?: string
+          current_stock?: number
+          id?: string
+          is_active?: boolean
+          location?: string | null
+          min_stock?: number
+          name?: string
+          notes?: string | null
+          profit_center_id?: string
+          supplier?: string | null
+          unit_cost?: number | null
+          uom?: string
+          updated_at?: string
+        }
+        Relationships: []
+      }
+      maintenance_work_orders: {
+        Row: {
+          actual_cost: number | null
+          assigned_to: string | null
+          completed_at: string | null
+          created_at: string
+          created_by: string
+          description: string | null
+          equipment_id: string | null
+          estimated_cost: number | null
+          id: string
+          notes: string | null
+          priority: Database["public"]["Enums"]["maintenance_priority"]
+          profit_center_id: string
+          scheduled_date: string | null
+          started_at: string | null
+          status: Database["public"]["Enums"]["maintenance_wo_status"]
+          title: string
+          updated_at: string
+          wo_number: string
+          wo_type: Database["public"]["Enums"]["maintenance_wo_type"]
+        }
+        Insert: {
+          actual_cost?: number | null
+          assigned_to?: string | null
+          completed_at?: string | null
+          created_at?: string
+          created_by: string
+          description?: string | null
+          equipment_id?: string | null
+          estimated_cost?: number | null
+          id?: string
+          notes?: string | null
+          priority?: Database["public"]["Enums"]["maintenance_priority"]
+          profit_center_id: string
+          scheduled_date?: string | null
+          started_at?: string | null
+          status?: Database["public"]["Enums"]["maintenance_wo_status"]
+          title: string
+          updated_at?: string
+          wo_number: string
+          wo_type: Database["public"]["Enums"]["maintenance_wo_type"]
+        }
+        Update: {
+          actual_cost?: number | null
+          assigned_to?: string | null
+          completed_at?: string | null
+          created_at?: string
+          created_by?: string
+          description?: string | null
+          equipment_id?: string | null
+          estimated_cost?: number | null
+          id?: string
+          notes?: string | null
+          priority?: Database["public"]["Enums"]["maintenance_priority"]
+          profit_center_id?: string
+          scheduled_date?: string | null
+          started_at?: string | null
+          status?: Database["public"]["Enums"]["maintenance_wo_status"]
+          title?: string
+          updated_at?: string
+          wo_number?: string
+          wo_type?: Database["public"]["Enums"]["maintenance_wo_type"]
+        }
+        Relationships: []
+      }
       material_consumption: {
         Row: {
           created_at: string
@@ -2965,6 +3472,39 @@ export type Database = {
       heat_metallurgy_status: "draft" | "submitted"
       inspection_result: "pass" | "conditional" | "fail" | "pending"
       machine_type: "FAD" | "CLU" | "DRI"
+      maintenance_breakdown_severity:
+        | "minor"
+        | "moderate"
+        | "major"
+        | "critical"
+      maintenance_condition_status: "normal" | "warning" | "critical"
+      maintenance_cost_type: "labor" | "parts" | "contractor" | "other"
+      maintenance_criticality: "low" | "medium" | "high" | "critical"
+      maintenance_equipment_status:
+        | "operational"
+        | "maintenance"
+        | "breakdown"
+        | "retired"
+      maintenance_pm_frequency:
+        | "daily"
+        | "weekly"
+        | "monthly"
+        | "quarterly"
+        | "half_yearly"
+        | "yearly"
+      maintenance_priority: "low" | "medium" | "high" | "urgent"
+      maintenance_wo_status:
+        | "open"
+        | "assigned"
+        | "in_progress"
+        | "on_hold"
+        | "completed"
+        | "cancelled"
+      maintenance_wo_type:
+        | "preventive"
+        | "breakdown"
+        | "corrective"
+        | "inspection"
       material_type: "RM" | "FG" | "WIP" | "Consumable"
       po_status:
         | "draft"
@@ -3163,6 +3703,44 @@ export const Constants = {
       heat_metallurgy_status: ["draft", "submitted"],
       inspection_result: ["pass", "conditional", "fail", "pending"],
       machine_type: ["FAD", "CLU", "DRI"],
+      maintenance_breakdown_severity: [
+        "minor",
+        "moderate",
+        "major",
+        "critical",
+      ],
+      maintenance_condition_status: ["normal", "warning", "critical"],
+      maintenance_cost_type: ["labor", "parts", "contractor", "other"],
+      maintenance_criticality: ["low", "medium", "high", "critical"],
+      maintenance_equipment_status: [
+        "operational",
+        "maintenance",
+        "breakdown",
+        "retired",
+      ],
+      maintenance_pm_frequency: [
+        "daily",
+        "weekly",
+        "monthly",
+        "quarterly",
+        "half_yearly",
+        "yearly",
+      ],
+      maintenance_priority: ["low", "medium", "high", "urgent"],
+      maintenance_wo_status: [
+        "open",
+        "assigned",
+        "in_progress",
+        "on_hold",
+        "completed",
+        "cancelled",
+      ],
+      maintenance_wo_type: [
+        "preventive",
+        "breakdown",
+        "corrective",
+        "inspection",
+      ],
       material_type: ["RM", "FG", "WIP", "Consumable"],
       po_status: [
         "draft",
