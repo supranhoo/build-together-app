@@ -14,18 +14,21 @@ import AdminReportDeliveries from "./AdminReportDeliveries";
 import AdminRoles from "./AdminRoles";
 import AdminAudit from "./AdminAudit";
 import AdminUsers from "./AdminUsers";
-import AdminMasterData from "./AdminMasterData";
 
 /**
  * Admin Settings tabs — single entry point that hosts every administrative
  * configuration section. Each tab simply renders the existing page component
  * unchanged, so business logic, RLS, and audit behavior are preserved.
+ *
+ * Note: "Master Data" was relocated to the Inventory module
+ * (`/portal/inventory/master-data`) so the same SSOT screens live next to
+ * the operational module that consumes them most. The legacy URL
+ * `/admin/settings?tab=master-data` is redirected from `App.tsx`.
  */
 export const ADMIN_SETTINGS_TABS = [
   { key: "workspaces", label: "Profit Centers", Component: AdminWorkspaces },
   { key: "modules", label: "Modules", Component: AdminModules },
   { key: "users", label: "Users", Component: AdminUsers },
-  { key: "master-data", label: "Master Data", Component: AdminMasterData },
   { key: "access", label: "Access", Component: AdminAccess },
   { key: "settings", label: "Settings", Component: AdminRawSettings },
   { key: "furnaces", label: "Furnaces", Component: AdminFurnaces },

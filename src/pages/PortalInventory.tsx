@@ -10,7 +10,7 @@ import { useWorkspace } from "@/hooks/use-workspace";
  * Dashboard. Existing `/portal/inventory/receipts` and `/ledger` paths still
  * work for backwards compatibility.
  */
-const TABS: Array<{ value: string; label: string; path: string }> = [
+export const INVENTORY_TABS: Array<{ value: string; label: string; path: string }> = [
   { value: "dashboard", label: "Dashboard", path: "/portal/inventory" },
   { value: "stock", label: "Stock Ledger", path: "/portal/inventory/stock" },
   { value: "grn", label: "GRN (Inward)", path: "/portal/inventory/grn" },
@@ -18,7 +18,12 @@ const TABS: Array<{ value: string; label: string; path: string }> = [
   { value: "transfers", label: "Transfers", path: "/portal/inventory/transfers" },
   { value: "min-max", label: "Min-Max", path: "/portal/inventory/min-max" },
   { value: "reports", label: "Reports", path: "/portal/inventory/reports" },
+  // Master Data hosts the same SSOT screens previously under Admin → Settings
+  // (Item Master, Groups, Furnaces, Cost Rates, UOM, Locations, KPIs).
+  { value: "master-data", label: "Master Data", path: "/portal/inventory/master-data" },
 ];
+
+const TABS = INVENTORY_TABS;
 
 export default function PortalInventory() {
   const { activeProfitCenter } = useWorkspace();
