@@ -32,6 +32,12 @@ import {
   type SpecRow,
 } from "@/lib/master-item-specs";
 import { SpecsEditor } from "@/components/master-data/SpecsEditor";
+import {
+  applyTemplateToRows,
+  fetchSpecTemplates,
+  findTemplateForNature,
+  type SpecTemplate,
+} from "@/lib/spec-templates";
 
 const UOMS = ["kg", "MT", "litre", "piece", "ton"];
 
@@ -71,6 +77,7 @@ export default function AdminMasterItems() {
   const { session } = useAuth();
   const { toast } = useToast();
   const [items, setItems] = useState<MasterItem[]>([]);
+  const [templates, setTemplates] = useState<SpecTemplate[]>([]);
   const [loading, setLoading] = useState(false);
   const [open, setOpen] = useState(false);
   const [form, setForm] = useState<FormState>(empty);
@@ -86,7 +93,12 @@ export default function AdminMasterItems() {
     if (!activeProfitCenter) return;
     setLoading(true);
     try {
-      setItems(await fetchMasterItems(activeProfitCenter.id));
+      const [itemsRes, templatesRes] = await Promise.all([
+        fetchMasterItems(activeProfitCenter.id),
+        fetchSpecTemplates(activeProfitCenter.id).catch(() => [] as SpecTemplate[]),
+      ]);
+      setItems(itemsRes);
+      setTemplates(templatesRes);
     } finally {
       setLoading(false);
     }
@@ -123,6 +135,21 @@ export default function AdminMasterItems() {
   };
 
   const specErrors = useMemo(() => validateSpecRows(form.specRows), [form.specRows]);
+
+  const matchedTemplate = useMemo(
+    () => findTemplateForNature(templates, form.type || null, form.groupName, form.subgroup),
+    [templates, form.type, form.groupName, form.subgroup],
+  );
+
+  const handleApplyTemplate = () => {
+    if (!matchedTemplate) return;
+    const next = applyTemplateToRows(matchedTemplate, form.specRows);
+    setForm({ ...form, specRows: next });
+    toast({
+      title: "Template applied",
+      description: `${matchedTemplate.fields.length} field${matchedTemplate.fields.length === 1 ? "" : "s"} from ${matchedTemplate.type} / ${matchedTemplate.groupName}${matchedTemplate.subgroup ? ` / ${matchedTemplate.subgroup}` : ""}`,
+    });
+  };
 
   const handleSave = async () => {
     if (!activeProfitCenter || !session?.user) return;
@@ -293,7 +320,23 @@ export default function AdminMasterItems() {
                 <div><Label>Reorder level</Label><Input type="number" step="0.001" value={form.reorderLevel} onChange={(e) => setForm({ ...form, reorderLevel: e.target.value })} /></div>
                 <div><Label>Min level</Label><Input type="number" step="0.001" value={form.minLevel} onChange={(e) => setForm({ ...form, minLevel: e.target.value })} /></div>
                 <div><Label>Max level</Label><Input type="number" step="0.001" value={form.maxLevel} onChange={(e) => setForm({ ...form, maxLevel: e.target.value })} /></div>
-                <div className="sm:col-span-2">
+                <div className="sm:col-span-2 space-y-2">
+                  <div className="flex flex-wrap items-center justify-between gap-2 rounded-md border border-dashed border-border bg-panel/50 px-3 py-2 text-xs">
+                    {matchedTemplate ? (
+                      <>
+                        <span className="text-muted-foreground">
+                          Matching template: <strong className="text-foreground">{matchedTemplate.type} / {matchedTemplate.groupName}{matchedTemplate.subgroup ? ` / ${matchedTemplate.subgroup}` : " (whole group)"}</strong> — {matchedTemplate.fields.length} field{matchedTemplate.fields.length === 1 ? "" : "s"}
+                        </span>
+                        <Button type="button" size="sm" variant="outline" onClick={handleApplyTemplate}>
+                          Apply template
+                        </Button>
+                      </>
+                    ) : (
+                      <span className="text-muted-foreground">
+                        No spec template defined for this Type / Group / Subgroup. Add one under <em>Master Data → Specifications</em> to enable mapping.
+                      </span>
+                    )}
+                  </div>
                   <SpecsEditor
                     rows={form.specRows}
                     errors={specErrors}

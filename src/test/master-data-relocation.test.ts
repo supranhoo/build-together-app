@@ -31,7 +31,7 @@ describe("Master Data relocation to Inventory module", () => {
   });
 
   it("preserves all Master Data sub-tabs (SSOT screens)", () => {
-    const expected = ["items", "groups", "furnaces", "cost-rates", "uom", "locations", "kpis"];
+    const expected = ["items", "groups", "specs", "furnaces", "cost-rates", "uom", "locations", "kpis"];
     expect(MASTER_DATA_TABS.map((t) => t.key)).toEqual(expected);
   });
 });
