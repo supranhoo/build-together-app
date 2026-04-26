@@ -641,3 +641,24 @@ Per user decision (2026-04-26), every KPI tile rendered via `<AccentKpiCard />` 
 
 ### Version History
 - 2026-04-26 (KPI Drilldown — Sales reference): added URL filter helpers + drilldown prop on `AccentKpiCard` + filter banner + record detail sheet; wired all 5 Sales dashboard KPIs and made Orders/Inquiries tabs filter- and detail-aware. 16 new unit tests; 400/400 passing.
+
+## Item Master — Per-Item Specs Editor (2026-04-26)
+
+**Decision** — Specs on `materials.specs` remain a free-form `Record<string, unknown>`. The Item Master form (`src/pages/AdminMasterItems.tsx`) replaces the previous JSON textarea with a structured rows editor. No new master tables, no schema migration. Rule #3 (Surgical Changes) and Rule #5 (SSOT) — every downstream consumer (Production, Quality, Procurement, Sales) keeps reading specs the same way.
+
+**Editor contract** — `src/components/master-data/SpecsEditor.tsx`. Each row carries `key`, `value`, `unit` (display-only), `required`, `numeric`, `min`, `max`. Validation logic lives in `src/lib/master-item-specs.ts` (pure, dependency-free) and runs on every keystroke via `validateSpecRows`. The Save button is disabled while any row reports an error — strict per project decision.
+
+**Validation rules (strict — block save):**
+- Duplicate keys (case-insensitive) → blocked.
+- Empty key with non-empty value → blocked.
+- Required row with empty value → blocked.
+- Numeric row with non-finite value → blocked.
+- Numeric row outside `[min, max]` → blocked.
+- Fully blank rows are silently dropped at serialize time.
+
+**Lazy migration** — Existing items keep their stored JSON. `specsObjectToRows` converts the object into editor rows on open; primitives become string values, nested objects are stringified. Per-row metadata (`required`, `numeric`, `min`, `max`) is **not** persisted in `materials.specs` (the schema has no place to store it without a new table) and therefore resets to `false`/empty on next reopen. This is intentional — the editor is a UX layer over the same storage shape.
+
+**CSV bulk upload/export unchanged** — `src/lib/master-items-csv.ts` continues to use a single `specs_json` column. Round-trip via CSV is lossless for keys/values; per-row constraints set in the editor are not exported (they are not persisted).
+
+### Version History
+- 2026-04-26 (Item Master Specs editor): replaced free-form JSON textarea with structured rows editor (`SpecsEditor`) + strict required + numeric range validation. Added 14 unit tests covering migration, validation, and serialization. 414/414 passing.
