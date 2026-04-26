@@ -14,6 +14,8 @@
  */
 import { SamplingTab } from "@/components/quality/SamplingTab";
 import { BunkerFeedQCTab } from "@/components/quality/BunkerFeedQCTab";
+import { FinishedGoodsTab } from "@/components/quality/FinishedGoodsTab";
+import { DispatchClearanceTab } from "@/components/quality/DispatchClearanceTab";
 import { useNavigate } from "react-router-dom";
 import {
   AlertCircle,
@@ -56,12 +58,12 @@ const TABS: TabSpec[] = [
   { id: "furnace", label: "Furnace Quality", icon: Thermometer, kind: "deeplink",
     description: "FG Mn %, slag MnO % and dust Mn % per heat are recorded with each heat in the production module.",
     target: { to: "/portal/production", label: "Open production quality" } },
-  { id: "finished_goods", label: "Finished Goods QC", icon: Package, kind: "scaffold",
+  { id: "finished_goods", label: "Finished Goods QC", icon: Package, kind: "live",
     description: "Batch-level FG inspection with pass / conditional / fail result and certificate-of-analysis data.",
-    phase: "C" },
-  { id: "dispatch", label: "Dispatch Clearance", icon: Truck, kind: "scaffold",
+    render: () => <FinishedGoodsTab /> },
+  { id: "dispatch", label: "Dispatch Clearance", icon: Truck, kind: "live",
     description: "Release gate before shipment. Requires a passed FG inspection.",
-    phase: "C" },
+    render: () => <DispatchClearanceTab /> },
   { id: "complaints", label: "Customer Complaints", icon: AlertCircle, kind: "scaffold",
     description: "8D-style complaint workflow: open → investigating → corrective action → closed.",
     phase: "D" },
@@ -86,7 +88,7 @@ export default function AdminQuality() {
           </p>
         </div>
         <Badge variant="outline" className="border-primary/40 bg-primary/10">
-          Phase B live · Sampling + Bunker Feed QC active
+          Phase C live · Sampling, Bunker QC, FG Inspection, Dispatch Clearance
         </Badge>
       </div>
 
