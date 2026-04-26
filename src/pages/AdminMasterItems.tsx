@@ -165,6 +165,55 @@ export default function AdminMasterItems() {
     }
   };
 
+  const handleDownloadTemplate = () => {
+    downloadCsv("item-master-template.csv", toCsv(buildItemTemplateRows()));
+  };
+
+  const handleExport = () => {
+    if (!activeProfitCenter) return;
+    const fname = `item-master-${activeProfitCenter.name.replace(/\s+/g, "-").toLowerCase()}-${new Date().toISOString().slice(0, 10)}.csv`;
+    downloadCsv(fname, toCsv(itemsToCsvRows(items)));
+  };
+
+  const handleBulkUpload = async (file: File) => {
+    if (!activeProfitCenter || !session?.user) return;
+    setImporting(true);
+    setImportReport(null);
+    try {
+      const text = await file.text();
+      const rawRows = parseCsv(text);
+      const { rows, errors } = parseItemCsv(rawRows);
+      const messages: string[] = errors.map((e) => `Row ${e.rowNumber}: ${e.message}`);
+      let inserted = 0;
+      for (const { rowNumber, input } of rows) {
+        try {
+          await upsertMasterItem({ ...input, profitCenterId: activeProfitCenter.id });
+          await createAuditLog({
+            actorUserId: session.user.id,
+            profitCenterId: activeProfitCenter.id,
+            entityType: "item_master",
+            action: "item_master.bulk_upserted",
+            changeSummary: { code: input.code, name: input.name, type: input.type, source: "csv_bulk_upload" },
+          });
+          inserted += 1;
+        } catch (e) {
+          messages.push(`Row ${rowNumber} (${input.code}): ${e instanceof Error ? e.message : "save failed"}`);
+        }
+      }
+      setImportReport({ inserted, failed: messages.length, errors: messages });
+      toast({
+        title: `Bulk upload finished — ${inserted} saved, ${messages.length} skipped`,
+        variant: messages.length > 0 ? "destructive" : "default",
+      });
+      await load();
+    } catch (e) {
+      toast({ title: "Bulk upload failed", description: e instanceof Error ? e.message : "", variant: "destructive" });
+    } finally {
+      setImporting(false);
+      if (fileInputRef.current) fileInputRef.current.value = "";
+    }
+  };
+
   if (!activeProfitCenter) {
     return <Card><CardHeader><CardTitle>Item Master</CardTitle></CardHeader><CardContent className="text-muted-foreground">Select a workspace first.</CardContent></Card>;
   }
