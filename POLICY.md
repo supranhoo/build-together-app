@@ -297,3 +297,7 @@
 
 ## Policy Change Log (continued)
 - 2026-04-26 (Maintenance Phase A): Established workspace isolation, furnace SSOT linkage rule, auto-numbering immutability, monotonic WO lifecycle, computed-condition-status rule, MTBF/MTTR approximation contract, `<=` stockout semantics, independent maintenance-spares catalog, and append-only cost convention. Mounted 10-tab Maintenance module at `/portal/maintenance`.
+- **Plant Head Dashboard is read-only and derivation-only.** All values come from existing module SSOTs via pure helpers in `src/lib/plant-health.ts`. The dashboard MUST NOT introduce its own tables, write paths, or business thresholds — module-level rules (PM windows, stock min/max, complaint lifecycle, cost alerts) remain owned by their respective modules. Health-pill thresholds are display-only and explicitly documented in the helper.
+
+## Policy Change Log (continued)
+- 2026-04-26 (Plant Head Dashboard): added cross-module monitoring deck on `/portal` with derivation-only contract.
