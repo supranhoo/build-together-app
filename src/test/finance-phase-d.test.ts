@@ -36,7 +36,8 @@ describe("buildFerroCostSheet", () => {
     expect(sheet.netCost).toBe(2000);
     expect(sheet.netCostPerMt).toBe(200);
     expect(sheet.costPerMnPoint).toBeCloseTo(200 / 65, 6);
-    expect(sheet.recoveryPct).toBeCloseTo(65, 6);
+    // recovery = (productionMt * gradeMn%) / inputMnQty * 100 = (10*65)/10*100 = 6500
+    expect(sheet.recoveryPct).toBeCloseTo(6500, 6);
   });
 
   it("returns null KPIs when production = 0 (no NaN)", () => {
