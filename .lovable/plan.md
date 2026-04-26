@@ -1,77 +1,98 @@
-# Production Entry – FAD (separate module)
+# Quality Control Module — Plan (revised)
 
-Build the uploaded `ProductionEntryFAD.tsx` as a **new, standalone route** at `/portal/production-fad`. The existing `/portal/production` dialog stays untouched.
+Build a Quality Control surface modeled on the uploaded `QualityControlModule.tsx`, adapted to this project's patterns (shadcn `Tabs`, semantic tokens, `useWorkspace`, Supabase RLS, SSOT). Same delivery model as Procurement: phased build, every code change ships with tests, `DOCUMENTATION.md` and `POLICY.md` updates in the same response.
 
-## What the user gets
+## Change vs. previous plan
 
-A new sidebar/menu item **"Production Entry – FAD"** opening a full-page screen with the exact layout from the upload:
+- **Removed**: "CLU Quality" tab (CLU is not part of the Ferro Alloys Division process).
+- **Added**: **"Bunker Feed QC"** tab — pre-consumption test of ore and reductant items being fed from raw-material bunkers to the furnace. Purpose: every material actually consumed must have a test report verifying it meets scope/specification before it is charged.
 
-- **Header**: title + active profit center badge.
-- **Top tab bar** (4 tabs): Data Entry & Preview · Heat-wise Results · Furnace Summary · Monthly Summary.
-- **Data Entry & Preview** (2-col grid):
-  - Left (2/3): Heat Details card → Power card → 4-step inner tab (Mn Ore · Reductant · Fluxes/Paste · Output) with the exact tables and inline formulas (dry qty, Mn input, FC input, etc.).
-  - Right (1/3): sticky **Live Mn Balance** card showing Mn in/out, recovery %, slag/dust loss %, FC/MT, fuel mix bar, paste Kg/MT, balance check %, plus **Save Draft** and **Submit to Plant Head** buttons.
-- **Heat-wise / Furnace / Monthly** tabs: read-only roll-ups computed from the data we just stored.
+## Scope (9 tabs)
 
-UI styling, spacing, colors, badges, alert thresholds (red <70 % recovery, amber moisture, etc.) match the upload exactly.
+1. **Dashboard & KPIs** — live aggregator
+2. **Raw Material QC** — deep-link to GRN (incoming Mn%/Fe%/moisture already on `grn_logs`) + classification vs. spec
+3. **Sampling Management** — sample plans, lot tracking, status workflow
+4. **Bunker Feed QC** *(replaces CLU)* — per-bunker test of ore + reductant before charging; gates `material_consumption` against an approved test
+5. **Furnace Quality** — deep-link to existing `PortalProductionQuality` (FG Mn%, slag MnO%, dust Mn% per heat — already live)
+6. **Finished Goods QC** — batch-level FG inspection, pass/fail, certificate of analysis
+7. **Dispatch Clearance** — release gate before shipment, requires FG pass
+8. **Customer Complaints** — NCR / 8D workflow
+9. **Compliance & Lab** — lab cert expiry, instrument calibration
 
-## Data model — no schema changes
+## Bunker Feed QC — design detail
 
-Reuse existing tables (zero migrations):
+**Why it exists**: Incoming GRN tests prove what a supplier delivered, but material sitting in bunkers can degrade (moisture pickup, segregation, contamination). Before any ore or reductant is fed to the furnace, a fresh bunker sample must be tested against the workspace material spec (target Mn%, FC%, moisture max, size range stored in `materials.specs` JSON).
 
-- `heat_logs` — one row per heat (heat_number, furnace, shift, tap_time, weight_mt, power_mwh, notes).
-- `material_consumption` (+ auto `inventory_ledger` via existing trigger) — one row per Mn-ore / reductant / flux / paste line.
-- `heat_metallurgy` — product, grade, tapping/batch no, FG Mn %, slag qty/MnO %, dust qty/Mn %, power split, status (`draft` / `submitted`).
-- `materials` — used to populate Mn-ore, reductant, flux, paste pickers + default Mn %, FC %, moisture from `specs` JSON.
-- `furnaces`, `shifts` — pickers (no SAF-1/SAF-2 hardcoding).
-- `profit_center_settings.setting_key = 'production.alerts'` — recovery / FC-per-MT / moisture / slag-MnO thresholds (already wired via `fetchProductionAlertThresholds`).
-- `profit_center_settings.setting_key = 'production.formulas'` *(new key, no schema change — JSON in existing settings table)* — overrides for `metalMn`, `slagMn`, `dustMn`, `mnRecovery`, `slagLoss`, `dustLoss`, `diffusionLoss`, `mnoToMnFactor`, `fgMnDefault`, `slagMnoDefault`, `dustMnDefault`. Falls back to authoritative defaults from `src/lib/ferro-alloys.ts`.
+**New table — `bunker_feed_tests`** (workspace-scoped, RLS-gated, audit-logged)
+- `id`, `profit_center_id`, `material_id`, `stock_location_id` (= bunker), `tested_at`
+- `mn_pct`, `fc_pct`, `moisture_pct`, `size_range`, `extra_specs jsonb` (free-form for ash %, P %, S %, etc.)
+- `result` enum `bunker_test_result` (`pass` / `conditional` / `fail`)
+- `valid_until` (timestamp — beyond this, a fresh test is required)
+- `notes`, `created_by`, `created_at`
 
-## Routing & nav
+**Spec source (zero-hardcoding §10)**: Targets and tolerances come from `materials.specs` and a new `profit_center_settings` key `quality.bunker_spec_tolerances` (e.g. moisture max +1%, Mn min −2%). No business numbers in code.
 
-- `src/App.tsx` — add `<Route path="production-fad" element={<PortalProductionFAD />} />` under the `/portal` shell.
-- Sidebar: add "Production Entry – FAD" item next to "Production".
+**Material-type filter**: Tab UI lists only materials whose `category` / `group_name` resolves to ore or reductant via the existing `production.material_groups` setting (same source PortalProductionFAD already uses). No hardcoded "SAF-1" / fixed material lists.
 
-## New / modified files
+**Consumption gate (policy, not enforced in DB this phase)**:
+- `POLICY.md` records: a `material_consumption` row for an ore/reductant material should reference an active `bunker_feed_tests` row (matching `material_id` + `stock_location_id`, `result IN ('pass','conditional')`, `valid_until >= now()`).
+- Phase B ships a UI warning + dashboard counter "consumptions without active bunker test". A future phase can promote this to a hard DB trigger once historical data is clean.
 
-**New**
-- `src/pages/PortalProductionFAD.tsx` — the page (mirrors uploaded structure but uses `useWorkspace`, `useAuth`, shadcn imports, Supabase services).
-- `src/lib/production-formulas.ts` — fetch + evaluate workspace formula overrides; default values come from `ferro-alloys.ts` (no hardcoded business numbers in the page).
-- `src/lib/production-entry-fad.ts` — orchestrates one atomic submit:
-  1. `createHeatLog(...)`
-  2. for each Mn-ore / reductant / flux / paste line → `recordHeatConsumption(...)` (writes `material_consumption` + ledger via trigger)
-  3. `upsertMetallurgy(...)` with status `draft` or `submitted`
-  4. on partial failure: surface error, do not silently swallow.
-- `src/test/production-entry-fad.test.ts` — unit tests for the orchestrator + Mn balance & FC-per-MT calculations against the existing `mnBalance` helper.
+**SSOT**: Bunker = `stock_locations` row. Materials = `materials`. Specs = `materials.specs` + workspace tolerances. No duplication.
 
-**Modified**
-- `src/App.tsx` — register route.
-- `src/components/PortalShell.tsx` (or wherever portal nav lives) — add menu entry.
-- `DOCUMENTATION.md` + `POLICY.md` — Phase 18 entry: new route, formula-override key, draft → submitted workflow, audit via existing `heat_log_events` trigger.
+## SSOT — what we reuse vs. what's new
 
-**Untouched**
-- `src/pages/PortalProduction.tsx` and the dialog flow (per user instruction "do not add in production").
+**Reuse (deep-link, no duplication)**:
+- Raw Material QC → `grn_logs` quality fields at `/portal/inventory/grn`
+- Furnace Quality → `heat_metallurgy` at `/portal/production` quality tab
+- KPI / Reports → central surfaces
 
-## Behavior details
+**New tables (6)**: `quality_samples`, `bunker_feed_tests`, `fg_inspections`, `dispatch_clearances`, `quality_complaints`, `compliance_records`. New permission resource `quality` with actions `inspect`, `bunker_test`, `clear`, `complaint`, `compliance`.
 
-- **Heat number**: auto-suggest `H-YYYYMMDD-NN` from same-day count for selected furnace; user can edit; duplicates blocked client-side and by future server check.
-- **Material pickers**: pulled from `materials` filtered by `group_name` mapped in workspace settings (`production.material_groups` JSON: `{ ore: ['Mn Ore'], reductant: ['Reductant'], flux: ['Flux'], paste: ['Paste'] }`). Falls back to category text match.
-- **Live calculations**: use existing `mnBalance` from `src/lib/ferro-alloys.ts` so numbers match the rest of the app.
-- **Submit to Plant Head** = `heat_metallurgy.status = 'submitted'` (immutable per existing RLS).
-- **Save Draft** = `status = 'draft'` (editable per existing RLS).
-- **Heat-wise / Furnace / Monthly tabs** inside this page query `heat_logs` + `heat_metallurgy` + `material_consumption` for the active workspace and aggregate client-side, mirroring the upload's columns. Excel export via existing `exportRows`.
-- **Real-time**: Supabase channel on `heat_logs` & `heat_metallurgy` filtered by `profit_center_id` to refresh the right-hand reports tabs.
-- **Audit trail**: already covered by `log_heat_log_event` trigger; metallurgy status changes go to `audit_logs` from the orchestrator.
+## Routes & nav
 
-## Risk & impact
+- `/portal/quality` and `/admin/quality` — same component (SSOT), same fix pattern as Procurement (rendered inside `PortalShell` so plant sidebar stays visible).
+- Admin sidebar entry "Quality Control" added to `src/components/AdminShell.tsx`.
 
-- **Data**: no schema changes. New rows only. SSOT preserved (inventory still flows through `material_consumption` → ledger).
-- **Workflow**: parallel to existing dialog. Both flows write to the same tables, so Heat-wise / Furnace / Monthly views in *both* pages stay consistent.
-- **UI**: net-new page; existing `/portal/production` UI unchanged.
-- **Regression**: low — orchestrator is additive; failures during multi-row insert surfaced with clear toast; partial-write cleanup left to a follow-up only if user requests transactional rollback.
+## Phased delivery (mirrors Procurement)
+
+**Phase A — Shell + schema**
+- Migration: 6 tables + enums (`sample_status`, `inspection_result`, `complaint_status`, `dispatch_status`, `bunker_test_result`), RLS, audit triggers via existing `log_procurement_event` pattern, permission grants seed.
+- New page `src/pages/AdminQuality.tsx` — 9-tab shell (shadcn `Tabs`, semantic tokens only).
+- Routes registered, sidebar entry added.
+- Tests: `src/test/quality-phase-a.test.ts` (route audit, tab list, RLS smoke).
+
+**Phase B — Sampling + Raw Material QC + Bunker Feed QC + Furnace deep-link**
+- `SamplingTab.tsx`, `RawMaterialQCTab.tsx`, `BunkerFeedQCTab.tsx`, `FurnaceQualityTab.tsx`.
+- `src/lib/quality.ts` service layer — including `evaluateBunkerTest(materialSpec, tolerances, measurements) → { result, deviations[] }`.
+- Tests: `quality-phase-b.test.ts` covering pass/conditional/fail spec evaluation + deep-link routing.
+
+**Phase C — FG + Dispatch**
+- `FinishedGoodsTab.tsx`, `DispatchQCTab.tsx`.
+- Append-only on `released` records. Dispatch clearance gates on FG inspection pass.
+- Tests: `quality-phase-c.test.ts`.
+
+**Phase D — Complaints + Compliance + Dashboard**
+- `ComplaintsTab.tsx` (8D-style: `open → investigating → corrective_action → closed`).
+- `ComplianceTab.tsx` (cert expiry, calibration due dates).
+- `QCDashboardTab.tsx` — pure aggregator `buildQualityKpis` (SSOT). Includes "Consumptions without active bunker test" counter.
+- Tests: `quality-phase-d.test.ts`.
+
+## Risk & Impact (per project knowledge §9)
+
+- **Data**: Additive only — 6 new tables, 5 enums, 1 new permission resource. No existing tables touched.
+- **Workflow**: New role actions default to denied; admin grants. Bunker test consumption gate is policy + UI warning in Phase B (not a hard DB trigger), to avoid blocking historical workflows.
+- **UI/UX**: Renders inside `PortalShell` (sidebar visible). Semantic tokens only.
+- **Regression**: Low. Raw Material and Furnace tabs deep-link rather than duplicate. Existing GRN entry, `PortalProductionQuality`, `material_consumption` writes unchanged.
+- **Mitigation**: Per-phase unit tests; full suite must stay green. Append-only RLS on inspection tables.
 
 ## Out of scope (call out, don't build)
 
-- Server-side duplicate-heat enforcement (currently client-side + DB unique would need migration).
-- Approval workflow beyond `draft` → `submitted` (e.g., reviewer signoff, rejection reasons).
-- Mobile-specific layout polish beyond the responsive grid the upload already uses.
+- Hard DB trigger blocking consumption without active bunker test (deferred until historical data verified clean).
+- Lab instrument auto-import (manual entry only).
+- Auto-rendered Certificate of Analysis PDFs (data captured; rendering deferred).
+- CLU module (explicitly excluded — not part of Ferro Alloys Division).
+
+## Confirm before I start
+
+On approval, I'll begin with **Phase A** (schema + shell + routes + admin sidebar + tests + DOCUMENTATION/POLICY updates), then wait for "go Phase B" etc. — same cadence as Procurement.

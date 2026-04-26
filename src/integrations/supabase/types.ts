@@ -103,6 +103,114 @@ export type Database = {
           },
         ]
       }
+      bunker_feed_tests: {
+        Row: {
+          created_at: string
+          created_by: string
+          deviations: Json
+          extra_specs: Json
+          fc_pct: number | null
+          id: string
+          material_id: string
+          mn_pct: number | null
+          moisture_pct: number | null
+          notes: string | null
+          profit_center_id: string
+          result: Database["public"]["Enums"]["bunker_test_result"]
+          size_range: string | null
+          stock_location_id: string
+          tested_at: string
+          valid_until: string | null
+        }
+        Insert: {
+          created_at?: string
+          created_by: string
+          deviations?: Json
+          extra_specs?: Json
+          fc_pct?: number | null
+          id?: string
+          material_id: string
+          mn_pct?: number | null
+          moisture_pct?: number | null
+          notes?: string | null
+          profit_center_id: string
+          result?: Database["public"]["Enums"]["bunker_test_result"]
+          size_range?: string | null
+          stock_location_id: string
+          tested_at?: string
+          valid_until?: string | null
+        }
+        Update: {
+          created_at?: string
+          created_by?: string
+          deviations?: Json
+          extra_specs?: Json
+          fc_pct?: number | null
+          id?: string
+          material_id?: string
+          mn_pct?: number | null
+          moisture_pct?: number | null
+          notes?: string | null
+          profit_center_id?: string
+          result?: Database["public"]["Enums"]["bunker_test_result"]
+          size_range?: string | null
+          stock_location_id?: string
+          tested_at?: string
+          valid_until?: string | null
+        }
+        Relationships: []
+      }
+      compliance_records: {
+        Row: {
+          attachments: Json
+          created_at: string
+          created_by: string
+          description: string | null
+          expires_at: string | null
+          id: string
+          is_active: boolean
+          issued_at: string | null
+          notes: string | null
+          profit_center_id: string
+          record_type: string
+          reference_no: string
+          responsible_user_id: string | null
+          updated_at: string
+        }
+        Insert: {
+          attachments?: Json
+          created_at?: string
+          created_by: string
+          description?: string | null
+          expires_at?: string | null
+          id?: string
+          is_active?: boolean
+          issued_at?: string | null
+          notes?: string | null
+          profit_center_id: string
+          record_type: string
+          reference_no: string
+          responsible_user_id?: string | null
+          updated_at?: string
+        }
+        Update: {
+          attachments?: Json
+          created_at?: string
+          created_by?: string
+          description?: string | null
+          expires_at?: string | null
+          id?: string
+          is_active?: boolean
+          issued_at?: string | null
+          notes?: string | null
+          profit_center_id?: string
+          record_type?: string
+          reference_no?: string
+          responsible_user_id?: string | null
+          updated_at?: string
+        }
+        Relationships: []
+      }
       cost_rates: {
         Row: {
           cost_type: Database["public"]["Enums"]["cost_type"]
@@ -168,6 +276,126 @@ export type Database = {
           is_active?: boolean
           name?: string
           symbol?: string | null
+          updated_at?: string
+        }
+        Relationships: []
+      }
+      dispatch_clearances: {
+        Row: {
+          clearance_no: string
+          cleared_at: string | null
+          cleared_by: string | null
+          created_at: string
+          created_by: string
+          customer: string | null
+          fg_inspection_id: string | null
+          hold_reason: string | null
+          id: string
+          notes: string | null
+          profit_center_id: string
+          status: Database["public"]["Enums"]["dispatch_status"]
+          updated_at: string
+          vehicle_no: string | null
+        }
+        Insert: {
+          clearance_no: string
+          cleared_at?: string | null
+          cleared_by?: string | null
+          created_at?: string
+          created_by: string
+          customer?: string | null
+          fg_inspection_id?: string | null
+          hold_reason?: string | null
+          id?: string
+          notes?: string | null
+          profit_center_id: string
+          status?: Database["public"]["Enums"]["dispatch_status"]
+          updated_at?: string
+          vehicle_no?: string | null
+        }
+        Update: {
+          clearance_no?: string
+          cleared_at?: string | null
+          cleared_by?: string | null
+          created_at?: string
+          created_by?: string
+          customer?: string | null
+          fg_inspection_id?: string | null
+          hold_reason?: string | null
+          id?: string
+          notes?: string | null
+          profit_center_id?: string
+          status?: Database["public"]["Enums"]["dispatch_status"]
+          updated_at?: string
+          vehicle_no?: string | null
+        }
+        Relationships: []
+      }
+      fg_inspections: {
+        Row: {
+          batch_no: string | null
+          created_at: string
+          created_by: string
+          extra_specs: Json
+          fg_c_pct: number | null
+          fg_mn_pct: number | null
+          fg_p_pct: number | null
+          fg_s_pct: number | null
+          fg_si_pct: number | null
+          grade: string | null
+          heat_log_id: string | null
+          id: string
+          inspected_at: string
+          inspection_no: string
+          notes: string | null
+          product: string | null
+          profit_center_id: string
+          result: Database["public"]["Enums"]["inspection_result"]
+          size_range: string | null
+          updated_at: string
+        }
+        Insert: {
+          batch_no?: string | null
+          created_at?: string
+          created_by: string
+          extra_specs?: Json
+          fg_c_pct?: number | null
+          fg_mn_pct?: number | null
+          fg_p_pct?: number | null
+          fg_s_pct?: number | null
+          fg_si_pct?: number | null
+          grade?: string | null
+          heat_log_id?: string | null
+          id?: string
+          inspected_at?: string
+          inspection_no: string
+          notes?: string | null
+          product?: string | null
+          profit_center_id: string
+          result?: Database["public"]["Enums"]["inspection_result"]
+          size_range?: string | null
+          updated_at?: string
+        }
+        Update: {
+          batch_no?: string | null
+          created_at?: string
+          created_by?: string
+          extra_specs?: Json
+          fg_c_pct?: number | null
+          fg_mn_pct?: number | null
+          fg_p_pct?: number | null
+          fg_s_pct?: number | null
+          fg_si_pct?: number | null
+          grade?: string | null
+          heat_log_id?: string | null
+          id?: string
+          inspected_at?: string
+          inspection_no?: string
+          notes?: string | null
+          product?: string | null
+          profit_center_id?: string
+          result?: Database["public"]["Enums"]["inspection_result"]
+          size_range?: string | null
           updated_at?: string
         }
         Relationships: []
@@ -1426,6 +1654,117 @@ export type Database = {
           },
         ]
       }
+      quality_complaints: {
+        Row: {
+          batch_no: string | null
+          closed_at: string | null
+          closed_by: string | null
+          complaint_no: string
+          corrective_action: string | null
+          created_at: string
+          created_by: string
+          customer: string | null
+          description: string
+          id: string
+          product: string | null
+          profit_center_id: string
+          reported_at: string
+          root_cause: string | null
+          status: Database["public"]["Enums"]["complaint_status"]
+          updated_at: string
+        }
+        Insert: {
+          batch_no?: string | null
+          closed_at?: string | null
+          closed_by?: string | null
+          complaint_no: string
+          corrective_action?: string | null
+          created_at?: string
+          created_by: string
+          customer?: string | null
+          description: string
+          id?: string
+          product?: string | null
+          profit_center_id: string
+          reported_at?: string
+          root_cause?: string | null
+          status?: Database["public"]["Enums"]["complaint_status"]
+          updated_at?: string
+        }
+        Update: {
+          batch_no?: string | null
+          closed_at?: string | null
+          closed_by?: string | null
+          complaint_no?: string
+          corrective_action?: string | null
+          created_at?: string
+          created_by?: string
+          customer?: string | null
+          description?: string
+          id?: string
+          product?: string | null
+          profit_center_id?: string
+          reported_at?: string
+          root_cause?: string | null
+          status?: Database["public"]["Enums"]["complaint_status"]
+          updated_at?: string
+        }
+        Relationships: []
+      }
+      quality_samples: {
+        Row: {
+          collected_at: string | null
+          created_at: string
+          created_by: string
+          id: string
+          lot_reference: string | null
+          material_id: string | null
+          notes: string | null
+          planned_at: string
+          profit_center_id: string
+          sample_no: string
+          status: Database["public"]["Enums"]["sample_status"]
+          stock_location_id: string | null
+          test_results: Json
+          tested_at: string | null
+          updated_at: string
+        }
+        Insert: {
+          collected_at?: string | null
+          created_at?: string
+          created_by: string
+          id?: string
+          lot_reference?: string | null
+          material_id?: string | null
+          notes?: string | null
+          planned_at?: string
+          profit_center_id: string
+          sample_no: string
+          status?: Database["public"]["Enums"]["sample_status"]
+          stock_location_id?: string | null
+          test_results?: Json
+          tested_at?: string | null
+          updated_at?: string
+        }
+        Update: {
+          collected_at?: string | null
+          created_at?: string
+          created_by?: string
+          id?: string
+          lot_reference?: string | null
+          material_id?: string | null
+          notes?: string | null
+          planned_at?: string
+          profit_center_id?: string
+          sample_no?: string
+          status?: Database["public"]["Enums"]["sample_status"]
+          stock_location_id?: string | null
+          test_results?: Json
+          tested_at?: string | null
+          updated_at?: string
+        }
+        Relationships: []
+      }
       report_deliveries: {
         Row: {
           cadence: string
@@ -1979,8 +2318,16 @@ export type Database = {
         | "analyst"
         | "user"
         | "super_admin"
+      bunker_test_result: "pass" | "conditional" | "fail"
+      complaint_status:
+        | "open"
+        | "investigating"
+        | "corrective_action"
+        | "closed"
       cost_type: "fixed" | "variable"
+      dispatch_status: "pending" | "cleared" | "held" | "rejected"
       heat_metallurgy_status: "draft" | "submitted"
+      inspection_result: "pass" | "conditional" | "fail" | "pending"
       machine_type: "FAD" | "CLU" | "DRI"
       material_type: "RM" | "FG" | "WIP" | "Consumable"
       po_status:
@@ -2000,6 +2347,12 @@ export type Database = {
         | "closed"
       risk_severity: "low" | "medium" | "high" | "critical"
       risk_status: "open" | "mitigated" | "closed"
+      sample_status:
+        | "planned"
+        | "collected"
+        | "tested"
+        | "released"
+        | "rejected"
       shipment_status:
         | "planned"
         | "in_transit"
@@ -2143,8 +2496,17 @@ export const Constants = {
         "user",
         "super_admin",
       ],
+      bunker_test_result: ["pass", "conditional", "fail"],
+      complaint_status: [
+        "open",
+        "investigating",
+        "corrective_action",
+        "closed",
+      ],
       cost_type: ["fixed", "variable"],
+      dispatch_status: ["pending", "cleared", "held", "rejected"],
       heat_metallurgy_status: ["draft", "submitted"],
+      inspection_result: ["pass", "conditional", "fail", "pending"],
       machine_type: ["FAD", "CLU", "DRI"],
       material_type: ["RM", "FG", "WIP", "Consumable"],
       po_status: [
@@ -2166,6 +2528,7 @@ export const Constants = {
       ],
       risk_severity: ["low", "medium", "high", "critical"],
       risk_status: ["open", "mitigated", "closed"],
+      sample_status: ["planned", "collected", "tested", "released", "rejected"],
       shipment_status: [
         "planned",
         "in_transit",
