@@ -77,9 +77,11 @@ describe("Quality Phase B — evaluateBunkerTest", () => {
     expect(v.deviations.find(d => d.field === "mnPct")?.observed).toBeNull();
   });
 
-  it("ignores fields without a spec", () => {
-    const v = evaluateBunkerTest({ fcPct: 99 }, oreSpec);
+  it("ignores fields without a spec (when spec'd fields are also satisfied)", () => {
+    // fcPct has no entry in oreSpec, so it must not influence the verdict.
+    const v = evaluateBunkerTest({ mnPct: 48, moisturePct: 4, fcPct: 99 }, oreSpec);
     expect(v.result).toBe("pass");
+    expect(v.deviations).toEqual([]);
   });
 
   it("defaults to pass when the spec book is empty (no business rule to check against)", () => {
