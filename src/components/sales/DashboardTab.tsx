@@ -217,34 +217,8 @@ export function DashboardTab({ profitCenterId, isExport, onJumpTab }: Props) {
 // ---------------------------------------------------------------------------
 // Sub-components
 // ---------------------------------------------------------------------------
-
-function AccentKpi({
-  accent, iconColor, icon: Icon, title, value, sub, unit,
-}: {
-  accent: string;
-  iconColor: string;
-  icon: React.ComponentType<{ className?: string }>;
-  title: string;
-  value: string;
-  sub: string;
-  unit?: string;
-}) {
-  return (
-    <Card className={`border-l-4 ${accent}`}>
-      <CardHeader className="flex flex-row items-start justify-between space-y-0 pb-2">
-        <CardTitle className="text-sm font-semibold text-foreground">{title}</CardTitle>
-        <Icon className={`h-4 w-4 ${iconColor}`} />
-      </CardHeader>
-      <CardContent>
-        <div className="flex items-baseline gap-1">
-          <span className="text-3xl font-bold text-foreground">{value}</span>
-          {unit && <span className="text-xs text-muted-foreground">{unit}</span>}
-        </div>
-        <p className="text-xs text-muted-foreground mt-1">{sub}</p>
-      </CardContent>
-    </Card>
-  );
-}
+// (AccentKpi extracted to @/components/ui/accent-kpi-card and shared across
+//  every module dashboard — keeps the colour rail consistent globally.)
 
 function InfoRow({
   icon: Icon, iconBg, iconColor, label, value,
