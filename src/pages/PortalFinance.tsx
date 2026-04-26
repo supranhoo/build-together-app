@@ -19,7 +19,9 @@ import {
   AlertTriangle,
   Calculator,
   Calendar,
+  CheckSquare,
   FileBarChart2,
+  GitCompareArrows,
   LayoutDashboard,
   LineChart,
   Recycle,
@@ -32,9 +34,12 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Badge } from "@/components/ui/badge";
 import { useWorkspace } from "@/hooks/use-workspace";
 import PortalCosting from "@/pages/PortalCosting";
+import PortalFerroCostSheet from "@/pages/PortalFerroCostSheet";
 import PortalFinanceVariance from "@/pages/PortalFinanceVariance";
+import PortalHeatApprovals from "@/pages/PortalHeatApprovals";
 import PortalPowerAnalysis from "@/pages/PortalPowerAnalysis";
 import PortalProfitability from "@/pages/PortalProfitability";
+import PortalRecoveryCosting from "@/pages/PortalRecoveryCosting";
 import PortalSnapshots from "@/pages/PortalSnapshots";
 
 type TabSpec = {
