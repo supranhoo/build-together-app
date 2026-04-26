@@ -77,6 +77,7 @@ export default function AdminMasterItems() {
   const { session } = useAuth();
   const { toast } = useToast();
   const [items, setItems] = useState<MasterItem[]>([]);
+  const [templates, setTemplates] = useState<SpecTemplate[]>([]);
   const [loading, setLoading] = useState(false);
   const [open, setOpen] = useState(false);
   const [form, setForm] = useState<FormState>(empty);
@@ -92,7 +93,12 @@ export default function AdminMasterItems() {
     if (!activeProfitCenter) return;
     setLoading(true);
     try {
-      setItems(await fetchMasterItems(activeProfitCenter.id));
+      const [itemsRes, templatesRes] = await Promise.all([
+        fetchMasterItems(activeProfitCenter.id),
+        fetchSpecTemplates(activeProfitCenter.id).catch(() => [] as SpecTemplate[]),
+      ]);
+      setItems(itemsRes);
+      setTemplates(templatesRes);
     } finally {
       setLoading(false);
     }
