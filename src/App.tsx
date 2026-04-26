@@ -30,6 +30,7 @@ import AdminStockLocations from "./pages/AdminStockLocations";
 import AdminKpis from "./pages/AdminKpis";
 import AdminReportDeliveries from "./pages/AdminReportDeliveries";
 import AdminProcurement from "./pages/AdminProcurement";
+import AdminQuality from "./pages/AdminQuality";
 import ModulePlaceholder from "./pages/ModulePlaceholder";
 import PortalProduction from "./pages/PortalProduction";
 import PortalProductionFAD from "./pages/PortalProductionFAD";
@@ -82,11 +83,12 @@ const App = () => (
                     </Route>
                     <Route path="costing" element={<PortalCosting />} />
                     <Route path="reports" element={<PortalReports />} />
-                    {/* Procurement is rendered inside the Portal shell so the
-                        plant module sidebar stays visible. The same component
-                        (SSOT) is also mounted under /admin/procurement for
-                        Control Panel access. */}
+                    {/* Procurement & Quality are rendered inside the Portal
+                        shell so the plant module sidebar stays visible. The
+                        same components (SSOT) are also mounted under /admin
+                        for Control Panel access. */}
                     <Route path="procurement" element={<AdminProcurement />} />
+                    <Route path="quality" element={<AdminQuality />} />
                     <Route path=":module" element={<ModulePlaceholder />} />
                   </Route>
                 </Route>
@@ -95,6 +97,7 @@ const App = () => (
                     <Route index element={<AdminOverview />} />
                     <Route path="settings" element={<AdminSettings />} />
                     <Route path="procurement" element={<AdminProcurement />} />
+                    <Route path="quality" element={<AdminQuality />} />
                     {/* Legacy admin routes — consolidated under Admin Settings tabs. */}
                     <Route path="workspaces" element={<Navigate to="/admin/settings?tab=workspaces" replace />} />
                     <Route path="modules" element={<Navigate to="/admin/settings?tab=modules" replace />} />
