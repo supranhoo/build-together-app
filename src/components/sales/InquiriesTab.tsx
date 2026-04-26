@@ -163,6 +163,10 @@ export function InquiriesTab({ profitCenterId, isExport }: Props) {
         </Dialog>
       </CardHeader>
       <CardContent>
+        <FilterBanner
+          chips={statusFilter.length > 0 ? [{ label: "Status", value: statusFilter.join(", ") }] : []}
+          onClear={clearStatusFilter}
+        />
         <Table>
           <TableHeader><TableRow>
             <TableHead>Inquiry #</TableHead><TableHead>Date</TableHead><TableHead>Customer</TableHead>
@@ -171,18 +175,23 @@ export function InquiriesTab({ profitCenterId, isExport }: Props) {
           </TableRow></TableHeader>
           <TableBody>
             {loading && <TableRow><TableCell colSpan={7} className="text-muted-foreground">Loading…</TableCell></TableRow>}
-            {!loading && rows.length === 0 && (
-              <TableRow><TableCell colSpan={7} className="text-muted-foreground">No inquiries yet.</TableCell></TableRow>
+            {!loading && filteredRows.length === 0 && (
+              <TableRow><TableCell colSpan={7} className="text-muted-foreground">
+                {statusFilter.length > 0 ? `No inquiries match status: ${statusFilter.join(", ")}` : "No inquiries yet."}
+              </TableCell></TableRow>
             )}
-            {!loading && rows.map((r) => (
-              <TableRow key={r.id}>
+            {!loading && filteredRows.map((r) => (
+              <TableRow key={r.id} className="cursor-pointer hover:bg-muted/40" onClick={() => openDetail(r.id)}>
                 <TableCell className="font-mono text-xs">{r.inquiryNo}</TableCell>
                 <TableCell>{r.inquiryDate}</TableCell>
                 <TableCell>{r.customerName ?? "—"}</TableCell>
                 <TableCell>{r.product}{r.grade ? ` (${r.grade})` : ""}</TableCell>
                 <TableCell className="text-right">{r.qtyMt.toLocaleString()}</TableCell>
                 <TableCell><Badge variant="outline">{r.status}</Badge></TableCell>
-                <TableCell>
+                <TableCell onClick={(e) => e.stopPropagation()} className="flex items-center gap-1">
+                  <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => openDetail(r.id)} aria-label="View details">
+                    <Eye className="h-4 w-4" />
+                  </Button>
                   <Select value={r.status} onValueChange={(v) => void handleStatus(r, v as SalesInquiryStatus)}>
                     <SelectTrigger className="h-8 w-[120px]"><SelectValue /></SelectTrigger>
                     <SelectContent>{STATUSES.map((s) => <SelectItem key={s} value={s}>{s}</SelectItem>)}</SelectContent>
@@ -193,6 +202,40 @@ export function InquiriesTab({ profitCenterId, isExport }: Props) {
           </TableBody>
         </Table>
       </CardContent>
+
+      <RecordDetailSheet
+        open={Boolean(detailId)}
+        onOpenChange={(o) => { if (!o) closeDetail(); }}
+        title={detailRecord ? `Inquiry ${detailRecord.inquiryNo}` : "Inquiry not found"}
+        description={detailRecord ? `${detailRecord.customerName ?? "—"} • ${detailRecord.inquiryDate}` : undefined}
+      >
+        {detailRecord ? (
+          <dl className="grid grid-cols-2 gap-x-4 gap-y-3 text-sm">
+            <DetailRow label="Status" value={<Badge variant="outline">{detailRecord.status}</Badge>} />
+            <DetailRow label="Product" value={`${detailRecord.product}${detailRecord.grade ? ` (${detailRecord.grade})` : ""}`} />
+            <DetailRow label="Quantity" value={`${detailRecord.qtyMt.toLocaleString()} MT`} />
+            {detailRecord.expectedPrice != null && (
+              <DetailRow label="Expected Price / MT" value={`${detailRecord.currencyCode} ${detailRecord.expectedPrice.toLocaleString()}`} />
+            )}
+            {detailRecord.incoterms && <DetailRow label="Incoterms" value={detailRecord.incoterms} />}
+            {detailRecord.port && <DetailRow label="Port / Destination" value={detailRecord.port} />}
+            <DetailRow label="View" value={isExport ? "Export" : "Domestic"} />
+            <DetailRow label="Created" value={new Date(detailRecord.createdAt).toLocaleString()} />
+          </dl>
+        ) : (
+          <p className="text-sm text-muted-foreground">This inquiry is not visible in the current view. It may have been filtered out by the Domestic/Export toggle.</p>
+        )}
+      </RecordDetailSheet>
     </Card>
   );
 }
+
+function DetailRow({ label, value }: { label: string; value: React.ReactNode }) {
+  return (
+    <>
+      <dt className="text-xs uppercase tracking-wide text-muted-foreground">{label}</dt>
+      <dd className="text-foreground">{value}</dd>
+    </>
+  );
+}
+
