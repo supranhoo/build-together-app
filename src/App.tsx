@@ -16,6 +16,7 @@ import Login from "./pages/Login";
 import ResetPassword from "./pages/ResetPassword";
 import ProfitCenterSelector from "./pages/ProfitCenterSelector";
 import PortalOverview from "./pages/PortalOverview";
+import PortalCommandDeck from "./pages/PortalCommandDeck";
 import AdminOverview from "./pages/AdminOverview";
 import AdminWorkspaces from "./pages/AdminWorkspaces";
 import AdminModules from "./pages/AdminModules";
@@ -72,6 +73,7 @@ const App = () => (
                 <Route element={<RequireWorkspace />}>
                   <Route path="/portal" element={<PortalShell />}>
                     <Route index element={<PortalOverview />} />
+                    <Route path="command-deck" element={<PortalCommandDeck />} />
                     <Route path="production" element={<PortalProduction />} />
                     <Route path="production-fad" element={<PortalProductionFAD />} />
                     <Route path="inventory" element={<PortalInventory />}>
