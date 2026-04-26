@@ -3014,6 +3014,48 @@ export type Database = {
           },
         ]
       }
+      spec_templates: {
+        Row: {
+          created_at: string
+          created_by: string
+          fields: Json
+          group_name: string
+          id: string
+          is_active: boolean
+          notes: string | null
+          profit_center_id: string
+          subgroup: string
+          type: string
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          created_by: string
+          fields?: Json
+          group_name: string
+          id?: string
+          is_active?: boolean
+          notes?: string | null
+          profit_center_id: string
+          subgroup?: string
+          type: string
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          created_by?: string
+          fields?: Json
+          group_name?: string
+          id?: string
+          is_active?: boolean
+          notes?: string | null
+          profit_center_id?: string
+          subgroup?: string
+          type?: string
+          updated_at?: string
+        }
+        Relationships: []
+      }
       standard_cost_bom: {
         Row: {
           created_at: string
