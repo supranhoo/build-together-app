@@ -576,3 +576,32 @@ Quality dashboard (single source of truth: `buildQualityKpis`):
 - **Phase badge** updated: AdminFinance shows *Phase B · standard cost live*; PortalFinance shows *Phase B · variance analysis live*.
 - **Tests**: `src/test/finance-phase-b.test.ts` (10 cases) covers identity preservation `priceVar + usageVar = totalVar`, grade isolation, missing rate / null stdRate, zero production, unplanned consumption, sum aggregation, by-product credit math (incl. zero-tonnage / missing rate guards), and net cost per MT (incl. division-by-zero). Full suite **290/290 passing**, typecheck clean. Phase A tests untouched.
 - **Tabs still pending** (Phases C/D): power tariff, selling prices, period close & snapshots, profitability, alerts, FX, dashboard, reports — all rendering phase-badged placeholders.
+
+## Maintenance Module (Phase A, 2026-04-26)
+
+End-to-end Maintenance Management module exposing 10 live tabs at `/portal/maintenance` (mounted under `PortalShell`). Workspace-scoped (RLS), zero hard-coded business values.
+
+**Database (migration `20260426095837_…`)** — 9 workspace-scoped tables, each with RLS policies (`has_profit_center_access`) and `audit_logs` trigger. Auto-numbering triggers issue codes per workspace per year:
+- `maintenance_equipment` (`EQP-YYYY-NNNNN`) — asset master; optional `furnace_id` → existing `furnaces` (SSOT for furnace identity) OR standalone (cranes, pumps, conveyors).
+- `maintenance_pm_schedules` — recurring task plan (frequency enum, next-due date, last-done date, est hours, assignee).
+- `maintenance_work_orders` (`WO-YYYY-NNNNN`) — lifecycle: `open → assigned → in_progress → on_hold → completed / cancelled`. `started_at` / `completed_at` set automatically on transition.
+- `maintenance_breakdowns` (`BD-YYYY-NNNNN`) — incident log with severity, root cause, corrective action, optional WO link.
+- `maintenance_downtime` — production-impact log; `duration_minutes` derived from start/end at insert; `production_loss_mt` for cost roll-up.
+- `maintenance_condition_readings` — parameter readings with warn/critical thresholds; `status` computed at insert via `computeConditionStatus` (DB stores the snapshot).
+- `maintenance_sops` (`SOP-YYYY-NNNNN`) — versioned procedure docs with optional file URL.
+- `maintenance_spares` — workspace-managed catalog (NEW table per user direction; not derived from `materials`). Tracks `current_stock`, `min_stock` for stockout detection.
+- `maintenance_costs` — manual cost entries (labor, parts, contractor, other) with optional equipment / WO link. `amount` constrained ≥ 0 in service layer.
+
+**Service layer (`src/lib/maintenance.ts`)** — fetchers + creators for all 9 entities, plus pure helpers:
+- `computeConditionStatus(value, warn, critical) → 'normal' | 'warning' | 'critical'` — null thresholds mean "no constraint"; `>=` is the trigger.
+- `aggregateMaintenanceKpis({equipment, workOrders, pmSchedules, breakdowns, downtime, costs, spares}) → MaintenanceKpis` — computes equipment counts, open WO, PM due-this-week / overdue, downtime totals, MTBF (approx: `equipment × 720h / breakdowns`), MTTR (avg resolution hours over resolved breakdowns), cost MTD (current calendar month), spare stockouts (`current_stock <= min_stock`).
+- `updateWorkOrderStatus(id, status)` — auto-stamps `started_at` on `in_progress`, `completed_at` on `completed`.
+
+**Page shell (`src/pages/PortalMaintenance.tsx`)** — 10-tab layout: Dashboard · Equipment · Preventive · Breakdown · Work Orders · Spare Parts · Downtime · Condition · SOPs · Costs. Dashboard KPI cards click through to the matching tab via `onJumpTab`.
+
+**Route** — `<Route path="maintenance" element={<PortalMaintenance />} />` registered inside the `/portal` shell in `src/App.tsx` (placed before the `:module` placeholder catch-all).
+
+**Tests** — `src/test/maintenance-phase-a.test.ts` (13 cases): condition-status thresholds (incl. null/undefined handling), equipment status counting, open-WO classification, PM due/overdue windowing, downtime sums, MTTR over resolved-only with null guard, cost MTD month boundary, spare stockout `<=` semantics. Full suite passing.
+
+### Version History
+- 2026-04-26 (Maintenance Phase A): 9 workspace-scoped tables with RLS, audit triggers, and auto-numbering; service layer with KPI aggregation + condition-status helper; 10 live tabs mounted at `/portal/maintenance`; 13-test suite covering all pure logic.
