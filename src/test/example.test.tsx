@@ -932,6 +932,7 @@ describe("route audit", () => {
     "/admin/report-deliveries",
     "/admin/roles",
     "/admin/procurement",
+    "/admin/quality",
   ];
 
   /**
