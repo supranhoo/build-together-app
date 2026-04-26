@@ -307,7 +307,7 @@ export default function AdminMasterItems() {
               </div>
               <DialogFooter>
                 <Button variant="outline" onClick={() => setOpen(false)}>Cancel</Button>
-                <Button onClick={() => void handleSave()} disabled={saving}>{saving ? "Saving…" : "Save"}</Button>
+                <Button onClick={() => void handleSave()} disabled={saving || specErrors.length > 0}>{saving ? "Saving…" : "Save"}</Button>
               </DialogFooter>
             </DialogContent>
           </Dialog>
