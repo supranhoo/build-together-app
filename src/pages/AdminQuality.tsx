@@ -1,11 +1,11 @@
 /**
- * Quality Control (Phases A + B).
+ * Quality Control (Phases A → D — full).
  *
  * 9-tab control panel for the Ferro Alloys Division.
  *  - 2 tabs deep-link to SSOT pages (Raw Material QC → GRN, Furnace Quality → Production Quality).
- *  - Sampling Management and Bunker Feed QC are functional (Phase B).
- *  - Dashboard, Finished Goods, Dispatch, Complaints, Compliance remain
- *    scaffolds and activate in Phases C/D per .lovable/plan.md.
+ *  - 7 tabs are functional: Dashboard, Sampling, Bunker Feed QC,
+ *    Finished Goods, Dispatch Clearance, Customer Complaints,
+ *    Compliance & Lab.
  *
  * Hard rules:
  *  - Semantic tokens only.
@@ -16,8 +16,23 @@ import { SamplingTab } from "@/components/quality/SamplingTab";
 import { BunkerFeedQCTab } from "@/components/quality/BunkerFeedQCTab";
 import { FinishedGoodsTab } from "@/components/quality/FinishedGoodsTab";
 import { DispatchClearanceTab } from "@/components/quality/DispatchClearanceTab";
+import { ComplaintsTab } from "@/components/quality/ComplaintsTab";
+import { ComplianceTab } from "@/components/quality/ComplianceTab";
+import { QCDashboardTab } from "@/components/quality/QCDashboardTab";
 import { useNavigate } from "react-router-dom";
 import {
+  AlertCircle,
+  CheckCircle,
+  ClipboardCheck,
+  ExternalLink,
+  FileCheck,
+  FlaskConical,
+  LayoutDashboard,
+  Package,
+  Target,
+  Thermometer,
+  Truck,
+} from "lucide-react";
   AlertCircle,
   CheckCircle,
   ClipboardCheck,
