@@ -606,8 +606,9 @@ End-to-end Maintenance Management module exposing 10 live tabs at `/portal/maint
 ### Version History
 - 2026-04-26 (Maintenance Phase A): 9 workspace-scoped tables with RLS, audit triggers, and auto-numbering; service layer with KPI aggregation + condition-status helper; 10 live tabs mounted at `/portal/maintenance`; 13-test suite covering all pure logic.
 
-## Plant Head Dashboard (Cross-Module)
-Mounted on `/portal` between pinned KPIs and the modules grid. Pure aggregation over the 7 module SSOTs (Production, Quality, Inventory, Procurement, Maintenance, Finance, Sales) — no new tables, no new RLS. Each fetcher is RLS-scoped by `profit_center_id`; per-source failures fall through to `[]` so a single empty/erroring module never blanks the deck. Derivers live in `src/lib/plant-health.ts` (pure, 26 unit tests in `src/test/plant-health.test.ts`); UI in `src/components/portal/PlantHeadDashboard.tsx`.
+## Plant Head Command Deck (Cross-Module)
+Mounted as a dedicated module at **`/portal/command-deck`** with its own sidebar entry (kept separate from the Overview page so the cross-module view is treated as a first-class module, not Overview chrome). Page shell: `src/pages/PortalCommandDeck.tsx`. Pure aggregation over the 7 module SSOTs (Production, Quality, Inventory, Procurement, Maintenance, Finance, Sales) — no new tables, no new RLS. Each fetcher is RLS-scoped by `profit_center_id`; per-source failures fall through to `[]` so a single empty/erroring module never blanks the deck. Derivers live in `src/lib/plant-health.ts` (pure, 26 unit tests in `src/test/plant-health.test.ts`); UI in `src/components/portal/PlantHeadDashboard.tsx`.
 
 ### Version History
 - 2026-04-26 (Plant Head Dashboard): cross-module health pills + 12-card KPI mosaic + alert feed + today's activity, all derived from existing module SSOTs.
+- 2026-04-26 (Command Deck module): extracted the Plant Head dashboard out of `/portal` Overview into its own `/portal/command-deck` route + static nav entry. Overview reverts to workspace/pins/modules-grid only; Command Deck owns the unified plant view.
