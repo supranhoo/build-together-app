@@ -238,6 +238,21 @@ export default function AdminMasterItems() {
               {groupOptions.map((g) => <SelectItem key={g} value={g}>{g}</SelectItem>)}
             </SelectContent>
           </Select>
+          <Button variant="outline" onClick={handleDownloadTemplate} title="Download a CSV template with example row">Template</Button>
+          <Button variant="outline" onClick={handleExport} disabled={items.length === 0} title="Export current items to CSV">Export</Button>
+          <input
+            ref={fileInputRef}
+            type="file"
+            accept=".csv,text/csv"
+            className="hidden"
+            onChange={(e) => {
+              const f = e.target.files?.[0];
+              if (f) void handleBulkUpload(f);
+            }}
+          />
+          <Button variant="outline" onClick={() => fileInputRef.current?.click()} disabled={importing}>
+            {importing ? "Uploading…" : "Bulk upload"}
+          </Button>
           <Dialog open={open} onOpenChange={setOpen}>
             <DialogTrigger asChild><Button onClick={openNew}>New item</Button></DialogTrigger>
             <DialogContent className="max-w-2xl">
