@@ -33,6 +33,7 @@ import AdminProcurement from "./pages/AdminProcurement";
 import AdminQuality from "./pages/AdminQuality";
 import AdminFinance from "./pages/AdminFinance";
 import PortalFinance from "./pages/PortalFinance";
+import PortalSales from "./pages/PortalSales";
 import ModulePlaceholder from "./pages/ModulePlaceholder";
 import PortalProduction from "./pages/PortalProduction";
 import PortalProductionFAD from "./pages/PortalProductionFAD";
@@ -92,6 +93,7 @@ const App = () => (
                     <Route path="procurement" element={<AdminProcurement />} />
                     <Route path="quality" element={<AdminQuality />} />
                     <Route path="finance" element={<PortalFinance />} />
+                    <Route path="sales" element={<PortalSales />} />
                     <Route path=":module" element={<ModulePlaceholder />} />
                   </Route>
                 </Route>
