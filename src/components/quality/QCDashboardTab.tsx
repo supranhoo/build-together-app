@@ -14,6 +14,7 @@ import { Badge } from "@/components/ui/badge";
 import {
   AlertCircle, ClipboardCheck, FileCheck, LayoutDashboard, Package, Target, Truck,
 } from "lucide-react";
+import { AccentKpiCard } from "@/components/ui/accent-kpi-card";
 import { useWorkspace } from "@/hooks/use-workspace";
 import { useToast } from "@/hooks/use-toast";
 import {
