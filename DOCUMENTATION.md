@@ -497,3 +497,23 @@ Verdict rules (mirrored in POLICY.md):
 
 Sample lifecycle (single source of truth in `src/lib/quality.ts`):
 `planned → collected → tested → released | rejected`. `released` and `rejected` are terminal (RLS blocks further updates).
+
+ - 2026-04-26 (Quality Control Phase C): **Finished Goods Inspection** and **Dispatch Clearance** tabs are now functional. Service layer additions in `src/lib/quality.ts`: `evaluateFgInspection` (pass/conditional/fail ladder, identical rules to bunker tests, applied to FG fields `fgMnPct`,`fgSiPct`,`fgCPct`,`fgPPct`,`fgSPct`); `createFgInspection` / `scoreFgInspection` (rows can be saved as `pending` and scored later — RLS keeps non-pending rows immutable); `canTransitionDispatch` / `nextDispatchStatuses` / `checkDispatchGate` / `transitionDispatch` (release-gate state machine `pending → cleared|held|rejected`, `held → cleared|rejected`; clearance to `cleared` requires a linked FG inspection with `pass`, or `conditional` + override reason; `held`/`rejected` require a reason ≥3 chars). Components: `src/components/quality/FinishedGoodsTab.tsx`, `src/components/quality/DispatchClearanceTab.tsx`. Tests: `src/test/quality-phase-c.test.ts` (16 cases). 261/261 tests passing.
+
+### Quality Phase C — FG inspection & dispatch clearance
+
+FG verdict ladder (mirrors Bunker Feed QC, §Quality Phase B):
+- All observed values inside `[min,max]` → **pass**.
+- Any soft-bound breach → **conditional**.
+- Any critical-bound breach → **fail** (overrides any conditional).
+- Missing observation on a spec'd field → major deviation, verdict **conditional**.
+- Empty spec book at create-time → row stored as **pending**, scored later via the row's "Score" action.
+
+Dispatch release gate (single source of truth: `checkDispatchGate` in `src/lib/quality.ts`):
+- Lifecycle: `pending → cleared | held | rejected`; `held → cleared | rejected`. `cleared` and `rejected` are terminal.
+- Transition to `cleared` requires:
+  1. A linked `fg_inspection_id`.
+  2. That inspection's `result` is `pass`, OR `conditional` with a non-empty override reason (≥3 chars).
+  3. `fail` and `pending` results refuse clearance unconditionally.
+- Transitions to `held` or `rejected` require a non-empty reason (≥3 chars) for the audit trail.
+- Product/grade master integration for FG specs is deferred — current UI lets the operator enter spec bounds inline; the verdict is computed from those bounds.

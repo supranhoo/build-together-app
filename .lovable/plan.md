@@ -68,10 +68,11 @@ Build a Quality Control surface modeled on the uploaded `QualityControlModule.ts
 - Raw Material QC and Furnace Quality remain SSOT deep-links (no duplicate UI built).
 - Tests: `src/test/quality-phase-b.test.ts` — 13 cases covering lifecycle + verdict ladder + AdminQuality wiring. 245/245 suite green.
 
-**Phase C — FG + Dispatch**
-- `FinishedGoodsTab.tsx`, `DispatchQCTab.tsx`.
-- Append-only on `released` records. Dispatch clearance gates on FG inspection pass.
-- Tests: `quality-phase-c.test.ts`.
+**Phase C — FG + Dispatch** ✅ done 2026-04-26
+- `src/components/quality/FinishedGoodsTab.tsx` — create + score (pending rows scoreable; non-pending immutable per RLS).
+- `src/components/quality/DispatchClearanceTab.tsx` — create + status transitions through `checkDispatchGate`.
+- `src/lib/quality.ts` adds `evaluateFgInspection`, `createFgInspection`, `scoreFgInspection`, `canTransitionDispatch`, `nextDispatchStatuses`, `checkDispatchGate`, `createDispatchClearance`, `transitionDispatch`.
+- Tests: `src/test/quality-phase-c.test.ts` — 16 cases. 261/261 suite green.
 
 **Phase D — Complaints + Compliance + Dashboard**
 - `ComplaintsTab.tsx` (8D-style: `open → investigating → corrective_action → closed`).

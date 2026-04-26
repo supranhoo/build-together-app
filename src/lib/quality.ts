@@ -1,14 +1,23 @@
 /**
- * Quality Control service layer (Phase B).
+ * Quality Control service layer (Phases B + C).
  *
- * Scope of this phase:
- *  - Sampling Management: CRUD + lifecycle transitions for `quality_samples`
+ * Phase B — already shipped:
+ *  - Sampling Management: lifecycle for `quality_samples`
  *      planned → collected → tested → released | rejected
- *      (a "released" sample is terminal — RLS blocks further updates.)
- *  - Bunker Feed QC: insert + list `bunker_feed_tests` with a pure
- *      `evaluateBunkerTest` helper that compares observed values
- *      to `materials.specs` and to optional workspace tolerances and
- *      classifies the result as pass | conditional | fail.
+ *  - Bunker Feed QC: `bunker_feed_tests` with `evaluateBunkerTest`
+ *      verdict ladder (pass | conditional | fail) sourced from
+ *      `materials.specs`.
+ *
+ * Phase C — added in this file:
+ *  - Finished Goods Inspection: `fg_inspections` with
+ *      `evaluateFgInspection` ladder (pass | conditional | fail)
+ *      computed from observed FG chemistry vs caller-provided spec.
+ *      Result is stored on the row; only `pending` rows can be edited
+ *      (DB RLS enforces this — the JS layer mirrors the rule).
+ *  - Dispatch Clearance: `dispatch_clearances` with the release-gate
+ *      transition table  pending → cleared | held | rejected.
+ *      A `cleared` clearance REQUIRES a linked FG inspection that
+ *      itself passed (or was cleared as conditional with a reason).
  *
  * Pure-vs-IO split:
  *  - All evaluation/transition rules are pure functions (testable, no DB).
@@ -16,7 +25,8 @@
  *    and rely on the RLS + audit triggers shipped in Phase A.
  *
  * No business value is hardcoded — material specs come from
- * `materials.specs`, and tolerances are passed in by the caller.
+ * `materials.specs`; FG specs are passed in by the caller (sourced
+ * from product master in a future phase, see DOCUMENTATION.md).
  */
 import { supabase } from "@/integrations/supabase/client";
 
@@ -396,4 +406,414 @@ export async function createBunkerTest(input: CreateBunkerTestInput): Promise<Bu
     .single();
   if (error) throw error;
   return toBunkerTest(data);
+}
+
+// =====================================================================
+// Phase C — Finished Goods Inspection
+// =====================================================================
+
+export type InspectionResult = "pending" | "pass" | "conditional" | "fail";
+
+export interface FgInspection {
+  id: string;
+  profitCenterId: string;
+  inspectionNo: string;
+  batchNo: string | null;
+  product: string | null;
+  grade: string | null;
+  heatLogId: string | null;
+  inspectedAt: string;
+  fgMnPct: number | null;
+  fgSiPct: number | null;
+  fgCPct: number | null;
+  fgPPct: number | null;
+  fgSPct: number | null;
+  sizeRange: string | null;
+  extraSpecs: Record<string, unknown>;
+  result: InspectionResult;
+  notes: string | null;
+  createdBy: string;
+  createdAt: string;
+  updatedAt: string;
+}
+
+/**
+ * FG spec map. Same shape as BunkerSpecMap but covers FG chemistry.
+ * Sourced from product/grade master in a future phase; for now the
+ * caller (UI) supplies it explicitly.
+ */
+export type FgSpecMap = Partial<Record<
+  "fgMnPct" | "fgSiPct" | "fgCPct" | "fgPPct" | "fgSPct",
+  FieldSpec
+>>;
+
+export interface FgDeviation {
+  field: string;
+  observed: number | null;
+  expectedMin?: number | null;
+  expectedMax?: number | null;
+  severity: "minor" | "major";
+}
+
+/**
+ * Pure ladder for FG inspections. Identical rules to bunker tests
+ * (single-source ladder documented in POLICY.md §Quality Verdict Ladder)
+ * applied to FG fields. Returns `pending` ONLY if no fields are spec'd
+ * AND no observations were given — caller can decide whether to surface.
+ */
+export function evaluateFgInspection(
+  observed: Partial<Record<keyof FgSpecMap, number | null>>,
+  specs: FgSpecMap
+): { result: Exclude<InspectionResult, "pending">; deviations: FgDeviation[] } {
+  const fields: Array<keyof FgSpecMap> = ["fgMnPct", "fgSiPct", "fgCPct", "fgPPct", "fgSPct"];
+  const deviations: FgDeviation[] = [];
+  let worst: Exclude<InspectionResult, "pending"> = "pass";
+
+  for (const field of fields) {
+    const spec = specs[field];
+    if (!spec) continue;
+    const value = observed[field] ?? null;
+
+    if (value === null || value === undefined || Number.isNaN(value)) {
+      deviations.push({
+        field, observed: null,
+        expectedMin: spec.min ?? null, expectedMax: spec.max ?? null,
+        severity: "major",
+      });
+      if (worst === "pass") worst = "conditional";
+      continue;
+    }
+
+    const breaksCriticalLow  = spec.criticalMin != null && value < spec.criticalMin;
+    const breaksCriticalHigh = spec.criticalMax != null && value > spec.criticalMax;
+    const breaksSoftLow      = spec.min != null && value < spec.min;
+    const breaksSoftHigh     = spec.max != null && value > spec.max;
+
+    if (breaksCriticalLow || breaksCriticalHigh) {
+      worst = "fail";
+      deviations.push({
+        field, observed: value,
+        expectedMin: spec.min ?? null, expectedMax: spec.max ?? null,
+        severity: "major",
+      });
+    } else if (breaksSoftLow || breaksSoftHigh) {
+      if (worst === "pass") worst = "conditional";
+      deviations.push({
+        field, observed: value,
+        expectedMin: spec.min ?? null, expectedMax: spec.max ?? null,
+        severity: "minor",
+      });
+    }
+  }
+
+  return { result: worst, deviations };
+}
+
+function toFgInspection(row: any): FgInspection {
+  return {
+    id: row.id,
+    profitCenterId: row.profit_center_id,
+    inspectionNo: row.inspection_no,
+    batchNo: row.batch_no ?? null,
+    product: row.product ?? null,
+    grade: row.grade ?? null,
+    heatLogId: row.heat_log_id ?? null,
+    inspectedAt: row.inspected_at,
+    fgMnPct: row.fg_mn_pct ?? null,
+    fgSiPct: row.fg_si_pct ?? null,
+    fgCPct: row.fg_c_pct ?? null,
+    fgPPct: row.fg_p_pct ?? null,
+    fgSPct: row.fg_s_pct ?? null,
+    sizeRange: row.size_range ?? null,
+    extraSpecs: row.extra_specs ?? {},
+    result: row.result,
+    notes: row.notes ?? null,
+    createdBy: row.created_by,
+    createdAt: row.created_at,
+    updatedAt: row.updated_at,
+  };
+}
+
+export async function fetchFgInspections(profitCenterId: string): Promise<FgInspection[]> {
+  const { data, error } = await client.from("fg_inspections")
+    .select("*")
+    .eq("profit_center_id", profitCenterId)
+    .order("inspected_at", { ascending: false })
+    .limit(500);
+  if (error) throw error;
+  return (data ?? []).map(toFgInspection);
+}
+
+export interface CreateFgInspectionInput {
+  profitCenterId: string;
+  createdBy: string;
+  inspectionNo: string;
+  batchNo?: string | null;
+  product?: string | null;
+  grade?: string | null;
+  heatLogId?: string | null;
+  fgMnPct?: number | null;
+  fgSiPct?: number | null;
+  fgCPct?: number | null;
+  fgPPct?: number | null;
+  fgSPct?: number | null;
+  sizeRange?: string | null;
+  notes?: string | null;
+  /** Provide {} to defer scoring (row stays pending). */
+  specs: FgSpecMap;
+}
+
+export async function createFgInspection(input: CreateFgInspectionInput): Promise<FgInspection> {
+  const hasSpecs = Object.keys(input.specs).length > 0;
+  const observed = {
+    fgMnPct: input.fgMnPct ?? null,
+    fgSiPct: input.fgSiPct ?? null,
+    fgCPct:  input.fgCPct  ?? null,
+    fgPPct:  input.fgPPct  ?? null,
+    fgSPct:  input.fgSPct  ?? null,
+  };
+  const result: InspectionResult = hasSpecs ? evaluateFgInspection(observed, input.specs).result : "pending";
+
+  const { data, error } = await client.from("fg_inspections")
+    .insert({
+      profit_center_id: input.profitCenterId,
+      created_by: input.createdBy,
+      inspection_no: input.inspectionNo,
+      batch_no: input.batchNo ?? null,
+      product: input.product ?? null,
+      grade: input.grade ?? null,
+      heat_log_id: input.heatLogId ?? null,
+      fg_mn_pct: input.fgMnPct ?? null,
+      fg_si_pct: input.fgSiPct ?? null,
+      fg_c_pct:  input.fgCPct  ?? null,
+      fg_p_pct:  input.fgPPct  ?? null,
+      fg_s_pct:  input.fgSPct  ?? null,
+      size_range: input.sizeRange ?? null,
+      notes: input.notes ?? null,
+      result,
+    })
+    .select("*")
+    .single();
+  if (error) throw error;
+  return toFgInspection(data);
+}
+
+export interface ScoreFgInspectionInput {
+  id: string;
+  current: InspectionResult;
+  observed: Partial<Record<keyof FgSpecMap, number | null>>;
+  specs: FgSpecMap;
+  notes?: string | null;
+}
+
+/**
+ * Apply the verdict ladder to a pending FG inspection and persist the
+ * computed result. Mirrors the RLS rule: only `pending` rows are
+ * editable. The DB will still reject non-pending updates — this guard
+ * prevents the round-trip.
+ */
+export async function scoreFgInspection(input: ScoreFgInspectionInput): Promise<FgInspection> {
+  if (input.current !== "pending") {
+    throw new Error("FG inspection already scored — cannot rescore.");
+  }
+  const verdict = evaluateFgInspection(input.observed, input.specs);
+  const patch: Record<string, unknown> = {
+    result: verdict.result,
+    fg_mn_pct: input.observed.fgMnPct ?? null,
+    fg_si_pct: input.observed.fgSiPct ?? null,
+    fg_c_pct:  input.observed.fgCPct  ?? null,
+    fg_p_pct:  input.observed.fgPPct  ?? null,
+    fg_s_pct:  input.observed.fgSPct  ?? null,
+  };
+  if (input.notes !== undefined) patch.notes = input.notes;
+
+  const { data, error } = await client.from("fg_inspections")
+    .update(patch)
+    .eq("id", input.id)
+    .select("*")
+    .single();
+  if (error) throw error;
+  return toFgInspection(data);
+}
+
+// =====================================================================
+// Phase C — Dispatch Clearance (release gate)
+// =====================================================================
+
+export type DispatchStatus = "pending" | "cleared" | "held" | "rejected";
+
+export interface DispatchClearance {
+  id: string;
+  profitCenterId: string;
+  clearanceNo: string;
+  fgInspectionId: string | null;
+  customer: string | null;
+  vehicleNo: string | null;
+  status: DispatchStatus;
+  clearedAt: string | null;
+  clearedBy: string | null;
+  holdReason: string | null;
+  notes: string | null;
+  createdBy: string;
+  createdAt: string;
+  updatedAt: string;
+}
+
+const DISPATCH_TRANSITIONS: Record<DispatchStatus, DispatchStatus[]> = {
+  pending:  ["cleared", "held", "rejected"],
+  held:     ["cleared", "rejected"], // operator can resolve a hold
+  cleared:  [], // terminal — once material leaves the gate it cannot be uncleared
+  rejected: [], // terminal
+};
+
+export function canTransitionDispatch(from: DispatchStatus, to: DispatchStatus): boolean {
+  return DISPATCH_TRANSITIONS[from]?.includes(to) ?? false;
+}
+
+export function nextDispatchStatuses(from: DispatchStatus): DispatchStatus[] {
+  return [...(DISPATCH_TRANSITIONS[from] ?? [])];
+}
+
+/**
+ * Pure release-gate guard. A dispatch can only be `cleared` when:
+ *   1. The transition itself is legal (pending|held → cleared), AND
+ *   2. A linked FG inspection exists, AND
+ *   3. That inspection's result is `pass` (strict) OR `conditional`
+ *      with a non-empty hold_reason supplied as the override note.
+ * `fail` and `pending` block clearance regardless.
+ *
+ * For `held` and `rejected` transitions a `holdReason` is required so
+ * the audit trail explains why material was stopped.
+ */
+export interface DispatchGateInput {
+  current: DispatchStatus;
+  next: DispatchStatus;
+  inspection: { id: string; result: InspectionResult } | null;
+  holdReason?: string | null;
+}
+
+export interface DispatchGateResult {
+  ok: boolean;
+  reason?: string;
+}
+
+export function checkDispatchGate(input: DispatchGateInput): DispatchGateResult {
+  if (!canTransitionDispatch(input.current, input.next)) {
+    return { ok: false, reason: `Illegal transition: ${input.current} → ${input.next}` };
+  }
+  if (input.next === "cleared") {
+    if (!input.inspection) {
+      return { ok: false, reason: "Linked FG inspection required to clear dispatch." };
+    }
+    if (input.inspection.result === "fail") {
+      return { ok: false, reason: "FG inspection failed — clearance refused." };
+    }
+    if (input.inspection.result === "pending") {
+      return { ok: false, reason: "FG inspection not yet scored." };
+    }
+    if (input.inspection.result === "conditional"
+        && (!input.holdReason || input.holdReason.trim().length < 3)) {
+      return { ok: false, reason: "Conditional FG result requires an override reason." };
+    }
+  }
+  if ((input.next === "held" || input.next === "rejected")
+      && (!input.holdReason || input.holdReason.trim().length < 3)) {
+    return { ok: false, reason: "A reason (≥3 chars) is required to hold or reject dispatch." };
+  }
+  return { ok: true };
+}
+
+function toDispatch(row: any): DispatchClearance {
+  return {
+    id: row.id,
+    profitCenterId: row.profit_center_id,
+    clearanceNo: row.clearance_no,
+    fgInspectionId: row.fg_inspection_id ?? null,
+    customer: row.customer ?? null,
+    vehicleNo: row.vehicle_no ?? null,
+    status: row.status,
+    clearedAt: row.cleared_at ?? null,
+    clearedBy: row.cleared_by ?? null,
+    holdReason: row.hold_reason ?? null,
+    notes: row.notes ?? null,
+    createdBy: row.created_by,
+    createdAt: row.created_at,
+    updatedAt: row.updated_at,
+  };
+}
+
+export async function fetchDispatchClearances(profitCenterId: string): Promise<DispatchClearance[]> {
+  const { data, error } = await client.from("dispatch_clearances")
+    .select("*")
+    .eq("profit_center_id", profitCenterId)
+    .order("created_at", { ascending: false })
+    .limit(500);
+  if (error) throw error;
+  return (data ?? []).map(toDispatch);
+}
+
+export interface CreateDispatchInput {
+  profitCenterId: string;
+  createdBy: string;
+  clearanceNo: string;
+  fgInspectionId?: string | null;
+  customer?: string | null;
+  vehicleNo?: string | null;
+  notes?: string | null;
+}
+
+export async function createDispatchClearance(input: CreateDispatchInput): Promise<DispatchClearance> {
+  const { data, error } = await client.from("dispatch_clearances")
+    .insert({
+      profit_center_id: input.profitCenterId,
+      created_by: input.createdBy,
+      clearance_no: input.clearanceNo,
+      fg_inspection_id: input.fgInspectionId ?? null,
+      customer: input.customer ?? null,
+      vehicle_no: input.vehicleNo ?? null,
+      notes: input.notes ?? null,
+      status: "pending",
+    })
+    .select("*")
+    .single();
+  if (error) throw error;
+  return toDispatch(data);
+}
+
+export interface TransitionDispatchInput {
+  id: string;
+  current: DispatchStatus;
+  next: DispatchStatus;
+  clearedBy?: string | null;
+  inspection: { id: string; result: InspectionResult } | null;
+  holdReason?: string | null;
+  notes?: string | null;
+}
+
+export async function transitionDispatch(input: TransitionDispatchInput): Promise<DispatchClearance> {
+  const gate = checkDispatchGate({
+    current: input.current,
+    next: input.next,
+    inspection: input.inspection,
+    holdReason: input.holdReason ?? null,
+  });
+  if (!gate.ok) throw new Error(gate.reason ?? "Dispatch transition refused.");
+
+  const patch: Record<string, unknown> = { status: input.next };
+  if (input.next === "cleared") {
+    patch.cleared_at = new Date().toISOString();
+    patch.cleared_by = input.clearedBy ?? null;
+    patch.hold_reason = input.holdReason ?? null;
+  } else if (input.next === "held" || input.next === "rejected") {
+    patch.hold_reason = input.holdReason ?? null;
+  }
+  if (input.notes !== undefined) patch.notes = input.notes;
+
+  const { data, error } = await client.from("dispatch_clearances")
+    .update(patch)
+    .eq("id", input.id)
+    .select("*")
+    .single();
+  if (error) throw error;
+  return toDispatch(data);
 }
