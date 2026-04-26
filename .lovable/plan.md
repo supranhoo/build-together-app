@@ -74,11 +74,13 @@ Build a Quality Control surface modeled on the uploaded `QualityControlModule.ts
 - `src/lib/quality.ts` adds `evaluateFgInspection`, `createFgInspection`, `scoreFgInspection`, `canTransitionDispatch`, `nextDispatchStatuses`, `checkDispatchGate`, `createDispatchClearance`, `transitionDispatch`.
 - Tests: `src/test/quality-phase-c.test.ts` — 16 cases. 261/261 suite green.
 
-**Phase D — Complaints + Compliance + Dashboard**
-- `ComplaintsTab.tsx` (8D-style: `open → investigating → corrective_action → closed`).
-- `ComplianceTab.tsx` (cert expiry, calibration due dates).
-- `QCDashboardTab.tsx` — pure aggregator `buildQualityKpis` (SSOT). Includes "Consumptions without active bunker test" counter.
-- Tests: `quality-phase-d.test.ts`.
+**Phase D — Complaints + Compliance + Dashboard** ✅ done 2026-04-26
+- `ComplaintsTab.tsx` — 8D lifecycle (`open → investigating → corrective_action → closed`); closing requires root cause + corrective action.
+- `ComplianceTab.tsx` — cert/calibration registry with `bucketComplianceExpiry` (`expired`/`due_soon`/`ok`/`no_expiry`, 30-day window).
+- `QCDashboardTab.tsx` — read-only aggregator backed by pure `buildQualityKpis` (SSOT, no I/O).
+- Service additions in `src/lib/quality.ts`: complaint gate, compliance bucketer, KPI aggregator (all pure).
+- Note: "Consumptions without active bunker test" counter is deferred — current Bunker QC rows do not yet carry a heat-link, so the counter would be misleading. Tracked as a follow-up once `material_consumption` carries an explicit bunker-test reference.
+- Tests: `src/test/quality-phase-d.test.ts` — 14 cases. 275/275 suite green.
 
 ## Risk & Impact (per project knowledge §9)
 
