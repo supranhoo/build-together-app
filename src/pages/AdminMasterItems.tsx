@@ -7,7 +7,6 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { Label } from "@/components/ui/label";
-import { Textarea } from "@/components/ui/textarea";
 import { useWorkspace } from "@/hooks/use-workspace";
 import { useAuth } from "@/hooks/use-auth";
 import { useToast } from "@/hooks/use-toast";
@@ -15,7 +14,6 @@ import { createAuditLog } from "@/lib/workspace";
 import {
   fetchMasterItems,
   filterItems,
-  parseSpecsJson,
   upsertMasterItem,
   MATERIAL_TYPES,
   type MasterItem,
@@ -27,6 +25,13 @@ import {
   itemsToCsvRows,
   parseItemCsv,
 } from "@/lib/master-items-csv";
+import {
+  specRowsToObject,
+  specsObjectToRows,
+  validateSpecRows,
+  type SpecRow,
+} from "@/lib/master-item-specs";
+import { SpecsEditor } from "@/components/master-data/SpecsEditor";
 
 const UOMS = ["kg", "MT", "litre", "piece", "ton"];
 
@@ -39,7 +44,7 @@ interface FormState {
   subgroup: string;
   uom: string;
   stdCost: string;
-  specsRaw: string;
+  specRows: SpecRow[];
   minLevel: string;
   maxLevel: string;
   reorderLevel: string;
@@ -54,7 +59,7 @@ const empty: FormState = {
   subgroup: "",
   uom: "kg",
   stdCost: "",
-  specsRaw: "{}",
+  specRows: [],
   minLevel: "",
   maxLevel: "",
   reorderLevel: "",
@@ -108,7 +113,7 @@ export default function AdminMasterItems() {
       subgroup: item.subgroup ?? "",
       uom: item.uom,
       stdCost: item.stdCost?.toString() ?? "",
-      specsRaw: JSON.stringify(item.specs ?? {}, null, 2),
+      specRows: specsObjectToRows(item.specs),
       minLevel: item.minLevel?.toString() ?? "",
       maxLevel: item.maxLevel?.toString() ?? "",
       reorderLevel: item.reorderLevel?.toString() ?? "",
@@ -117,19 +122,23 @@ export default function AdminMasterItems() {
     setOpen(true);
   };
 
+  const specErrors = useMemo(() => validateSpecRows(form.specRows), [form.specRows]);
+
   const handleSave = async () => {
     if (!activeProfitCenter || !session?.user) return;
     if (!form.code.trim() || !form.name.trim()) {
       toast({ title: "Code and name are required", variant: "destructive" });
       return;
     }
-    let specs: Record<string, unknown>;
-    try {
-      specs = parseSpecsJson(form.specsRaw);
-    } catch (error) {
-      toast({ title: "Invalid Specs JSON", description: error instanceof Error ? error.message : "", variant: "destructive" });
+    if (specErrors.length > 0) {
+      toast({
+        title: "Fix spec errors before saving",
+        description: specErrors.map((e) => e.message).join("; "),
+        variant: "destructive",
+      });
       return;
     }
+    const specs = specRowsToObject(form.specRows);
     setSaving(true);
     try {
       await upsertMasterItem({
@@ -285,8 +294,11 @@ export default function AdminMasterItems() {
                 <div><Label>Min level</Label><Input type="number" step="0.001" value={form.minLevel} onChange={(e) => setForm({ ...form, minLevel: e.target.value })} /></div>
                 <div><Label>Max level</Label><Input type="number" step="0.001" value={form.maxLevel} onChange={(e) => setForm({ ...form, maxLevel: e.target.value })} /></div>
                 <div className="sm:col-span-2">
-                  <Label>Specs (JSON: Mn, Fe, Si, Moisture, Ash…)</Label>
-                  <Textarea rows={5} value={form.specsRaw} onChange={(e) => setForm({ ...form, specsRaw: e.target.value })} className="font-mono text-xs" />
+                  <SpecsEditor
+                    rows={form.specRows}
+                    errors={specErrors}
+                    onChange={(specRows) => setForm({ ...form, specRows })}
+                  />
                 </div>
                 <div className="sm:col-span-2 flex items-center justify-between rounded-md border border-border bg-panel px-4 py-3">
                   <span>Active</span>
@@ -295,7 +307,7 @@ export default function AdminMasterItems() {
               </div>
               <DialogFooter>
                 <Button variant="outline" onClick={() => setOpen(false)}>Cancel</Button>
-                <Button onClick={() => void handleSave()} disabled={saving}>{saving ? "Saving…" : "Save"}</Button>
+                <Button onClick={() => void handleSave()} disabled={saving || specErrors.length > 0}>{saving ? "Saving…" : "Save"}</Button>
               </DialogFooter>
             </DialogContent>
           </Dialog>
