@@ -176,8 +176,8 @@ export function aggregateCrossModuleKpis(input: AggregateInput): CrossModuleKpis
   const mtdInspections = input.fgInspections.filter(
     (i) => new Date(i.inspectedAt).getTime() >= monthStart,
   );
-  const decided = mtdInspections.filter((i) => i.result === "passed" || i.result === "failed");
-  const passed = decided.filter((i) => i.result === "passed").length;
+  const decided = mtdInspections.filter((i) => i.result === "pass" || i.result === "fail");
+  const passed = decided.filter((i) => i.result === "pass").length;
   const fgPassPctMtd = decided.length > 0 ? (passed / decided.length) * 100 : null;
   const openComplaints = input.complaints.filter((c) => c.status !== "closed").length;
 
@@ -207,12 +207,11 @@ export function aggregateCrossModuleKpis(input: AggregateInput): CrossModuleKpis
   );
 
   // --- Procurement ---
-  const openPos = input.purchaseOrders.filter(
-    (p) => p.status === "approved" || p.status === "partially_received",
-  ).length;
+  const OPEN_PO_STATUSES: PurchaseOrder["status"][] = ["sent", "acknowledged", "partially_received"];
+  const openPos = input.purchaseOrders.filter((p) => OPEN_PO_STATUSES.includes(p.status)).length;
   const pendingGrnLines = input.purchaseOrders.filter(
-    (p) => p.status === "approved" || p.status === "partially_received",
-  ).length; // PO-level proxy; GRN-line drilldown lives in Procurement page.
+    (p) => p.status === "partially_received",
+  ).length;
 
   // Supplier on-time % = avg of latest evaluation per supplier.
   const latestPerSupplier = new Map<string, SupplierEvaluation>();
@@ -454,7 +453,7 @@ export function mergeAlertFeed(input: MergeAlertInput, limit = 10): PlantAlert[]
   for (const insp of input.fgInspections) {
     const ts = new Date(insp.inspectedAt).getTime();
     if (ts < cutoff30d) continue;
-    if (insp.result !== "failed") continue;
+    if (insp.result !== "fail") continue;
     out.push({
       id: `fg-${insp.id}`,
       source: "quality",
