@@ -33,7 +33,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Badge } from "@/components/ui/badge";
 import { useWorkspace } from "@/hooks/use-workspace";
-import PortalCosting from "@/pages/PortalCosting";
+// Note: legacy PortalCosting (date-range cost sheet) remains accessible at /portal/costing.
 import PortalFerroCostSheet from "@/pages/PortalFerroCostSheet";
 import PortalFinanceVariance from "@/pages/PortalFinanceVariance";
 import PortalHeatApprovals from "@/pages/PortalHeatApprovals";
