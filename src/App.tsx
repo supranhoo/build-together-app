@@ -101,6 +101,7 @@ const App = () => (
                     <Route path="settings" element={<AdminSettings />} />
                     <Route path="procurement" element={<AdminProcurement />} />
                     <Route path="quality" element={<AdminQuality />} />
+                    <Route path="finance" element={<AdminFinance />} />
                     {/* Legacy admin routes — consolidated under Admin Settings tabs. */}
                     <Route path="workspaces" element={<Navigate to="/admin/settings?tab=workspaces" replace />} />
                     <Route path="modules" element={<Navigate to="/admin/settings?tab=modules" replace />} />
