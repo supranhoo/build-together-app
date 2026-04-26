@@ -5,6 +5,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
+import { AccentKpiCard } from "@/components/ui/accent-kpi-card";
 import { useWorkspace } from "@/hooks/use-workspace";
 import { useToast } from "@/hooks/use-toast";
 import {
@@ -79,46 +80,30 @@ export default function PortalInventoryDashboard() {
   return (
     <div className="space-y-6">
       <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
-        <Card>
-          <CardContent className="flex items-start justify-between p-5">
-            <div>
-              <p className="text-sm text-muted-foreground">Stock value</p>
-              <p className="mt-2 text-2xl font-semibold">{stockValue.toLocaleString(undefined, { maximumFractionDigits: 0 })}</p>
-              <p className="mt-1 text-xs text-muted-foreground">Σ qty × latest rate</p>
-            </div>
-            <div className="rounded-md bg-primary/12 p-3 text-primary"><Package className="h-5 w-5" /></div>
-          </CardContent>
-        </Card>
-        <Card>
-          <CardContent className="flex items-start justify-between p-5">
-            <div>
-              <p className="text-sm text-muted-foreground">Below minimum</p>
-              <p className="mt-2 text-2xl font-semibold text-destructive">{belowMin.length}</p>
-              <p className="mt-1 text-xs text-muted-foreground">Items requiring action</p>
-            </div>
-            <div className="rounded-md bg-destructive/12 p-3 text-destructive"><AlertTriangle className="h-5 w-5" /></div>
-          </CardContent>
-        </Card>
-        <Card>
-          <CardContent className="flex items-start justify-between p-5">
-            <div>
-              <p className="text-sm text-muted-foreground">Receipts today</p>
-              <p className="mt-2 text-2xl font-semibold">{todayReceipts.length}</p>
-              <p className="mt-1 text-xs text-muted-foreground">Inward movements</p>
-            </div>
-            <div className="rounded-md bg-primary/12 p-3 text-primary"><ArrowDownToLine className="h-5 w-5" /></div>
-          </CardContent>
-        </Card>
-        <Card>
-          <CardContent className="flex items-start justify-between p-5">
-            <div>
-              <p className="text-sm text-muted-foreground">Issues today</p>
-              <p className="mt-2 text-2xl font-semibold">{todayIssues.length}</p>
-              <p className="mt-1 text-xs text-muted-foreground">Outward movements</p>
-            </div>
-            <div className="rounded-md bg-primary/12 p-3 text-primary"><ArrowUpFromLine className="h-5 w-5" /></div>
-          </CardContent>
-        </Card>
+        <AccentKpiCard
+          module="inventory" icon={Package}
+          title="Stock value"
+          value={stockValue.toLocaleString(undefined, { maximumFractionDigits: 0 })}
+          sub="Σ qty × latest rate"
+        />
+        <AccentKpiCard
+          module="inventory" icon={AlertTriangle}
+          title="Below minimum"
+          value={String(belowMin.length)}
+          sub="Items requiring action"
+        />
+        <AccentKpiCard
+          module="inventory" icon={ArrowDownToLine}
+          title="Receipts today"
+          value={String(todayReceipts.length)}
+          sub="Inward movements"
+        />
+        <AccentKpiCard
+          module="inventory" icon={ArrowUpFromLine}
+          title="Issues today"
+          value={String(todayIssues.length)}
+          sub="Outward movements"
+        />
       </div>
 
       <Card className="border-border bg-card shadow-panel">
