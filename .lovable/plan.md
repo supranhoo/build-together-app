@@ -132,3 +132,14 @@ AdminFinance                   PortalFinance
 3. **Selling price source** — manual setting per grade now, or wait for a future `sales_orders` table?
 4. **Budget granularity** — monthly cost/MT target only, or also per-cost-element (material / power / fixed) targets?
 
+
+### Phase B — done (2026-04-26)
+- Standard BOM editor live: `AdminStandardBom.tsx` (append-only, soft-deactivate, audit-logged).
+- Variance engine pure functions in `src/lib/finance.ts`: `buildVarianceRows`, `sumVariance`, `byproductCreditTotal`, `netCostPerMt`, plus mutations `createBomEntry`, `deactivateBomEntry`.
+- IDEAL vs ACTUAL vs VARIANCE matrix live in `PortalFinanceVariance.tsx` with grade selector, KPI cards, sorted matrix, Excel export.
+- 10 new tests in `finance-phase-b.test.ts` (identity, grade isolation, missing rate, zero production, unplanned consumption). Full suite 290/290 green.
+
+### Phase C — next
+- TOD power tariff editor + power analysis tab.
+- Period Close workflow → write `cost_period_snapshots` payload with full breakdown JSON.
+- Selling prices per grade + Profitability tab (selling − netCost = margin/MT).

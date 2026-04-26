@@ -270,3 +270,15 @@
 - **By-product credits & alert rules.** Same governance pattern as Standard BOM: workspace-manager managed, workspace-member readable. Sale of slag/dust without an effective `byproduct_credits` row is treated as zero credit (cost overstated, never understated).
 - **Zero hard-coding.** Grade names, by-product types, alert KPI keys, severity labels, and tariff slabs are all data, not enums in code. New grades or by-product streams require zero code changes.
 - **Phase boundaries.** Phase A delivers the foundation only — the engine math (price/usage variance, by-product netting, recovery loss) and the UI tabs that consume them land in Phase B. The Cost Sheet tab continues to show ACTUAL only until Phase B activates IDEAL vs ACT vs VAR.
+
+## Finance & Costing module — Phase B (2026-04-26)
+
+- **Variance sign convention is uniform across the system**: positive = overspend (actual exceeds ideal); negative = saving. Every UI that surfaces variance MUST follow this convention so totals can be summed and so red/green coloring is consistent. The pure `buildVarianceRows` function is the SSOT — components must not redefine it.
+- **Variance decomposition identity is non-negotiable**: `priceVariance + usageVariance = totalVariance` for every material row, in every period, in every snapshot. Tests in `finance-phase-b.test.ts` enforce this on representative scenarios; new variance code paths must include a test asserting the identity.
+- **Standard BOM is append-only with soft-deactivation**: a row may never be hard-edited. To change a standard, post a new row with a new `effective_from` and (optionally) deactivate the old one. This is what makes locked period snapshots reproducible — back-dated rate or BOM changes do not rewrite history.
+- **Grade is the variance unit**: variance is computed per `(grade, period)`. Heats without a `heat_metallurgy.grade` value are excluded from variance analysis (they still appear in the gross Cost Sheet). To include them, operations must back-fill the grade on the metallurgy record — never by guessing in the engine.
+- **Unplanned consumption is surfaced, not hidden**: materials consumed without a matching BOM row appear in the matrix with `idealQty = 0`. They count toward `totalVariance` (= full actual cost) so over-charge of unplanned items cannot hide.
+- **Missing standard rate ≠ zero variance**: if the BOM has `std_rate = NULL`, `priceVariance` and `usageVariance` are deliberately reported as 0 (not computed), but the row still surfaces `actualCost`. Workspace admins must fill `std_rate` to get a defensible variance — the engine refuses to invent one.
+
+## Policy Change Log (continued)
+- 2026-04-26 (Finance Phase B): Added variance sign convention, decomposition identity, BOM append-only rule, grade-as-variance-unit rule, unplanned-consumption visibility rule, and missing-stdRate handling rule. Promoted `standard_bom` (Admin) and `variance` (Portal) tabs to live in the 9-tab Finance & Costing shell.
