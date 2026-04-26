@@ -36,8 +36,9 @@ import { useWorkspace } from "@/hooks/use-workspace";
 
 type DeepLinkTarget = { to: string; label: string };
 type TabSpec =
-  | { id: string; label: string; icon: React.ComponentType<{ className?: string }>; kind: "scaffold"; description: string; phase: "B" | "C" | "D" }
-  | { id: string; label: string; icon: React.ComponentType<{ className?: string }>; kind: "deeplink"; description: string; target: DeepLinkTarget };
+  | { id: string; label: string; icon: React.ComponentType<{ className?: string }>; kind: "scaffold"; description: string; phase: "C" | "D" }
+  | { id: string; label: string; icon: React.ComponentType<{ className?: string }>; kind: "deeplink"; description: string; target: DeepLinkTarget }
+  | { id: string; label: string; icon: React.ComponentType<{ className?: string }>; kind: "live"; description: string; render: () => JSX.Element };
 
 const TABS: TabSpec[] = [
   { id: "dashboard", label: "Dashboard & KPIs", icon: LayoutDashboard, kind: "scaffold",
