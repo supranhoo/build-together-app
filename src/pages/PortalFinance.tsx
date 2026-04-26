@@ -19,7 +19,9 @@ import {
   AlertTriangle,
   Calculator,
   Calendar,
+  CheckSquare,
   FileBarChart2,
+  GitCompareArrows,
   LayoutDashboard,
   LineChart,
   Recycle,
@@ -31,10 +33,13 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Badge } from "@/components/ui/badge";
 import { useWorkspace } from "@/hooks/use-workspace";
-import PortalCosting from "@/pages/PortalCosting";
+// Note: legacy PortalCosting (date-range cost sheet) remains accessible at /portal/costing.
+import PortalFerroCostSheet from "@/pages/PortalFerroCostSheet";
 import PortalFinanceVariance from "@/pages/PortalFinanceVariance";
+import PortalHeatApprovals from "@/pages/PortalHeatApprovals";
 import PortalPowerAnalysis from "@/pages/PortalPowerAnalysis";
 import PortalProfitability from "@/pages/PortalProfitability";
+import PortalRecoveryCosting from "@/pages/PortalRecoveryCosting";
 import PortalSnapshots from "@/pages/PortalSnapshots";
 
 type TabSpec = {
@@ -57,13 +62,31 @@ const TABS: TabSpec[] = [
     phase: "D",
   },
   {
+    id: "heat_approvals",
+    label: "Heat Approvals",
+    icon: CheckSquare,
+    description:
+      "Submit completed heats for approval. Only approved heats can drive a Ferro Cost Sheet.",
+    live: true,
+    phase: "D",
+  },
+  {
     id: "cost_sheet",
     label: "Cost Sheet",
     icon: Calculator,
     description:
-      "Material cost + conversion (power × rate + fixed × days) over a date range, per furnace, with Excel export.",
+      "Ferro Costing Engine — pick an approved heat to compute material + conversion − by-product credits, save the sheet, and export.",
     live: true,
-    phase: "A",
+    phase: "D",
+  },
+  {
+    id: "recovery_costing",
+    label: "Recovery & Costing",
+    icon: GitCompareArrows,
+    description:
+      "Multi-slot Report Comparison Engine — compare furnaces × date ranges side-by-side with deltas vs a baseline.",
+    live: true,
+    phase: "D",
   },
   {
     id: "variance",
@@ -132,7 +155,7 @@ export default function PortalFinance() {
   const { activeProfitCenter } = useWorkspace();
   const [active, setActive] = useState<string>("cost_sheet");
 
-  const activeTab = useMemo(() => TABS.find((t) => t.id === active) ?? TABS[1], [active]);
+  const activeTab = useMemo(() => TABS.find((t) => t.id === active) ?? TABS[0], [active]);
 
   if (!activeProfitCenter) {
     return (
@@ -152,7 +175,7 @@ export default function PortalFinance() {
           <div className="flex flex-wrap items-center gap-2">
             <CardTitle>Finance & Costing — {activeProfitCenter.name}</CardTitle>
             <Badge variant="secondary" className="text-[10px] uppercase tracking-wider">
-              Phase C · power, profitability & snapshots live
+              Phase D · heat approvals + ferro cost sheet + comparison engine live
             </Badge>
           </div>
           <CardDescription>{activeTab.description}</CardDescription>
@@ -178,7 +201,9 @@ export default function PortalFinance() {
 
             {TABS.map((t) => {
               let liveBody: React.ReactNode = null;
-              if (t.id === "cost_sheet") liveBody = <PortalCosting />;
+              if (t.id === "heat_approvals") liveBody = <PortalHeatApprovals />;
+              else if (t.id === "cost_sheet") liveBody = <PortalFerroCostSheet />;
+              else if (t.id === "recovery_costing") liveBody = <PortalRecoveryCosting />;
               else if (t.id === "variance") liveBody = <PortalFinanceVariance />;
               else if (t.id === "power") liveBody = <PortalPowerAnalysis />;
               else if (t.id === "profitability") liveBody = <PortalProfitability />;

@@ -759,3 +759,437 @@ export function buildSnapshotPayload(input: BuildSnapshotInput): SnapshotPayload
     },
   };
 }
+
+// ===========================================================================
+// Phase D — Heat Approval Workflow + Ferro Cost Sheets + Comparison Presets
+// ===========================================================================
+
+export type HeatApprovalStatus = "pending" | "approved" | "rejected";
+
+export interface HeatLogApproval {
+  id: string;
+  heatLogId: string;
+  profitCenterId: string;
+  status: HeatApprovalStatus;
+  submittedBy: string;
+  submittedAt: string;
+  decidedBy: string | null;
+  decidedAt: string | null;
+  notes: string | null;
+}
+
+export interface FerroCostSheet {
+  id: string;
+  profitCenterId: string;
+  heatLogId: string;
+  sheetDate: string;
+  grade: string;
+  product: string | null;
+  productionMt: number;
+  grossCost: number;
+  byproductCredit: number;
+  netCost: number;
+  netCostPerMt: number | null;
+  payload: FerroCostSheetPayload;
+  notes: string | null;
+  createdBy: string;
+  createdAt: string;
+}
+
+export interface ComparisonSlot {
+  furnaceId: string;
+  dateFrom: string;
+  dateTo: string;
+  label: string;
+}
+
+export interface CostComparisonPreset {
+  id: string;
+  profitCenterId: string;
+  name: string;
+  slots: ComparisonSlot[];
+  baselineSlotIndex: number;
+  notes: string | null;
+  createdBy: string;
+  createdAt: string;
+}
+
+const mapApproval = (r: any): HeatLogApproval => ({
+  id: r.id,
+  heatLogId: r.heat_log_id,
+  profitCenterId: r.profit_center_id,
+  status: r.status,
+  submittedBy: r.submitted_by,
+  submittedAt: r.submitted_at,
+  decidedBy: r.decided_by,
+  decidedAt: r.decided_at,
+  notes: r.notes,
+});
+
+const mapSheet = (r: any): FerroCostSheet => ({
+  id: r.id,
+  profitCenterId: r.profit_center_id,
+  heatLogId: r.heat_log_id,
+  sheetDate: r.sheet_date,
+  grade: r.grade,
+  product: r.product,
+  productionMt: Number(r.production_mt),
+  grossCost: Number(r.gross_cost),
+  byproductCredit: Number(r.byproduct_credit),
+  netCost: Number(r.net_cost),
+  netCostPerMt: r.net_cost_per_mt === null ? null : Number(r.net_cost_per_mt),
+  payload: r.payload ?? {},
+  notes: r.notes,
+  createdBy: r.created_by,
+  createdAt: r.created_at,
+});
+
+const mapPreset = (r: any): CostComparisonPreset => ({
+  id: r.id,
+  profitCenterId: r.profit_center_id,
+  name: r.name,
+  slots: Array.isArray(r.slots) ? r.slots : [],
+  baselineSlotIndex: Number(r.baseline_slot_index ?? 0),
+  notes: r.notes,
+  createdBy: r.created_by,
+  createdAt: r.created_at,
+});
+
+// ---------- Fetchers ----------
+
+export async function fetchHeatApprovals(
+  profitCenterId: string,
+  opts?: { status?: HeatApprovalStatus },
+): Promise<HeatLogApproval[]> {
+  let q = client.from("heat_log_approvals").select("*").eq("profit_center_id", profitCenterId);
+  if (opts?.status) q = q.eq("status", opts.status);
+  const { data, error } = await q.order("submitted_at", { ascending: false });
+  if (error) throw error;
+  return (data ?? []).map(mapApproval);
+}
+
+export async function fetchFerroCostSheets(profitCenterId: string): Promise<FerroCostSheet[]> {
+  const { data, error } = await client
+    .from("ferro_cost_sheets")
+    .select("*")
+    .eq("profit_center_id", profitCenterId)
+    .order("sheet_date", { ascending: false });
+  if (error) throw error;
+  return (data ?? []).map(mapSheet);
+}
+
+export async function fetchComparisonPresets(profitCenterId: string): Promise<CostComparisonPreset[]> {
+  const { data, error } = await client
+    .from("cost_comparison_presets")
+    .select("*")
+    .eq("profit_center_id", profitCenterId)
+    .order("created_at", { ascending: false });
+  if (error) throw error;
+  return (data ?? []).map(mapPreset);
+}
+
+// ---------- Mutations ----------
+
+export async function submitHeatForApproval(input: {
+  heatLogId: string;
+  profitCenterId: string;
+  submittedBy: string;
+  notes: string | null;
+}): Promise<HeatLogApproval> {
+  const { data, error } = await client
+    .from("heat_log_approvals")
+    .insert({
+      heat_log_id: input.heatLogId,
+      profit_center_id: input.profitCenterId,
+      submitted_by: input.submittedBy,
+      status: "pending",
+      notes: input.notes,
+    })
+    .select("*")
+    .single();
+  if (error) throw error;
+  return mapApproval(data);
+}
+
+export async function decideHeatApproval(input: {
+  approvalId: string;
+  status: "approved" | "rejected";
+  decidedBy: string;
+  notes: string | null;
+}): Promise<HeatLogApproval> {
+  const { data, error } = await client
+    .from("heat_log_approvals")
+    .update({
+      status: input.status,
+      decided_by: input.decidedBy,
+      decided_at: new Date().toISOString(),
+      notes: input.notes,
+    })
+    .eq("id", input.approvalId)
+    .select("*")
+    .single();
+  if (error) throw error;
+  return mapApproval(data);
+}
+
+export async function createFerroCostSheet(input: {
+  profitCenterId: string;
+  heatLogId: string;
+  sheetDate: string;
+  grade: string;
+  product: string | null;
+  productionMt: number;
+  grossCost: number;
+  byproductCredit: number;
+  netCost: number;
+  netCostPerMt: number | null;
+  payload: FerroCostSheetPayload;
+  notes: string | null;
+  createdBy: string;
+}): Promise<FerroCostSheet> {
+  const { data, error } = await client
+    .from("ferro_cost_sheets")
+    .insert({
+      profit_center_id: input.profitCenterId,
+      heat_log_id: input.heatLogId,
+      sheet_date: input.sheetDate,
+      grade: input.grade,
+      product: input.product,
+      production_mt: input.productionMt,
+      gross_cost: input.grossCost,
+      byproduct_credit: input.byproductCredit,
+      net_cost: input.netCost,
+      net_cost_per_mt: input.netCostPerMt,
+      payload: input.payload,
+      notes: input.notes,
+      created_by: input.createdBy,
+    })
+    .select("*")
+    .single();
+  if (error) throw error;
+  return mapSheet(data);
+}
+
+export async function createComparisonPreset(input: {
+  profitCenterId: string;
+  name: string;
+  slots: ComparisonSlot[];
+  baselineSlotIndex: number;
+  notes: string | null;
+  createdBy: string;
+}): Promise<CostComparisonPreset> {
+  const { data, error } = await client
+    .from("cost_comparison_presets")
+    .insert({
+      profit_center_id: input.profitCenterId,
+      name: input.name,
+      slots: input.slots,
+      baseline_slot_index: input.baselineSlotIndex,
+      notes: input.notes,
+      created_by: input.createdBy,
+    })
+    .select("*")
+    .single();
+  if (error) throw error;
+  return mapPreset(data);
+}
+
+// ---------- Pure logic ----------
+
+/** Per-material line on the Ferro Cost Sheet. */
+export interface FerroCostLine {
+  materialId: string;
+  quantity: number;
+  rate: number | null;
+  cost: number;
+}
+
+export interface FerroCostSheetPayload {
+  materialLines: FerroCostLine[];
+  materialCost: number;
+  powerCost: number;
+  fixedCost: number;
+  conversionCost: number;
+  grossCost: number;
+  byproductCredit: number;
+  byproductByType: Record<string, number>;
+  netCost: number;
+  productionMt: number;
+  netCostPerMt: number | null;
+  costPerMnPoint: number | null;
+  recoveryPct: number | null;
+  inputs: {
+    powerMwh: number;
+    powerRatePerMwh: number;
+    fixedCostPerDay: number;
+    days: number;
+    gradeMnPct: number | null;
+    inputMnQty: number | null;
+  };
+}
+
+/**
+ * Compute a single-heat Ferro Cost Sheet.
+ *
+ * Formulas (all sign-consistent — positive = cost to the plant):
+ *   materialCost = Σ(qty × rate)
+ *   powerCost    = powerMwh × powerRatePerMwh
+ *   fixedCost    = fixedCostPerDay × days
+ *   grossCost    = materialCost + powerCost + fixedCost
+ *   netCost      = grossCost − byproductCredit
+ *   netCost/MT   = netCost / productionMt        (null if production = 0)
+ *   cost/Mn pt   = netCost/MT / gradeMnPct        (null if grade missing)
+ *   recovery %   = (productionMt × gradeMnPct) / inputMnQty × 100
+ *
+ * Pure — same inputs → byte-identical payload (used for snapshot determinism).
+ */
+export function buildFerroCostSheet(input: {
+  productionMt: number;
+  consumption: Array<{ materialId: string; quantity: number }>;
+  rateByMaterial: Record<string, number | null>;
+  powerMwh: number;
+  powerRatePerMwh: number;
+  fixedCostPerDay: number;
+  days: number;
+  byproductByType: Record<string, number>;
+  byproductRateByType: Record<string, number | null>;
+  gradeMnPct: number | null;
+  /** Input Mn tonnage (Σ material_qty × material_mn%). null when not provided. */
+  inputMnQty: number | null;
+}): FerroCostSheetPayload {
+  const materialLines: FerroCostLine[] = input.consumption.map((c) => {
+    const rate = input.rateByMaterial[c.materialId] ?? null;
+    return {
+      materialId: c.materialId,
+      quantity: c.quantity,
+      rate,
+      cost: rate !== null ? c.quantity * rate : 0,
+    };
+  });
+  const materialCost = materialLines.reduce((s, l) => s + l.cost, 0);
+  const powerCost = Math.max(0, input.powerMwh) * Math.max(0, input.powerRatePerMwh);
+  const fixedCost = Math.max(0, input.fixedCostPerDay) * Math.max(0, input.days);
+  const conversionCost = powerCost + fixedCost;
+  const grossCost = materialCost + conversionCost;
+
+  let byproductCredit = 0;
+  for (const [type, mt] of Object.entries(input.byproductByType)) {
+    const rate = input.byproductRateByType[type] ?? null;
+    if (rate !== null && mt > 0) byproductCredit += rate * mt;
+  }
+
+  const netCost = grossCost - byproductCredit;
+  const netCostPerMt = input.productionMt > 0 ? netCost / input.productionMt : null;
+  const costPerMnPoint =
+    netCostPerMt !== null && input.gradeMnPct && input.gradeMnPct > 0
+      ? netCostPerMt / input.gradeMnPct
+      : null;
+  const recoveryPct =
+    input.gradeMnPct && input.inputMnQty && input.inputMnQty > 0 && input.productionMt > 0
+      ? ((input.productionMt * input.gradeMnPct) / input.inputMnQty) * 100
+      : null;
+
+  return {
+    materialLines: materialLines.sort((a, b) => b.cost - a.cost),
+    materialCost,
+    powerCost,
+    fixedCost,
+    conversionCost,
+    grossCost,
+    byproductCredit,
+    byproductByType: { ...input.byproductByType },
+    netCost,
+    productionMt: input.productionMt,
+    netCostPerMt,
+    costPerMnPoint,
+    recoveryPct,
+    inputs: {
+      powerMwh: input.powerMwh,
+      powerRatePerMwh: input.powerRatePerMwh,
+      fixedCostPerDay: input.fixedCostPerDay,
+      days: input.days,
+      gradeMnPct: input.gradeMnPct,
+      inputMnQty: input.inputMnQty,
+    },
+  };
+}
+
+/** Aggregated KPIs over an arbitrary slice of heats — used by the comparison engine. */
+export interface ComparisonKpis {
+  heatCount: number;
+  productionMt: number;
+  totalPowerMwh: number;
+  kwhPerMt: number | null;
+  totalGrossCost: number;
+  totalByproductCredit: number;
+  totalNetCost: number;
+  netCostPerMt: number | null;
+  avgRecoveryPct: number | null;
+  avgGradeMnPct: number | null;
+}
+
+/**
+ * Aggregate cost-sheet KPIs across many sheets for one slot. Pure.
+ *
+ * - Recovery and grade are weighted by productionMt (heats with no production
+ *   contribute nothing — prevents 0/0 NaN).
+ * - All cost totals are simple sums; rate-per-MT KPIs are derived at the end.
+ */
+export function aggregateSlotKpis(sheets: FerroCostSheet[]): ComparisonKpis {
+  let production = 0;
+  let powerMwh = 0;
+  let gross = 0;
+  let credit = 0;
+  let net = 0;
+  let weightedRecovery = 0;
+  let weightedGrade = 0;
+  let recoveryWeight = 0;
+  let gradeWeight = 0;
+  for (const s of sheets) {
+    production += s.productionMt;
+    powerMwh += s.payload?.inputs?.powerMwh ?? 0;
+    gross += s.grossCost;
+    credit += s.byproductCredit;
+    net += s.netCost;
+    if (s.payload?.recoveryPct != null && s.productionMt > 0) {
+      weightedRecovery += s.payload.recoveryPct * s.productionMt;
+      recoveryWeight += s.productionMt;
+    }
+    if (s.payload?.inputs?.gradeMnPct != null && s.productionMt > 0) {
+      weightedGrade += s.payload.inputs.gradeMnPct * s.productionMt;
+      gradeWeight += s.productionMt;
+    }
+  }
+  return {
+    heatCount: sheets.length,
+    productionMt: production,
+    totalPowerMwh: powerMwh,
+    kwhPerMt: production > 0 ? (powerMwh * 1000) / production : null,
+    totalGrossCost: gross,
+    totalByproductCredit: credit,
+    totalNetCost: net,
+    netCostPerMt: production > 0 ? net / production : null,
+    avgRecoveryPct: recoveryWeight > 0 ? weightedRecovery / recoveryWeight : null,
+    avgGradeMnPct: gradeWeight > 0 ? weightedGrade / gradeWeight : null,
+  };
+}
+
+/** Signed delta of slot vs baseline — null when either side is null. */
+export function deltaVsBaseline(
+  slot: ComparisonKpis,
+  baseline: ComparisonKpis,
+): {
+  netCostPerMt: number | null;
+  kwhPerMt: number | null;
+  recoveryPct: number | null;
+  productionMt: number;
+} {
+  const sub = (a: number | null, b: number | null) =>
+    a === null || b === null ? null : a - b;
+  return {
+    netCostPerMt: sub(slot.netCostPerMt, baseline.netCostPerMt),
+    kwhPerMt: sub(slot.kwhPerMt, baseline.kwhPerMt),
+    recoveryPct: sub(slot.avgRecoveryPct, baseline.avgRecoveryPct),
+    productionMt: slot.productionMt - baseline.productionMt,
+  };
+}

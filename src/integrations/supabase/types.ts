@@ -301,6 +301,39 @@ export type Database = {
         }
         Relationships: []
       }
+      cost_comparison_presets: {
+        Row: {
+          baseline_slot_index: number
+          created_at: string
+          created_by: string
+          id: string
+          name: string
+          notes: string | null
+          profit_center_id: string
+          slots: Json
+        }
+        Insert: {
+          baseline_slot_index?: number
+          created_at?: string
+          created_by: string
+          id?: string
+          name: string
+          notes?: string | null
+          profit_center_id: string
+          slots?: Json
+        }
+        Update: {
+          baseline_slot_index?: number
+          created_at?: string
+          created_by?: string
+          id?: string
+          name?: string
+          notes?: string | null
+          profit_center_id?: string
+          slots?: Json
+        }
+        Relationships: []
+      }
       cost_period_snapshots: {
         Row: {
           created_at: string
@@ -454,6 +487,60 @@ export type Database = {
           status?: Database["public"]["Enums"]["dispatch_status"]
           updated_at?: string
           vehicle_no?: string | null
+        }
+        Relationships: []
+      }
+      ferro_cost_sheets: {
+        Row: {
+          byproduct_credit: number
+          created_at: string
+          created_by: string
+          grade: string
+          gross_cost: number
+          heat_log_id: string
+          id: string
+          net_cost: number
+          net_cost_per_mt: number | null
+          notes: string | null
+          payload: Json
+          product: string | null
+          production_mt: number
+          profit_center_id: string
+          sheet_date: string
+        }
+        Insert: {
+          byproduct_credit?: number
+          created_at?: string
+          created_by: string
+          grade: string
+          gross_cost: number
+          heat_log_id: string
+          id?: string
+          net_cost: number
+          net_cost_per_mt?: number | null
+          notes?: string | null
+          payload?: Json
+          product?: string | null
+          production_mt: number
+          profit_center_id: string
+          sheet_date: string
+        }
+        Update: {
+          byproduct_credit?: number
+          created_at?: string
+          created_by?: string
+          grade?: string
+          gross_cost?: number
+          heat_log_id?: string
+          id?: string
+          net_cost?: number
+          net_cost_per_mt?: number | null
+          notes?: string | null
+          payload?: Json
+          product?: string | null
+          production_mt?: number
+          profit_center_id?: string
+          sheet_date?: string
         }
         Relationships: []
       }
@@ -656,6 +743,48 @@ export type Database = {
           notes?: string | null
           profit_center_id?: string
           vendor?: string | null
+        }
+        Relationships: []
+      }
+      heat_log_approvals: {
+        Row: {
+          created_at: string
+          decided_at: string | null
+          decided_by: string | null
+          heat_log_id: string
+          id: string
+          notes: string | null
+          profit_center_id: string
+          status: Database["public"]["Enums"]["heat_approval_status"]
+          submitted_at: string
+          submitted_by: string
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          decided_at?: string | null
+          decided_by?: string | null
+          heat_log_id: string
+          id?: string
+          notes?: string | null
+          profit_center_id: string
+          status?: Database["public"]["Enums"]["heat_approval_status"]
+          submitted_at?: string
+          submitted_by: string
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          decided_at?: string | null
+          decided_by?: string | null
+          heat_log_id?: string
+          id?: string
+          notes?: string | null
+          profit_center_id?: string
+          status?: Database["public"]["Enums"]["heat_approval_status"]
+          submitted_at?: string
+          submitted_by?: string
+          updated_at?: string
         }
         Relationships: []
       }
@@ -2605,6 +2734,7 @@ export type Database = {
         | "closed"
       cost_type: "fixed" | "variable"
       dispatch_status: "pending" | "cleared" | "held" | "rejected"
+      heat_approval_status: "pending" | "approved" | "rejected"
       heat_metallurgy_status: "draft" | "submitted"
       inspection_result: "pass" | "conditional" | "fail" | "pending"
       machine_type: "FAD" | "CLU" | "DRI"
@@ -2784,6 +2914,7 @@ export const Constants = {
       ],
       cost_type: ["fixed", "variable"],
       dispatch_status: ["pending", "cleared", "held", "rejected"],
+      heat_approval_status: ["pending", "approved", "rejected"],
       heat_metallurgy_status: ["draft", "submitted"],
       inspection_result: ["pass", "conditional", "fail", "pending"],
       machine_type: ["FAD", "CLU", "DRI"],
