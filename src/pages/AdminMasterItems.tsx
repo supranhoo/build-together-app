@@ -7,7 +7,6 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { Label } from "@/components/ui/label";
-import { Textarea } from "@/components/ui/textarea";
 import { useWorkspace } from "@/hooks/use-workspace";
 import { useAuth } from "@/hooks/use-auth";
 import { useToast } from "@/hooks/use-toast";
@@ -15,7 +14,6 @@ import { createAuditLog } from "@/lib/workspace";
 import {
   fetchMasterItems,
   filterItems,
-  parseSpecsJson,
   upsertMasterItem,
   MATERIAL_TYPES,
   type MasterItem,
@@ -27,6 +25,13 @@ import {
   itemsToCsvRows,
   parseItemCsv,
 } from "@/lib/master-items-csv";
+import {
+  specRowsToObject,
+  specsObjectToRows,
+  validateSpecRows,
+  type SpecRow,
+} from "@/lib/master-item-specs";
+import { SpecsEditor } from "@/components/master-data/SpecsEditor";
 
 const UOMS = ["kg", "MT", "litre", "piece", "ton"];
 
