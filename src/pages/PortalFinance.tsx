@@ -62,13 +62,31 @@ const TABS: TabSpec[] = [
     phase: "D",
   },
   {
+    id: "heat_approvals",
+    label: "Heat Approvals",
+    icon: CheckSquare,
+    description:
+      "Submit completed heats for approval. Only approved heats can drive a Ferro Cost Sheet.",
+    live: true,
+    phase: "D",
+  },
+  {
     id: "cost_sheet",
     label: "Cost Sheet",
     icon: Calculator,
     description:
-      "Material cost + conversion (power × rate + fixed × days) over a date range, per furnace, with Excel export.",
+      "Ferro Costing Engine — pick an approved heat to compute material + conversion − by-product credits, save the sheet, and export.",
     live: true,
-    phase: "A",
+    phase: "D",
+  },
+  {
+    id: "recovery_costing",
+    label: "Recovery & Costing",
+    icon: GitCompareArrows,
+    description:
+      "Multi-slot Report Comparison Engine — compare furnaces × date ranges side-by-side with deltas vs a baseline.",
+    live: true,
+    phase: "D",
   },
   {
     id: "variance",
