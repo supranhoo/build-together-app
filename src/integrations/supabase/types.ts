@@ -1337,6 +1337,57 @@ export type Database = {
         }
         Relationships: []
       }
+      power_tariff_slabs: {
+        Row: {
+          created_at: string
+          created_by: string
+          effective_from: string
+          effective_to: string | null
+          end_hour: number
+          id: string
+          is_active: boolean
+          notes: string | null
+          profit_center_id: string
+          rate_per_mwh: number
+          season: string | null
+          slab_name: string
+          start_hour: number
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          created_by: string
+          effective_from: string
+          effective_to?: string | null
+          end_hour: number
+          id?: string
+          is_active?: boolean
+          notes?: string | null
+          profit_center_id: string
+          rate_per_mwh: number
+          season?: string | null
+          slab_name: string
+          start_hour: number
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          created_by?: string
+          effective_from?: string
+          effective_to?: string | null
+          end_hour?: number
+          id?: string
+          is_active?: boolean
+          notes?: string | null
+          profit_center_id?: string
+          rate_per_mwh?: number
+          season?: string | null
+          slab_name?: string
+          start_hour?: number
+          updated_at?: string
+        }
+        Relationships: []
+      }
       profiles: {
         Row: {
           avatar_url: string | null
@@ -2004,6 +2055,54 @@ export type Database = {
             referencedColumns: ["id"]
           },
         ]
+      }
+      selling_prices: {
+        Row: {
+          created_at: string
+          created_by: string
+          currency_code: string
+          effective_from: string
+          effective_to: string | null
+          grade: string
+          id: string
+          is_active: boolean
+          notes: string | null
+          price_per_mt: number
+          product: string | null
+          profit_center_id: string
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          created_by: string
+          currency_code?: string
+          effective_from: string
+          effective_to?: string | null
+          grade: string
+          id?: string
+          is_active?: boolean
+          notes?: string | null
+          price_per_mt: number
+          product?: string | null
+          profit_center_id: string
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          created_by?: string
+          currency_code?: string
+          effective_from?: string
+          effective_to?: string | null
+          grade?: string
+          id?: string
+          is_active?: boolean
+          notes?: string | null
+          price_per_mt?: number
+          product?: string | null
+          profit_center_id?: string
+          updated_at?: string
+        }
+        Relationships: []
       }
       shifts: {
         Row: {
