@@ -24,6 +24,7 @@ import { useWorkspace } from "@/hooks/use-workspace";
 import { useToast } from "@/hooks/use-toast";
 import { fetchMasterItems } from "@/lib/master-data";
 import { fetchLedger, computeStockBalances } from "@/lib/inventory";
+import { AccentKpiCard } from "@/components/ui/accent-kpi-card";
 import {
   buildDashboardKpis,
   computeShortages,
@@ -36,36 +37,6 @@ import {
   fetchSuppliers,
   type ProcurementDashboardKpis,
 } from "@/lib/procurement";
-
-interface KpiCardProps {
-  icon: React.ComponentType<{ className?: string }>;
-  label: string;
-  value: string | number;
-  hint?: string;
-  tone?: "default" | "warning" | "danger" | "good";
-}
-
-const TONE: Record<NonNullable<KpiCardProps["tone"]>, string> = {
-  default: "text-foreground",
-  warning: "text-amber-700 dark:text-amber-300",
-  danger:  "text-destructive",
-  good:    "text-emerald-700 dark:text-emerald-300",
-};
-
-function KpiCard({ icon: Icon, label, value, hint, tone = "default" }: KpiCardProps) {
-  return (
-    <Card>
-      <CardContent className="flex items-start gap-3 p-4">
-        <div className="rounded-md bg-muted p-2"><Icon className="h-4 w-4 text-primary" /></div>
-        <div className="min-w-0 flex-1">
-          <div className="text-xs text-muted-foreground">{label}</div>
-          <div className={`text-2xl font-semibold ${TONE[tone]}`}>{value}</div>
-          {hint && <div className="text-xs text-muted-foreground">{hint}</div>}
-        </div>
-      </CardContent>
-    </Card>
-  );
-}
 
 export function DashboardTab() {
   const { activeProfitCenter } = useWorkspace();
@@ -146,18 +117,15 @@ export function DashboardTab() {
             <div className="py-8 text-center text-sm text-muted-foreground">Loading…</div>
           ) : (
             <div className="grid grid-cols-2 gap-3 md:grid-cols-3 lg:grid-cols-4">
-              <KpiCard
-                icon={FileText}
-                label="Open PRs"
-                value={kpis.prsOpen}
-                hint={`${kpis.prsAwaitingApproval} awaiting approval`}
-                tone={kpis.prsAwaitingApproval > 0 ? "warning" : "default"}
+              <AccentKpiCard
+                module="procurement" icon={FileText}
+                title="Open PRs" value={String(kpis.prsOpen)}
+                sub={`${kpis.prsAwaitingApproval} awaiting approval`}
               />
-              <KpiCard
-                icon={ShoppingCart}
-                label="Open POs"
-                value={kpis.posOpen}
-                hint={
+              <AccentKpiCard
+                module="procurement" icon={ShoppingCart}
+                title="Open POs" value={String(kpis.posOpen)}
+                sub={
                   Object.keys(kpis.posValueOpen).length === 0
                     ? "No open value"
                     : Object.entries(kpis.posValueOpen)
@@ -165,43 +133,30 @@ export function DashboardTab() {
                         .join(" · ")
                 }
               />
-              <KpiCard
-                icon={Ship}
-                label="Shipments In Transit"
-                value={kpis.shipmentsInTransit}
-                hint={`${kpis.shipmentsCustoms} in customs`}
-                tone={kpis.shipmentsCustoms > 0 ? "warning" : "default"}
+              <AccentKpiCard
+                module="procurement" icon={Ship}
+                title="Shipments In Transit" value={String(kpis.shipmentsInTransit)}
+                sub={`${kpis.shipmentsCustoms} in customs`}
               />
-              <KpiCard
-                icon={Users}
-                label="Active Suppliers"
-                value={kpis.suppliersActive}
+              <AccentKpiCard
+                module="procurement" icon={Users}
+                title="Active Suppliers" value={String(kpis.suppliersActive)}
               />
-              <KpiCard
-                icon={AlertTriangle}
-                label="Shortages: Below Min"
-                value={kpis.shortagesBelowMin}
-                hint={`${kpis.shortagesReorder} at reorder`}
-                tone={kpis.shortagesBelowMin > 0 ? "danger" : kpis.shortagesReorder > 0 ? "warning" : "good"}
+              <AccentKpiCard
+                module="procurement" icon={AlertTriangle}
+                title="Shortages: Below Min" value={String(kpis.shortagesBelowMin)}
+                sub={`${kpis.shortagesReorder} at reorder`}
               />
-              <KpiCard
-                icon={ShieldAlert}
-                label="Open Risks"
-                value={kpis.risksOpen}
-                hint={`${kpis.risksCritical} critical`}
-                tone={kpis.risksCritical > 0 ? "danger" : kpis.risksOpen > 0 ? "warning" : "good"}
+              <AccentKpiCard
+                module="procurement" icon={ShieldAlert}
+                title="Open Risks" value={String(kpis.risksOpen)}
+                sub={`${kpis.risksCritical} critical`}
               />
-              <KpiCard
-                icon={TrendingUp}
-                label="Avg Supplier Score"
+              <AccentKpiCard
+                module="procurement" icon={TrendingUp}
+                title="Avg Supplier Score"
                 value={kpis.avgSupplierScore === null ? "—" : kpis.avgSupplierScore.toFixed(1)}
-                hint="Latest evaluation per supplier"
-                tone={
-                  kpis.avgSupplierScore === null ? "default"
-                  : kpis.avgSupplierScore >= 85 ? "good"
-                  : kpis.avgSupplierScore >= 70 ? "warning"
-                  : "danger"
-                }
+                sub="Latest evaluation per supplier"
               />
             </div>
           )}

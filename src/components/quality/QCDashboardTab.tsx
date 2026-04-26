@@ -8,12 +8,13 @@
  * This tab does NOT mutate any data. Numbers shown here MUST equal the
  * counts on the underlying tabs.
  */
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useState } from "react";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import {
   AlertCircle, ClipboardCheck, FileCheck, LayoutDashboard, Package, Target, Truck,
 } from "lucide-react";
+import { AccentKpiCard } from "@/components/ui/accent-kpi-card";
 import { useWorkspace } from "@/hooks/use-workspace";
 import { useToast } from "@/hooks/use-toast";
 import {
@@ -81,14 +82,9 @@ export function QCDashboardTab() {
     return () => { cancelled = true; };
   }, [pcId, toast]);
 
-  const headline = useMemo<Array<{ label: string; value: number | string; tone: Tone }>>(() => ([
-    { label: "Open samples",          value: kpis.samples.openCount,           tone: kpis.samples.openCount > 0 ? "warn" : "default" },
-    { label: "Bunker fail-rate (%)",  value: kpis.bunkerTests.failRatePct,     tone: kpis.bunkerTests.failRatePct > 0 ? "warn" : "ok" },
-    { label: "FG pending",            value: kpis.fgInspections.pending,       tone: kpis.fgInspections.pending > 0 ? "warn" : "default" },
-    { label: "Dispatch held",         value: kpis.dispatch.held,               tone: kpis.dispatch.held > 0 ? "warn" : "default" },
-    { label: "Active complaints",     value: kpis.complaints.activeCount,      tone: kpis.complaints.activeCount > 0 ? "danger" : "ok" },
-    { label: "Compliance expired",    value: kpis.compliance.expired,          tone: kpis.compliance.expired > 0 ? "danger" : "ok" },
-  ]), [kpis]);
+  // Note: per-area MiniStat panels below remain — they show finer-grained
+  // status counts inside each Quality area (Sampling/Bunker/FG/Dispatch/etc).
+  // The top headline is now rendered as `quality`-accented AccentKpiCards.
 
   if (!pcId) {
     return (
@@ -101,25 +97,28 @@ export function QCDashboardTab() {
 
   return (
     <div className="space-y-4">
-      <Card>
-        <CardHeader className="flex flex-row items-start justify-between gap-3 space-y-0">
-          <div>
-            <CardTitle className="flex items-center gap-2">
-              <LayoutDashboard className="h-5 w-5 text-primary" /> Quality KPIs
-            </CardTitle>
-            <CardDescription>
-              Snapshot across Sampling, Bunker QC, Finished Goods, Dispatch, Complaints and Compliance.
-              Numbers here mirror the underlying tabs.
-            </CardDescription>
-          </div>
-          {loading && <Badge variant="outline">Loading…</Badge>}
-        </CardHeader>
-        <CardContent>
-          <div className="grid grid-cols-2 gap-3 md:grid-cols-3 lg:grid-cols-6">
-            {headline.map((h) => (<MiniStat key={h.label} label={h.label} value={h.value} tone={h.tone} />))}
-          </div>
-        </CardContent>
-      </Card>
+      <div className="flex items-start justify-between gap-3">
+        <div>
+          <h2 className="flex items-center gap-2 text-lg font-semibold">
+            <LayoutDashboard className="h-5 w-5 text-emerald-500" /> Quality KPIs
+          </h2>
+          <p className="text-sm text-muted-foreground">
+            Snapshot across Sampling, Bunker QC, Finished Goods, Dispatch, Complaints and Compliance.
+            Numbers here mirror the underlying tabs.
+          </p>
+        </div>
+        {loading && <Badge variant="outline">Loading…</Badge>}
+      </div>
+
+      {/* Headline KPIs — uniform `quality` accent (semantic colour map). */}
+      <div className="grid grid-cols-1 gap-4 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-6">
+        <AccentKpiCard module="quality" icon={Target}         title="Open samples"        value={String(kpis.samples.openCount)}            sub="Awaiting result" />
+        <AccentKpiCard module="quality" icon={ClipboardCheck} title="Bunker fail-rate"    value={kpis.bunkerTests.failRatePct.toFixed(1)} unit="%" sub={`${kpis.bunkerTests.fail} of ${kpis.bunkerTests.total} failed`} />
+        <AccentKpiCard module="quality" icon={Package}        title="FG pending"          value={String(kpis.fgInspections.pending)}        sub={`${kpis.fgInspections.total} inspections`} />
+        <AccentKpiCard module="quality" icon={Truck}          title="Dispatch held"       value={String(kpis.dispatch.held)}                sub={`${kpis.dispatch.cleared} cleared`} />
+        <AccentKpiCard module="quality" icon={AlertCircle}    title="Active complaints"   value={String(kpis.complaints.activeCount)}       sub={`${kpis.complaints.closed} closed`} />
+        <AccentKpiCard module="quality" icon={FileCheck}      title="Compliance expired"  value={String(kpis.compliance.expired)}           sub={`${kpis.compliance.dueSoon} due soon`} />
+      </div>
 
       <div className="grid gap-4 md:grid-cols-2">
         <Card>
