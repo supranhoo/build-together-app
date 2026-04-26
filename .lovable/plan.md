@@ -1,58 +1,106 @@
-## Goal
+## Plant Head Dashboard — Unified Cross-Module Monitoring
 
-Restyle the **Sales & Export → Dashboard** tab and page header to match the uploaded reference exactly. Pure presentation change. No backend / schema / service-layer changes. All math continues to flow through `aggregateSalesKpis` in `src/lib/sales.ts`.
+A single command-center view that pulls live KPIs from **all 7 operational modules** (Production, Inventory, Procurement, Quality, Maintenance, Finance, Sales) and presents them as one cohesive dashboard — without any feel of module fragmentation. Built for plant heads who need an at-a-glance health pulse before drilling into any module.
 
-## Visual Spec (from screenshot)
+### Goal
+Replace the current module-card-grid section of `/portal` (PortalOverview) with a **Plant Health Command Deck** that shows status, trends, and alerts for the entire plant in one screen. User keeps existing pinned-KPI sections at top; new dashboard sits in the middle.
 
-**Header row** (`PortalSales.tsx`)
-- Title: "Sales & Export Management"
-- Subtitle: "End-to-end sales cycle and dispatch tracking"
-- Right side: Domestic / Export pill toggle (already exists, restyle), then a primary blue **"+ New Inquiry"** button.
+---
 
-**Tabs row** — rename + reorder to match the screenshot exactly:
-`Dashboard · Customers · Inquiries · Offers · Orders · Production Allocation · Dispatch · Quality Unit · Logistics & Shipping · Billing & Docs · Banking & LC · Insights`
-- "Offers" is a new scaffold tab (Phase B placeholder, no DB).
-- Banking & LC stays Export-only.
-- Tabs use a clean white card-like underline style (active = white pill with shadow + blue text/icon).
+### Layout (top-to-bottom)
 
-**Dashboard tab** — 3 stacked sections:
+```text
+┌─────────────────────────────────────────────────────────────┐
+│  Workspace header (existing) — name, role, location          │
+├─────────────────────────────────────────────────────────────┤
+│  Pinned KPIs (existing — team + personal)                   │
+├─────────────────────────────────────────────────────────────┤
+│  PLANT HEALTH STRIP — 4 traffic-light status pills           │
+│  Production · Quality · Inventory · Maintenance              │
+├─────────────────────────────────────────────────────────────┤
+│  KPI MOSAIC — 12 unified cards (3×4 grid), all modules       │
+│  color-coded by domain accent (left border) but consistent   │
+│  card visual language so it reads as one dashboard           │
+├─────────────────────────────────────────────────────────────┤
+│  TWO-COLUMN INSIGHTS                                         │
+│  ┌──────────────────────┬──────────────────────┐            │
+│  │ Live Alert Feed      │ Today's Activity     │            │
+│  │ (cross-module)       │ (heats, GRNs, WOs,   │            │
+│  │                      │  inspections, sales) │            │
+│  └──────────────────────┴──────────────────────┘            │
+├─────────────────────────────────────────────────────────────┤
+│  Configured modules grid (existing — quick navigation)       │
+└─────────────────────────────────────────────────────────────┘
+```
 
-1. **Five colored KPI cards** (left-border accent + matching icon tint):
-   | Card | Border | Source |
-   |---|---|---|
-   | Total Inquiries | blue | `kpis.openInquiries + kpis.quotedInquiries` (all non-closed) |
-   | Active Offers | indigo | `kpis.quotedInquiries` (re-labelled "Pending {view} approval") |
-   | Confirmed Orders | green | `kpis.confirmedOrders` |
-   | Available Stock | amber | placeholder `0 MT` "Ready for release" (no stock join in Phase A) |
-   | Dispatched Qty | purple | `kpis.dispatchedMt` |
+---
 
-   Each card: white bg, 4px left border in accent color, small icon top-right in muted gray, big bold number, small caption underneath.
+### KPI Mosaic — 12 cards (today / MTD)
 
-2. **Three info panels in one row**:
-   - **FX Exposure & LC Limits** (Export view) / **Domestic Receivables Snapshot** (Domestic view).
-     Two grey rounded rows: "LC Value Pending" + "FX Realisation Rate (Avg)" — Phase A shows static placeholder values (`$ 0` / `₹ 0 / USD`) with a "Live in Phase D" muted caption. No new fetches.
-   - **Market Presence** — keep existing `MixBar` for Domestic / Export %, plus a "TOP EXPORT MARKETS" chip row with three placeholder chips (Europe / Japan / SE Asia) gated behind `isExport`. Chips are hard-coded labels for now (Phase B will compute from customer country).
-   - **Shipping Pipeline** — three grey rows (Container Booking / Stuffing Underway / Sailed In Transit) each showing `0 Units` placeholder with a "Phase B" caption. No new fetches.
+Each card: domain accent border-left, icon, label, big value, sub-context, click-to-jump to source module. Uniform card style — only the accent color hints at the source.
 
-3. **Recent Export Activity / Recent Domestic Activity** card — keep current table but update columns to match screenshot: `OrderRef · Customer · Port / Dest · Price (FX) · Qty (MT) · Status`. Use existing `orders` slice. Empty state text: "No recent activity".
+| # | KPI | Source | Accent |
+|---|---|---|---|
+| 1 | Production today (MT) | `heat_logs` | blue |
+| 2 | kWh / MT | `production-rollups` | blue |
+| 3 | FG Inspections passed % | `fg_inspections` | green |
+| 4 | Open Quality Complaints | `quality_complaints` | green |
+| 5 | Stock items below min | `inventory-min-max` | amber |
+| 6 | Total stock value (₹) | `inventory_ledger` | amber |
+| 7 | Open POs / pending GRN | `purchase_orders` | violet |
+| 8 | Supplier on-time % | `supplier_evaluations` | violet |
+| 9 | Equipment in breakdown | `maintenance_breakdowns` | red |
+| 10 | PM due (7 days) | `pm_schedules` | red |
+| 11 | MTD cost / MT (₹) | `ferro_cost_sheets` | indigo |
+| 12 | Sales orders MTD (MT / ₹) | `sales_orders` | pink |
 
-## Files Touched
+### Plant Health Strip — 4 status pills
 
-- `src/pages/PortalSales.tsx` — header restyle, "+ New Inquiry" button (opens existing inquiry create dialog inside `InquiriesTab` via a small lifted-state callback OR simply switches to inquiries tab — see Open Question 1), insert "Offers" tab as a `PhaseScaffold` between Inquiries and Orders, rename labels to match screenshot.
-- `src/components/sales/DashboardTab.tsx` — replace KPI grid with colored-border cards, replace 2-col panels with 3-col panel row (FX/LC, Market Presence, Shipping Pipeline), update Recent Activity column headers and title to switch on `isExport`.
+Each pill computes a derived health based on module KPIs and shows `Healthy / Watch / Critical`:
+- **Production** — kWh/MT vs target, voided heats ratio
+- **Quality** — pass rate, open complaints
+- **Inventory** — % items below min
+- **Maintenance** — equipment in breakdown, PM overdue
 
-No new files, no new dependencies, no migration. `src/lib/sales.ts` and tests untouched.
+Pure derivation rules in a new `src/lib/plant-health.ts` (testable, zero hardcoded thresholds — uses `kpi_definitions` targets where present, sensible defaults otherwise).
 
-## Pre-Implementation Risk Report
+### Live Alert Feed (cross-module)
 
-- **Data Impact**: none — pure UI.
-- **Workflow Impact**: tab order changes; URL hash / persisted tab state (none in current code) unaffected. New "Offers" tab is a placeholder.
-- **UI/UX Impact**: matches user-provided reference; uses existing semantic Tailwind tokens (`bg-card`, `text-foreground`, `border-border`) for theme compatibility; accent border colors use Tailwind palette utilities (`border-l-blue-500`, `border-l-emerald-500`, etc.) since these are decorative chrome, not brand tokens.
-- **Regression Risk**: low — `aggregateSalesKpis` contract unchanged, `src/test/sales-phase-a.test.ts` continues to pass.
-- **Mitigation**: visual change only; existing tests cover the math.
+Merged stream sorted by recency (last 10):
+- New breakdowns (severity ≥ major)
+- Stock items dropping below reorder
+- Failed FG inspections / complaints opened
+- Cost alerts breached (`cost_alert_rules`)
+- Overdue PM tasks
 
-## Open Questions
+### Today's Activity
 
-1. **"+ New Inquiry" button behavior**: should it (a) just switch to the Inquiries tab and rely on the user clicking the existing "New Inquiry" there, or (b) open the InquiriesTab create-dialog directly via a lifted `openCreateOnMount` prop? Default if you don't reply: **(a) switch tab** — simplest, no prop drilling.
-2. **Top Export Markets chips**: hard-coded `Europe / Japan / SE Asia` placeholders for Phase A, or compute from customer `country` field now? Default: **hard-coded with a "Phase B" tooltip** — keeps Phase A scope tight.
-3. **Available Stock card** — pull from `inventory_ledger` for finished goods now, or leave as `0 MT` placeholder? Default: **placeholder** — finished-goods stock isn't modelled in Sales schema yet, deferring to Phase B.
+Compact counters: heats tapped, GRNs received, work orders opened/closed, inspections done, sales orders booked.
+
+---
+
+### Files
+
+**New**
+- `src/lib/plant-health.ts` — pure derivers: `derivePlantHealth(...)`, `aggregateCrossModuleKpis(...)`, `mergeAlertFeed(...)`. No I/O.
+- `src/components/portal/PlantHeadDashboard.tsx` — the dashboard composition (health strip + mosaic + insights).
+- `src/test/plant-health.test.ts` — unit tests for derivers (status thresholds, aggregation, merge ordering).
+
+**Edited**
+- `src/pages/PortalOverview.tsx` — mount `<PlantHeadDashboard />` between the existing pinned-KPI sections and the modules grid. No removal of existing functionality.
+- `DOCUMENTATION.md` + `POLICY.md` — add "Plant Head Dashboard" section: data sources, derivation rules, RLS scope (workspace-scoped, identical to existing portal pages).
+
+### Technical notes
+- Reuses existing fetchers from each module library (`fetchHeatLogs`, `fetchLedger`, `fetchFgInspections`, `fetchComplaints`, `fetchPurchaseOrders`, `fetchSupplierEvaluations`, `fetchEquipment`, `fetchBreakdowns`, `fetchPMSchedules`, `fetchFerroCostSheets`, `fetchOrders`, `fetchMasterItems`). All RLS-scoped via `profit_center_id`.
+- Concurrent `Promise.all` fetch on mount; loading skeletons per card.
+- Card click navigates to the relevant module route (e.g. `/portal/maintenance`, `/portal/inventory/min-max`).
+- Semantic tokens only (no raw hex). Domain accents map to existing palette: `blue/green/amber/violet/red/indigo/pink` border-l-4 — already proven in `MaintenanceDashboardTab`.
+- Zero new tables, zero migrations, zero hardcoded business values. Honors `kpi_definitions` targets when available.
+- Workspace guard already provided by `RequireWorkspace`.
+
+### Risk & impact
+- **Data**: read-only aggregation; no schema/RLS changes.
+- **Workflow**: additive — existing `/portal` features remain untouched.
+- **UI/UX**: one new section on `/portal`; consistent card language so it reads as one dashboard, not stitched modules.
+- **Regression**: low. Each module's own dashboard remains unchanged.
+- **Mitigation**: unit tests on pure derivers + per-fetch try/catch so a single module failure doesn't blank the whole dashboard.
