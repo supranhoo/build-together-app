@@ -458,8 +458,21 @@ SteelFlow ERP now uses a configuration-first workspace foundation for steel and 
   - `src/components/procurement/RiskTab.tsx` — register table with severity/status badges, edit + workflow buttons (Mitigate / Reopen / Close), CRUD dialog with optional supplier link and required mitigation plan field.
 - Tests: `src/test/procurement-phase-d.test.ts` — 20 tests (overall-score rounding, risk workflow matrix, dashboard aggregation across all KPI fields incl. multi-currency PO grouping and "latest evaluation per supplier" rule). Suite: **228 passing** (was 208 + 20 new).
 
+## Quality Control module — Phase A (2026-04-26)
+- New module for the Ferro Alloys Division. Built on the same shell pattern as Procurement.
+- 9-tab control panel at `/admin/quality` and `/portal/quality` (same component, SSOT — mounted in both shells so the plant sidebar stays visible inside the portal).
+- Tabs: **Dashboard & KPIs**, **Raw Material QC** (deep-link → GRN), **Sampling Management**, **Bunker Feed QC**, **Furnace Quality** (deep-link → production), **Finished Goods QC**, **Dispatch Clearance**, **Customer Complaints**, **Compliance & Lab**.
+- **CLU Quality removed** vs. the uploaded reference module — not part of the Ferro Alloys Division process.
+- **Bunker Feed QC added** — pre-consumption test of ore and reductant items in bunkers against material specs. Closes the gap between supplier GRN testing and actual furnace consumption.
+- New tables: `quality_samples`, `bunker_feed_tests`, `fg_inspections`, `dispatch_clearances`, `quality_complaints`, `compliance_records` — all workspace-scoped, RLS-gated, audit-logged via existing `log_procurement_event` trigger.
+- New enums: `sample_status`, `inspection_result`, `complaint_status`, `dispatch_status`, `bunker_test_result`.
+- New permission resource `quality` with actions `inspect`, `bunker_test`, `clear`, `complaint`, `compliance`. Defaults seeded: super_admin / admin = always; user = never. Admin grants explicitly per role.
+- Admin sidebar entry "Quality Control" added to `AdminShell`.
+- Tests: `src/test/quality-phase-a.test.ts` — route mounting, sidebar entry, 9-tab spec (CLU absent, Bunker Feed QC present), deep-link validity.
+
 ## Version History
 - 2026-04-25 (Procurement Phase A): Schema (currencies, fx_rates, suppliers, PR/PR-lines, PO/PO-lines, import_shipments, supplier_evaluations, risk_events) + RLS + audit triggers + permission grants seeded + module registered + 16-tab shell at `/admin/procurement` with 8 deep-links live and 8 scaffolds. 171/171 tests passing.
 - 2026-04-25 (Procurement Phase B): Suppliers + PR + PO tabs live with full CRUD, multi-currency, single-step PR approval, PR→PO conversion. Service layer + 16 new tests. 187/187 tests passing.
 - 2026-04-25 (Procurement Phase C): MRP shortages tab, Import Shipments tab, PO↔GRN linkage (per-line Receive posting to inventory_ledger with auto PO status advance). 21 new tests. 208/208 tests passing.
 - 2026-04-25 (Procurement Phase D): Dashboard KPI roll-up, Supplier Performance scorecards (append-only, equally-weighted overall), Risk Monitoring register (open/mitigated/closed workflow). 20 new tests. 228/228 tests passing. All 16 procurement tabs now live.
+- 2026-04-26 (Quality Control Phase A): Schema (quality_samples, bunker_feed_tests, fg_inspections, dispatch_clearances, quality_complaints, compliance_records) + RLS + audit triggers + permission grants seeded + 9-tab shell at `/admin/quality` and `/portal/quality` with 2 deep-links live and 7 scaffolds. CLU removed; Bunker Feed QC added per Ferro Alloys Division scope.
