@@ -155,7 +155,7 @@ export default function PortalFinance() {
   const { activeProfitCenter } = useWorkspace();
   const [active, setActive] = useState<string>("cost_sheet");
 
-  const activeTab = useMemo(() => TABS.find((t) => t.id === active) ?? TABS[1], [active]);
+  const activeTab = useMemo(() => TABS.find((t) => t.id === active) ?? TABS[0], [active]);
 
   if (!activeProfitCenter) {
     return (
@@ -175,7 +175,7 @@ export default function PortalFinance() {
           <div className="flex flex-wrap items-center gap-2">
             <CardTitle>Finance & Costing — {activeProfitCenter.name}</CardTitle>
             <Badge variant="secondary" className="text-[10px] uppercase tracking-wider">
-              Phase C · power, profitability & snapshots live
+              Phase D · heat approvals + ferro cost sheet + comparison engine live
             </Badge>
           </div>
           <CardDescription>{activeTab.description}</CardDescription>
@@ -201,7 +201,9 @@ export default function PortalFinance() {
 
             {TABS.map((t) => {
               let liveBody: React.ReactNode = null;
-              if (t.id === "cost_sheet") liveBody = <PortalCosting />;
+              if (t.id === "heat_approvals") liveBody = <PortalHeatApprovals />;
+              else if (t.id === "cost_sheet") liveBody = <PortalFerroCostSheet />;
+              else if (t.id === "recovery_costing") liveBody = <PortalRecoveryCosting />;
               else if (t.id === "variance") liveBody = <PortalFinanceVariance />;
               else if (t.id === "power") liveBody = <PortalPowerAnalysis />;
               else if (t.id === "profitability") liveBody = <PortalProfitability />;
