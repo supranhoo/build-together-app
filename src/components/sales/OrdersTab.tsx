@@ -1,9 +1,15 @@
 /**
  * Orders tab — list + create (optionally from inquiry) + status update.
  * Converting from an inquiry locks the inquiry to status='won'.
+ *
+ * URL-driven filters (added 2026-04-26 with KPI drilldown rollout):
+ *   ?status=<one>           → single status filter
+ *   ?status=a,b,c           → multi-status (used by 'Dispatched Qty' KPI)
+ *   ?detail=<order_id>      → opens the right-side detail sheet
  */
-import { useEffect, useState } from "react";
-import { Plus } from "lucide-react";
+import { useEffect, useMemo, useState } from "react";
+import { useSearchParams } from "react-router-dom";
+import { Eye, Plus } from "lucide-react";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -15,6 +21,9 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { useToast } from "@/hooks/use-toast";
 import { useAuth } from "@/hooks/use-auth";
 import { createAuditLog } from "@/lib/workspace";
+import { FilterBanner } from "@/components/ui/filter-banner";
+import { RecordDetailSheet } from "@/components/ui/record-detail-sheet";
+import { applyFilters } from "@/lib/url-filters";
 import {
   convertInquiryToOrder, createOrder, fetchCustomers, fetchInquiries, fetchOrders,
   updateInquiryStatus, updateOrderStatus,
@@ -30,6 +39,7 @@ const STATUSES: SalesOrderStatus[] = [
 export function OrdersTab({ profitCenterId, isExport }: Props) {
   const { session } = useAuth();
   const { toast } = useToast();
+  const [params, setParams] = useSearchParams();
   const [rows, setRows] = useState<SalesOrder[]>([]);
   const [customers, setCustomers] = useState<SalesCustomer[]>([]);
   const [openInq, setOpenInq] = useState<SalesInquiry[]>([]);
@@ -41,6 +51,28 @@ export function OrdersTab({ profitCenterId, isExport }: Props) {
     pricePerMt: "", currencyCode: isExport ? "USD" : "INR", fxRate: "",
     incoterms: isExport ? "CIF" : "", portOfLoading: "", portOfDischarge: "",
   });
+
+  // URL-driven filters: ?status=confirmed or ?status=dispatched,sailed,delivered
+  const statusParam = params.get("status") ?? "";
+  const statusFilter = useMemo(
+    () => statusParam.split(",").map((s) => s.trim()).filter(Boolean) as SalesOrderStatus[],
+    [statusParam],
+  );
+  const detailId = params.get("detail") ?? "";
+  const filteredRows = useMemo(
+    () => statusFilter.length === 0 ? rows : rows.filter((r) => statusFilter.includes(r.status)),
+    [rows, statusFilter],
+  );
+  const detailRecord = useMemo(
+    () => detailId ? rows.find((r) => r.id === detailId) ?? null : null,
+    [rows, detailId],
+  );
+
+  const updateUrl = (updates: Record<string, string | null>) =>
+    setParams((cur) => applyFilters(cur, updates), { replace: true });
+  const clearStatusFilter = () => updateUrl({ status: null });
+  const openDetail = (id: string) => updateUrl({ detail: id });
+  const closeDetail = () => updateUrl({ detail: null });
 
   const load = async () => {
     setLoading(true);
@@ -194,6 +226,10 @@ export function OrdersTab({ profitCenterId, isExport }: Props) {
         </Dialog>
       </CardHeader>
       <CardContent>
+        <FilterBanner
+          chips={statusFilter.length > 0 ? [{ label: "Status", value: statusFilter.join(", ") }] : []}
+          onClear={clearStatusFilter}
+        />
         <Table>
           <TableHeader><TableRow>
             <TableHead>SO #</TableHead><TableHead>Date</TableHead><TableHead>Customer</TableHead>
@@ -202,11 +238,13 @@ export function OrdersTab({ profitCenterId, isExport }: Props) {
           </TableRow></TableHeader>
           <TableBody>
             {loading && <TableRow><TableCell colSpan={8} className="text-muted-foreground">Loading…</TableCell></TableRow>}
-            {!loading && rows.length === 0 && (
-              <TableRow><TableCell colSpan={8} className="text-muted-foreground">No orders yet.</TableCell></TableRow>
+            {!loading && filteredRows.length === 0 && (
+              <TableRow><TableCell colSpan={8} className="text-muted-foreground">
+                {statusFilter.length > 0 ? `No orders match status: ${statusFilter.join(", ")}` : "No orders yet."}
+              </TableCell></TableRow>
             )}
-            {!loading && rows.map((o) => (
-              <TableRow key={o.id}>
+            {!loading && filteredRows.map((o) => (
+              <TableRow key={o.id} className="cursor-pointer hover:bg-muted/40" onClick={() => openDetail(o.id)}>
                 <TableCell className="font-mono text-xs">{o.soNumber}</TableCell>
                 <TableCell>{o.orderDate}</TableCell>
                 <TableCell>{o.customerName ?? "—"}</TableCell>
@@ -214,7 +252,10 @@ export function OrdersTab({ profitCenterId, isExport }: Props) {
                 <TableCell className="text-right">{o.qtyMt.toLocaleString()}</TableCell>
                 <TableCell className="text-right">{o.currencyCode} {o.totalValue.toLocaleString()}</TableCell>
                 <TableCell><Badge variant="outline">{o.status}</Badge></TableCell>
-                <TableCell>
+                <TableCell onClick={(e) => e.stopPropagation()} className="flex items-center gap-1">
+                  <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => openDetail(o.id)} aria-label="View details">
+                    <Eye className="h-4 w-4" />
+                  </Button>
                   <Select value={o.status} onValueChange={(v) => void handleStatus(o, v as SalesOrderStatus)}>
                     <SelectTrigger className="h-8 w-[150px]"><SelectValue /></SelectTrigger>
                     <SelectContent>{STATUSES.map((s) => <SelectItem key={s} value={s}>{s}</SelectItem>)}</SelectContent>
@@ -225,6 +266,41 @@ export function OrdersTab({ profitCenterId, isExport }: Props) {
           </TableBody>
         </Table>
       </CardContent>
+
+      <RecordDetailSheet
+        open={Boolean(detailId)}
+        onOpenChange={(o) => { if (!o) closeDetail(); }}
+        title={detailRecord ? `Order ${detailRecord.soNumber}` : "Order not found"}
+        description={detailRecord ? `${detailRecord.customerName ?? "—"} • ${detailRecord.orderDate}` : undefined}
+      >
+        {detailRecord ? (
+          <dl className="grid grid-cols-2 gap-x-4 gap-y-3 text-sm">
+            <DetailRow label="Status" value={<Badge variant="outline">{detailRecord.status}</Badge>} />
+            <DetailRow label="Product" value={`${detailRecord.product}${detailRecord.grade ? ` (${detailRecord.grade})` : ""}`} />
+            <DetailRow label="Quantity" value={`${detailRecord.qtyMt.toLocaleString()} MT`} />
+            <DetailRow label="Price / MT" value={`${detailRecord.currencyCode} ${detailRecord.pricePerMt.toLocaleString()}`} />
+            <DetailRow label="Total Value" value={`${detailRecord.currencyCode} ${detailRecord.totalValue.toLocaleString()}`} />
+            {detailRecord.fxRate != null && <DetailRow label="FX → INR" value={String(detailRecord.fxRate)} />}
+            {detailRecord.incoterms && <DetailRow label="Incoterms" value={detailRecord.incoterms} />}
+            {detailRecord.portOfLoading && <DetailRow label="Port of loading" value={detailRecord.portOfLoading} />}
+            {detailRecord.portOfDischarge && <DetailRow label="Port of discharge" value={detailRecord.portOfDischarge} />}
+            <DetailRow label="View" value={isExport ? "Export" : "Domestic"} />
+            <DetailRow label="Created" value={new Date(detailRecord.createdAt).toLocaleString()} />
+          </dl>
+        ) : (
+          <p className="text-sm text-muted-foreground">This order is not visible in the current view. It may have been filtered out by the Domestic/Export toggle.</p>
+        )}
+      </RecordDetailSheet>
     </Card>
   );
 }
+
+function DetailRow({ label, value }: { label: string; value: React.ReactNode }) {
+  return (
+    <>
+      <dt className="text-xs uppercase tracking-wide text-muted-foreground">{label}</dt>
+      <dd className="text-foreground">{value}</dd>
+    </>
+  );
+}
+

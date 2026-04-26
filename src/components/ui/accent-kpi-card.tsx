@@ -16,7 +16,9 @@
  *   except for "neutral" cards that intentionally read as workspace-level
  *   chrome.
  */
+import { useNavigate } from "react-router-dom";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { buildDrilldownPath, type FilterMap } from "@/lib/url-filters";
 
 export type ModuleAccent =
   | "production"
@@ -68,8 +70,15 @@ interface AccentKpiCardProps {
   unit?: string;
   /** Sub-line below the value. */
   sub?: string;
-  /** Optional click handler (renders pointer cursor + hover lift). */
+  /** Optional in-page click handler (renders pointer cursor + hover lift).
+   *  Use {@link drilldown} for navigation; `onClick` is for tab-switch type
+   *  interactions that stay on the same route. If both are passed, `onClick`
+   *  wins and `drilldown` is ignored. */
   onClick?: () => void;
+  /** Optional drilldown target. When set, the card becomes a navigation
+   *  button: clicking pushes `to` plus encoded `filters` onto the router.
+   *  Always navigates — even when value is zero — per project decision. */
+  drilldown?: { to: string; filters?: FilterMap };
 }
 
 /**
@@ -77,17 +86,22 @@ interface AccentKpiCardProps {
  * raw Tailwind classes for the accent.
  */
 export function AccentKpiCard({
-  module, icon: Icon, title, value, unit, sub, onClick,
+  module, icon: Icon, title, value, unit, sub, onClick, drilldown,
 }: AccentKpiCardProps) {
   const tokens = MODULE_ACCENTS[module];
-  const interactive = onClick != null;
+  const navigate = useNavigate();
+  // onClick wins over drilldown — keeps the existing tab-switch escape hatch
+  // (e.g. Sales Dashboard "View All") working without breaking changes.
+  const handleClick = onClick ?? (drilldown ? () => navigate(buildDrilldownPath(drilldown.to, drilldown.filters)) : undefined);
+  const interactive = handleClick != null;
   return (
     <Card
-      className={`border-l-4 ${tokens.border} ${interactive ? "cursor-pointer transition-shadow hover:shadow-md" : ""}`}
-      onClick={onClick}
+      className={`border-l-4 ${tokens.border} ${interactive ? "cursor-pointer transition-shadow hover:shadow-md hover:-translate-y-0.5" : ""}`}
+      onClick={handleClick}
       role={interactive ? "button" : undefined}
       tabIndex={interactive ? 0 : undefined}
-      onKeyDown={interactive ? (e) => { if (e.key === "Enter" || e.key === " ") onClick?.(); } : undefined}
+      onKeyDown={interactive ? (e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); handleClick?.(); } } : undefined}
+      aria-label={interactive ? `${title}: ${value}${unit ? " " + unit : ""}. Open details.` : undefined}
     >
       <CardHeader className="flex flex-row items-start justify-between space-y-0 pb-2">
         <CardTitle className="text-sm font-semibold text-foreground">{title}</CardTitle>

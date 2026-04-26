@@ -615,3 +615,29 @@ Mounted as a dedicated module at **`/portal/command-deck`** with its own sidebar
 ### Version History
 - 2026-04-26 (Plant Head Dashboard): cross-module health pills + 12-card KPI mosaic + alert feed + today's activity, all derived from existing module SSOTs.
 - 2026-04-26 (Command Deck module): extracted the Plant Head dashboard out of `/portal` Overview into its own `/portal/command-deck` route + static nav entry. Overview reverts to workspace/pins/modules-grid only; Command Deck owns the unified plant view.
+
+## KPI Drilldown System (Cross-Module)
+Per user decision (2026-04-26), every KPI tile rendered via `<AccentKpiCard />` is a navigation primitive: card → filtered list → record detail (2 levels). Filters are URL-backed (shareable, refresh-safe, back-button works); transient UI state stays in component state.
+
+**Contract** — `AccentKpiCard` accepts an optional `drilldown={{ to, filters }}` prop. When set, the card becomes a `role="button"` and clicking calls `useNavigate()(buildDrilldownPath(to, filters))`. Zero values still navigate (so the user can confirm the empty state). The pre-existing `onClick` prop still works and wins when both are passed (kept for in-page tab switches such as the Sales "View All" link).
+
+**Helpers** — `src/lib/url-filters.ts` exposes pure, dependency-free helpers (`encodeFilters`, `buildDrilldownPath`, `readFilter`, `applyFilters`). Tested in `src/test/url-filters.test.ts`. Card behavior is locked by `src/test/accent-kpi-card-drilldown.test.tsx`.
+
+**Shared list-side primitives** —
+- `src/components/ui/filter-banner.tsx`: shows applied URL filters as chips above the list with a single Clear control.
+- `src/components/ui/record-detail-sheet.tsx`: right-side `Sheet` opened by the URL `?detail=<id>` param. Closes by clearing the param so back-button restores list state.
+
+**Sales (reference implementation)** — `PortalSales` reads/writes `?tab=` so dashboard drilldowns land on the right tab; `OrdersTab` and `InquiriesTab` read `?status=` (single value or comma-separated multi-status, e.g. `dispatched,sailed,delivered`) and `?detail=<id>`. The 5 Sales Dashboard KPIs are wired:
+
+| KPI | Drilldown |
+|---|---|
+| Total Inquiries | `/portal/sales?tab=inquiries` |
+| Active Offers | `/portal/sales?tab=inquiries&status=quoted` |
+| Confirmed Orders | `/portal/sales?tab=orders&status=confirmed` |
+| Available Stock | `/portal/inventory/stock` (cross-module) |
+| Dispatched Qty | `/portal/sales?tab=orders&status=dispatched,sailed,delivered` |
+
+**Rollout** — Sales is the reference. Inventory, Procurement, Quality, Maintenance, Finance, Production, and Command Deck adopt the same pattern in subsequent loops; each new dashboard MUST attach `drilldown` to its KPI cards rather than introducing local navigation.
+
+### Version History
+- 2026-04-26 (KPI Drilldown — Sales reference): added URL filter helpers + drilldown prop on `AccentKpiCard` + filter banner + record detail sheet; wired all 5 Sales dashboard KPIs and made Orders/Inquiries tabs filter- and detail-aware. 16 new unit tests; 400/400 passing.

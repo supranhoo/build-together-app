@@ -6,9 +6,14 @@
  * tabs (Production Allocation, Dispatch, Quality, Logistics, Billing,
  * Banking & LC [Export-only], Insights). Scaffolds either deep-link to
  * existing SSOT pages or note the upcoming phase.
+ *
+ * Tab and primary filters are URL-backed (per project decision 2026-04-26)
+ * so KPI drilldowns from the dashboard land on the right tab + filter, the
+ * back button works, and links are shareable. View toggle (domestic/export)
+ * stays in component state because it's a chrome-level choice, not a filter.
  */
 import { useState } from "react";
-import { Link } from "react-router-dom";
+import { Link, useSearchParams } from "react-router-dom";
 import {
   LayoutDashboard, Users, FileText, ShoppingCart, Factory, Truck,
   CheckCircle, Ship, FileCheck, CreditCard, BarChart2, ExternalLink,
@@ -26,10 +31,32 @@ import { OrdersTab } from "@/components/sales/OrdersTab";
 
 type SalesView = "domestic" | "export";
 
+const VALID_TABS = new Set([
+  "dashboard", "customers", "inquiries", "offers", "orders",
+  "production", "dispatch", "quality", "logistics", "invoices", "banking", "reports",
+]);
+
 export default function PortalSales() {
   const { activeProfitCenter } = useWorkspace();
   const [view, setView] = useState<SalesView>("domestic");
-  const [tab, setTab] = useState("dashboard");
+  const [params, setParams] = useSearchParams();
+
+  // Tab is URL-backed so KPI drilldowns can land on it directly.
+  const rawTab = params.get("tab") ?? "dashboard";
+  const tab = VALID_TABS.has(rawTab) ? rawTab : "dashboard";
+
+  const setTab = (next: string) => {
+    setParams((current) => {
+      const updated = new URLSearchParams(current);
+      updated.set("tab", next);
+      // Clear filters that only make sense for the previous tab.
+      if (next !== "orders" && next !== "inquiries") {
+        updated.delete("status");
+        updated.delete("detail");
+      }
+      return updated;
+    }, { replace: true });
+  };
 
   if (!activeProfitCenter) {
     return (
