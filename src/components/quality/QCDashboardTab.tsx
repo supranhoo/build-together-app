@@ -82,14 +82,9 @@ export function QCDashboardTab() {
     return () => { cancelled = true; };
   }, [pcId, toast]);
 
-  const headline = useMemo<Array<{ label: string; value: number | string; tone: Tone }>>(() => ([
-    { label: "Open samples",          value: kpis.samples.openCount,           tone: kpis.samples.openCount > 0 ? "warn" : "default" },
-    { label: "Bunker fail-rate (%)",  value: kpis.bunkerTests.failRatePct,     tone: kpis.bunkerTests.failRatePct > 0 ? "warn" : "ok" },
-    { label: "FG pending",            value: kpis.fgInspections.pending,       tone: kpis.fgInspections.pending > 0 ? "warn" : "default" },
-    { label: "Dispatch held",         value: kpis.dispatch.held,               tone: kpis.dispatch.held > 0 ? "warn" : "default" },
-    { label: "Active complaints",     value: kpis.complaints.activeCount,      tone: kpis.complaints.activeCount > 0 ? "danger" : "ok" },
-    { label: "Compliance expired",    value: kpis.compliance.expired,          tone: kpis.compliance.expired > 0 ? "danger" : "ok" },
-  ]), [kpis]);
+  // Note: per-area MiniStat panels below remain — they show finer-grained
+  // status counts inside each Quality area (Sampling/Bunker/FG/Dispatch/etc).
+  // The top headline is now rendered as `quality`-accented AccentKpiCards.
 
   if (!pcId) {
     return (
