@@ -113,7 +113,7 @@ export default function AdminMasterItems() {
       subgroup: item.subgroup ?? "",
       uom: item.uom,
       stdCost: item.stdCost?.toString() ?? "",
-      specsRaw: JSON.stringify(item.specs ?? {}, null, 2),
+      specRows: specsObjectToRows(item.specs),
       minLevel: item.minLevel?.toString() ?? "",
       maxLevel: item.maxLevel?.toString() ?? "",
       reorderLevel: item.reorderLevel?.toString() ?? "",
@@ -121,6 +121,8 @@ export default function AdminMasterItems() {
     });
     setOpen(true);
   };
+
+  const specErrors = useMemo(() => validateSpecRows(form.specRows), [form.specRows]);
 
   const handleSave = async () => {
     if (!activeProfitCenter || !session?.user) return;
