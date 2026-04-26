@@ -1,5 +1,20 @@
 
-# Costing Module — Gap Analysis & Addition Plan
+# Finance & Costing Module — Plan
+
+**Status: Phase A ✅ complete · Phase B / C / D pending**
+
+## Phase A — done (2026-04-26)
+
+- 4 schema tables deployed with RLS: `standard_cost_bom`, `cost_period_snapshots` (immutable — no UPDATE policy), `cost_alert_rules`, `byproduct_credits`
+- `finance` module registered in `app_modules` and auto-enabled for every workspace that has Procurement (Ferro Alloys Division included)
+- 9-tab `AdminFinance` shell at `/admin/finance` (Rate & Cost Pool tab live, 8 placeholders with phase badges)
+- 9-tab `PortalFinance` shell at `/portal/finance` (Cost Sheet tab live, 8 placeholders with phase badges)
+- `src/lib/finance.ts` library — typed fetchers + `bomEffectiveOn` / `byproductRateOn` helpers
+- `src/test/finance-phase-a.test.ts` — 5 tests, all green
+- AdminShell sidebar updated (`Calculator` icon)
+- PortalShell `iconMap` extended (procurement, quality, finance icons added)
+
+## Original gap analysis
 
 ## What exists today (audit)
 
