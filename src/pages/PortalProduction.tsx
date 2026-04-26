@@ -430,10 +430,10 @@ export default function PortalProduction() {
           sub={`${kpis.heatCount} heats (latest 200, voids excluded)`}
         />
         <AccentKpiCard
-          module={recoveryAlert ? "maintenance" : "production"} icon={Gauge}
+          module="production" icon={Gauge}
           title="Avg Recovery"
           value={fmt(kpis.avgRecoveryPct, 2, "%")}
-          sub={`${kpis.heatsWithMetallurgy} heats w/ metallurgy · target ≥ ${thresholds.recoveryMinPct}%`}
+          sub={`${kpis.heatsWithMetallurgy} heats w/ metallurgy · target ≥ ${thresholds.recoveryMinPct}%${recoveryAlert ? " · BELOW TARGET" : ""}`}
         />
         <AccentKpiCard
           module="production" icon={Zap}
