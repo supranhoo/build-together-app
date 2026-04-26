@@ -184,3 +184,10 @@ Plus extending `example.test.tsx` route audit with the 3 new admin pages + 3 new
 - `DOCUMENTATION.md`, `POLICY.md`, `.lovable/plan.md`
 
 After approval I'll execute the migration first, then ship code + tests in one pass and report the green test count.
+
+## Phase C — shipped ✅
+- Migration: `power_tariff_slabs`, `selling_prices` (RLS, admin-write).
+- Service: `splitMwhByTodSlab`, `sellingPriceOn`, `profitabilityByGrade`, `buildSnapshotPayload`, `createPeriodSnapshot` (+ overlap guard).
+- Admin: PowerTariff, SellingPrices, PeriodClose (compute preview → lock).
+- Portal: PowerAnalysis, Profitability, Snapshots (read-only sheet).
+- Tests: 11 new (TOD, sellingPrice, profitability, deterministic snapshot). Total 301/301.
