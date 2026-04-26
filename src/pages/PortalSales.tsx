@@ -12,6 +12,7 @@ import { Link } from "react-router-dom";
 import {
   LayoutDashboard, Users, FileText, ShoppingCart, Factory, Truck,
   CheckCircle, Ship, FileCheck, CreditCard, BarChart2, ExternalLink,
+  Tag, Plus,
 } from "lucide-react";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -46,38 +47,45 @@ export default function PortalSales() {
     <div className="space-y-6">
       <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
         <div>
-          <h1 className="text-2xl font-bold text-foreground">Sales & Export</h1>
+          <h1 className="text-2xl font-bold text-foreground">Sales & Export Management</h1>
           <p className="text-sm text-muted-foreground">
-            End-to-end sales cycle for {activeProfitCenter.name}
+            End-to-end sales cycle and dispatch tracking
           </p>
         </div>
-        <div className="inline-flex rounded-lg border border-border bg-muted p-1">
-          <button
-            onClick={() => setView("domestic")}
-            className={`px-4 py-1.5 text-sm font-medium rounded-md transition-colors ${
-              view === "domestic" ? "bg-background text-foreground shadow-sm" : "text-muted-foreground hover:text-foreground"
-            }`}
-          >Domestic</button>
-          <button
-            onClick={() => setView("export")}
-            className={`px-4 py-1.5 text-sm font-medium rounded-md transition-colors ${
-              view === "export" ? "bg-background text-foreground shadow-sm" : "text-muted-foreground hover:text-foreground"
-            }`}
-          >Export</button>
+        <div className="flex items-center gap-3">
+          <div className="inline-flex rounded-full border border-border bg-muted p-1">
+            <button
+              onClick={() => setView("domestic")}
+              className={`px-4 py-1.5 text-sm font-medium rounded-full transition-colors ${
+                view === "domestic" ? "bg-background text-foreground shadow-sm" : "text-muted-foreground hover:text-foreground"
+              }`}
+            >Domestic</button>
+            <button
+              onClick={() => setView("export")}
+              className={`px-4 py-1.5 text-sm font-medium rounded-full transition-colors ${
+                view === "export" ? "bg-background text-foreground shadow-sm" : "text-muted-foreground hover:text-foreground"
+              }`}
+            >Export</button>
+          </div>
+          <Button onClick={() => setTab("inquiries")} className="gap-1.5">
+            <Plus className="h-4 w-4" />
+            New Inquiry
+          </Button>
         </div>
       </div>
 
       <Tabs value={tab} onValueChange={setTab} className="space-y-4">
-        <TabsList className="flex flex-wrap h-auto">
+        <TabsList className="flex flex-wrap h-auto bg-muted/50 p-1">
           <TabsTrigger value="dashboard"><LayoutDashboard className="h-4 w-4 mr-1.5" />Dashboard</TabsTrigger>
           <TabsTrigger value="customers"><Users className="h-4 w-4 mr-1.5" />Customers</TabsTrigger>
           <TabsTrigger value="inquiries"><FileText className="h-4 w-4 mr-1.5" />Inquiries</TabsTrigger>
+          <TabsTrigger value="offers"><Tag className="h-4 w-4 mr-1.5" />Offers</TabsTrigger>
           <TabsTrigger value="orders"><ShoppingCart className="h-4 w-4 mr-1.5" />Orders</TabsTrigger>
-          <TabsTrigger value="production"><Factory className="h-4 w-4 mr-1.5" />Production</TabsTrigger>
+          <TabsTrigger value="production"><Factory className="h-4 w-4 mr-1.5" />Production Allocation</TabsTrigger>
           <TabsTrigger value="dispatch"><Truck className="h-4 w-4 mr-1.5" />Dispatch</TabsTrigger>
-          <TabsTrigger value="quality"><CheckCircle className="h-4 w-4 mr-1.5" />Quality</TabsTrigger>
-          <TabsTrigger value="logistics"><Ship className="h-4 w-4 mr-1.5" />Logistics</TabsTrigger>
-          <TabsTrigger value="invoices"><FileCheck className="h-4 w-4 mr-1.5" />Billing</TabsTrigger>
+          <TabsTrigger value="quality"><CheckCircle className="h-4 w-4 mr-1.5" />Quality Unit</TabsTrigger>
+          <TabsTrigger value="logistics"><Ship className="h-4 w-4 mr-1.5" />Logistics & Shipping</TabsTrigger>
+          <TabsTrigger value="invoices"><FileCheck className="h-4 w-4 mr-1.5" />Billing & Docs</TabsTrigger>
           {isExport && <TabsTrigger value="banking"><CreditCard className="h-4 w-4 mr-1.5" />Banking & LC</TabsTrigger>}
           <TabsTrigger value="reports"><BarChart2 className="h-4 w-4 mr-1.5" />Insights</TabsTrigger>
         </TabsList>
@@ -85,6 +93,8 @@ export default function PortalSales() {
         <TabsContent value="dashboard"><DashboardTab profitCenterId={pcId} isExport={isExport} onJumpTab={setTab} /></TabsContent>
         <TabsContent value="customers"><CustomersTab profitCenterId={pcId} isExport={isExport} /></TabsContent>
         <TabsContent value="inquiries"><InquiriesTab profitCenterId={pcId} isExport={isExport} /></TabsContent>
+        <TabsContent value="offers"><PhaseScaffold phase="B" title="Offers"
+          description="Quotation builder with versioning, validity, and customer acceptance flow." /></TabsContent>
         <TabsContent value="orders"><OrdersTab profitCenterId={pcId} isExport={isExport} /></TabsContent>
 
         <TabsContent value="production"><DeepLinkScaffold
@@ -96,7 +106,7 @@ export default function PortalSales() {
           description="Dispatch clearances are managed in the Quality module (single source of truth)."
           to="/portal/quality" linkLabel="Open Dispatch Clearance" /></TabsContent>
         <TabsContent value="quality"><DeepLinkScaffold
-          title="Pre-Dispatch Quality"
+          title="Pre-Dispatch Quality Unit"
           description="FG inspections and quality compliance are owned by the Quality module."
           to="/portal/quality" linkLabel="Open Quality module" /></TabsContent>
         <TabsContent value="logistics"><PhaseScaffold phase="B" title="Logistics & Shipping"
