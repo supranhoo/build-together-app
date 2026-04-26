@@ -1,14 +1,23 @@
 /**
- * Quality Control service layer (Phase B).
+ * Quality Control service layer (Phases B + C).
  *
- * Scope of this phase:
- *  - Sampling Management: CRUD + lifecycle transitions for `quality_samples`
+ * Phase B — already shipped:
+ *  - Sampling Management: lifecycle for `quality_samples`
  *      planned → collected → tested → released | rejected
- *      (a "released" sample is terminal — RLS blocks further updates.)
- *  - Bunker Feed QC: insert + list `bunker_feed_tests` with a pure
- *      `evaluateBunkerTest` helper that compares observed values
- *      to `materials.specs` and to optional workspace tolerances and
- *      classifies the result as pass | conditional | fail.
+ *  - Bunker Feed QC: `bunker_feed_tests` with `evaluateBunkerTest`
+ *      verdict ladder (pass | conditional | fail) sourced from
+ *      `materials.specs`.
+ *
+ * Phase C — added in this file:
+ *  - Finished Goods Inspection: `fg_inspections` with
+ *      `evaluateFgInspection` ladder (pass | conditional | fail)
+ *      computed from observed FG chemistry vs caller-provided spec.
+ *      Result is stored on the row; only `pending` rows can be edited
+ *      (DB RLS enforces this — the JS layer mirrors the rule).
+ *  - Dispatch Clearance: `dispatch_clearances` with the release-gate
+ *      transition table  pending → cleared | held | rejected.
+ *      A `cleared` clearance REQUIRES a linked FG inspection that
+ *      itself passed (or was cleared as conditional with a reason).
  *
  * Pure-vs-IO split:
  *  - All evaluation/transition rules are pure functions (testable, no DB).
@@ -16,7 +25,8 @@
  *    and rely on the RLS + audit triggers shipped in Phase A.
  *
  * No business value is hardcoded — material specs come from
- * `materials.specs`, and tolerances are passed in by the caller.
+ * `materials.specs`; FG specs are passed in by the caller (sourced
+ * from product master in a future phase, see DOCUMENTATION.md).
  */
 import { supabase } from "@/integrations/supabase/client";
 
