@@ -39,6 +39,7 @@ const STATUSES: SalesOrderStatus[] = [
 export function OrdersTab({ profitCenterId, isExport }: Props) {
   const { session } = useAuth();
   const { toast } = useToast();
+  const [params, setParams] = useSearchParams();
   const [rows, setRows] = useState<SalesOrder[]>([]);
   const [customers, setCustomers] = useState<SalesCustomer[]>([]);
   const [openInq, setOpenInq] = useState<SalesInquiry[]>([]);
@@ -50,6 +51,28 @@ export function OrdersTab({ profitCenterId, isExport }: Props) {
     pricePerMt: "", currencyCode: isExport ? "USD" : "INR", fxRate: "",
     incoterms: isExport ? "CIF" : "", portOfLoading: "", portOfDischarge: "",
   });
+
+  // URL-driven filters: ?status=confirmed or ?status=dispatched,sailed,delivered
+  const statusParam = params.get("status") ?? "";
+  const statusFilter = useMemo(
+    () => statusParam.split(",").map((s) => s.trim()).filter(Boolean) as SalesOrderStatus[],
+    [statusParam],
+  );
+  const detailId = params.get("detail") ?? "";
+  const filteredRows = useMemo(
+    () => statusFilter.length === 0 ? rows : rows.filter((r) => statusFilter.includes(r.status)),
+    [rows, statusFilter],
+  );
+  const detailRecord = useMemo(
+    () => detailId ? rows.find((r) => r.id === detailId) ?? null : null,
+    [rows, detailId],
+  );
+
+  const updateUrl = (updates: Record<string, string | null>) =>
+    setParams((cur) => applyFilters(cur, updates), { replace: true });
+  const clearStatusFilter = () => updateUrl({ status: null });
+  const openDetail = (id: string) => updateUrl({ detail: id });
+  const closeDetail = () => updateUrl({ detail: null });
 
   const load = async () => {
     setLoading(true);
