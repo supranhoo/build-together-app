@@ -41,14 +41,13 @@ import { useWorkspace } from "@/hooks/use-workspace";
 
 type DeepLinkTarget = { to: string; label: string };
 type TabSpec =
-  | { id: string; label: string; icon: React.ComponentType<{ className?: string }>; kind: "scaffold"; description: string; phase: "C" | "D" }
   | { id: string; label: string; icon: React.ComponentType<{ className?: string }>; kind: "deeplink"; description: string; target: DeepLinkTarget }
   | { id: string; label: string; icon: React.ComponentType<{ className?: string }>; kind: "live"; description: string; render: () => JSX.Element };
 
 const TABS: TabSpec[] = [
-  { id: "dashboard", label: "Dashboard & KPIs", icon: LayoutDashboard, kind: "scaffold",
+  { id: "dashboard", label: "Dashboard & KPIs", icon: LayoutDashboard, kind: "live",
     description: "KPIs across samples, bunker tests, finished goods, dispatch and complaints.",
-    phase: "D" },
+    render: () => <QCDashboardTab /> },
   { id: "raw_material", label: "Raw Material QC", icon: FlaskConical, kind: "deeplink",
     description: "Incoming material quality (Mn %, Fe %, moisture %) is captured on each GRN. Single source of truth.",
     target: { to: "/portal/inventory/grn", label: "Open GRN with quality fields" } },
@@ -67,12 +66,12 @@ const TABS: TabSpec[] = [
   { id: "dispatch", label: "Dispatch Clearance", icon: Truck, kind: "live",
     description: "Release gate before shipment. Requires a passed FG inspection.",
     render: () => <DispatchClearanceTab /> },
-  { id: "complaints", label: "Customer Complaints", icon: AlertCircle, kind: "scaffold",
+  { id: "complaints", label: "Customer Complaints", icon: AlertCircle, kind: "live",
     description: "8D-style complaint workflow: open → investigating → corrective action → closed.",
-    phase: "D" },
-  { id: "compliance", label: "Compliance & Lab", icon: FileCheck, kind: "scaffold",
+    render: () => <ComplaintsTab /> },
+  { id: "compliance", label: "Compliance & Lab", icon: FileCheck, kind: "live",
     description: "Lab certificates and instrument calibrations with expiry tracking.",
-    phase: "D" },
+    render: () => <ComplianceTab /> },
 ];
 
 export default function AdminQuality() {
