@@ -32,6 +32,12 @@ import {
   type SpecRow,
 } from "@/lib/master-item-specs";
 import { SpecsEditor } from "@/components/master-data/SpecsEditor";
+import {
+  applyTemplateToRows,
+  fetchSpecTemplates,
+  findTemplateForNature,
+  type SpecTemplate,
+} from "@/lib/spec-templates";
 
 const UOMS = ["kg", "MT", "litre", "piece", "ton"];
 
