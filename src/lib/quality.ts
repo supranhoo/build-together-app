@@ -817,3 +817,452 @@ export async function transitionDispatch(input: TransitionDispatchInput): Promis
   if (error) throw error;
   return toDispatch(data);
 }
+
+// =====================================================================
+// Phase D — Customer Complaints (8D-style lifecycle)
+// =====================================================================
+//
+// Lifecycle (single source of truth — POLICY.md §Quality / Complaints):
+//   open → investigating → corrective_action → closed
+// Backwards transitions are forbidden; closing requires a root_cause AND
+// a corrective_action (≥3 chars each) so the audit log is meaningful.
+
+export type ComplaintStatus = "open" | "investigating" | "corrective_action" | "closed";
+
+export interface QualityComplaint {
+  id: string;
+  profitCenterId: string;
+  complaintNo: string;
+  customer: string | null;
+  product: string | null;
+  batchNo: string | null;
+  reportedAt: string;
+  description: string;
+  status: ComplaintStatus;
+  rootCause: string | null;
+  correctiveAction: string | null;
+  closedAt: string | null;
+  closedBy: string | null;
+  createdBy: string;
+  createdAt: string;
+  updatedAt: string;
+}
+
+const COMPLAINT_TRANSITIONS: Record<ComplaintStatus, ComplaintStatus[]> = {
+  open:              ["investigating"],
+  investigating:     ["corrective_action"],
+  corrective_action: ["closed"],
+  closed:            [], // terminal
+};
+
+export function canTransitionComplaint(from: ComplaintStatus, to: ComplaintStatus): boolean {
+  return COMPLAINT_TRANSITIONS[from]?.includes(to) ?? false;
+}
+
+export function nextComplaintStatuses(from: ComplaintStatus): ComplaintStatus[] {
+  return [...(COMPLAINT_TRANSITIONS[from] ?? [])];
+}
+
+export interface ComplaintGateInput {
+  current: ComplaintStatus;
+  next: ComplaintStatus;
+  rootCause?: string | null;
+  correctiveAction?: string | null;
+}
+
+/**
+ * Pure guard for complaint transitions.
+ *  - The transition must be in the allowed table.
+ *  - Closing REQUIRES root_cause and corrective_action (≥3 chars each).
+ */
+export function checkComplaintGate(input: ComplaintGateInput): { ok: boolean; reason?: string } {
+  if (!canTransitionComplaint(input.current, input.next)) {
+    return { ok: false, reason: `Illegal transition: ${input.current} → ${input.next}` };
+  }
+  if (input.next === "closed") {
+    const rc = (input.rootCause ?? "").trim();
+    const ca = (input.correctiveAction ?? "").trim();
+    if (rc.length < 3 || ca.length < 3) {
+      return { ok: false, reason: "Closing requires root cause and corrective action (≥3 chars each)." };
+    }
+  }
+  return { ok: true };
+}
+
+function toComplaint(row: any): QualityComplaint {
+  return {
+    id: row.id,
+    profitCenterId: row.profit_center_id,
+    complaintNo: row.complaint_no,
+    customer: row.customer ?? null,
+    product: row.product ?? null,
+    batchNo: row.batch_no ?? null,
+    reportedAt: row.reported_at,
+    description: row.description,
+    status: row.status,
+    rootCause: row.root_cause ?? null,
+    correctiveAction: row.corrective_action ?? null,
+    closedAt: row.closed_at ?? null,
+    closedBy: row.closed_by ?? null,
+    createdBy: row.created_by,
+    createdAt: row.created_at,
+    updatedAt: row.updated_at,
+  };
+}
+
+export async function fetchComplaints(profitCenterId: string): Promise<QualityComplaint[]> {
+  const { data, error } = await client.from("quality_complaints")
+    .select("*")
+    .eq("profit_center_id", profitCenterId)
+    .order("reported_at", { ascending: false })
+    .limit(500);
+  if (error) throw error;
+  return (data ?? []).map(toComplaint);
+}
+
+export interface CreateComplaintInput {
+  profitCenterId: string;
+  createdBy: string;
+  complaintNo: string;
+  description: string;
+  customer?: string | null;
+  product?: string | null;
+  batchNo?: string | null;
+}
+
+export async function createComplaint(input: CreateComplaintInput): Promise<QualityComplaint> {
+  if (!input.description || input.description.trim().length < 3) {
+    throw new Error("Complaint description is required (≥3 chars).");
+  }
+  const { data, error } = await client.from("quality_complaints")
+    .insert({
+      profit_center_id: input.profitCenterId,
+      created_by: input.createdBy,
+      complaint_no: input.complaintNo,
+      description: input.description,
+      customer: input.customer ?? null,
+      product: input.product ?? null,
+      batch_no: input.batchNo ?? null,
+      status: "open",
+    })
+    .select("*")
+    .single();
+  if (error) throw error;
+  return toComplaint(data);
+}
+
+export interface TransitionComplaintInput {
+  id: string;
+  current: ComplaintStatus;
+  next: ComplaintStatus;
+  closedBy?: string | null;
+  rootCause?: string | null;
+  correctiveAction?: string | null;
+}
+
+export async function transitionComplaint(input: TransitionComplaintInput): Promise<QualityComplaint> {
+  const gate = checkComplaintGate({
+    current: input.current,
+    next: input.next,
+    rootCause: input.rootCause,
+    correctiveAction: input.correctiveAction,
+  });
+  if (!gate.ok) throw new Error(gate.reason ?? "Complaint transition refused.");
+
+  const patch: Record<string, unknown> = { status: input.next };
+  if (input.rootCause !== undefined) patch.root_cause = input.rootCause;
+  if (input.correctiveAction !== undefined) patch.corrective_action = input.correctiveAction;
+  if (input.next === "closed") {
+    patch.closed_at = new Date().toISOString();
+    patch.closed_by = input.closedBy ?? null;
+  }
+
+  const { data, error } = await client.from("quality_complaints")
+    .update(patch)
+    .eq("id", input.id)
+    .select("*")
+    .single();
+  if (error) throw error;
+  return toComplaint(data);
+}
+
+// =====================================================================
+// Phase D — Compliance & Lab records
+// =====================================================================
+//
+// Generic registry for lab certificates, instrument calibrations, and
+// regulatory documents. `record_type` is free-text (admin-driven so we
+// don't hardcode a closed list). Expiry is the operational signal —
+// see `summarizeComplianceExpiry` for the dashboard buckets.
+
+export type ComplianceBucket = "expired" | "due_soon" | "ok" | "no_expiry";
+
+export interface ComplianceRecord {
+  id: string;
+  profitCenterId: string;
+  recordType: string;
+  referenceNo: string;
+  description: string | null;
+  responsibleUserId: string | null;
+  issuedAt: string | null;
+  expiresAt: string | null;
+  isActive: boolean;
+  attachments: unknown[];
+  notes: string | null;
+  createdBy: string;
+  createdAt: string;
+  updatedAt: string;
+}
+
+/** Days from "now" considered "due soon" — single source of truth. */
+export const COMPLIANCE_DUE_SOON_DAYS = 30;
+
+/**
+ * Pure bucketing for a compliance row's expiry. `now` is injectable for
+ * deterministic tests.
+ */
+export function bucketComplianceExpiry(
+  expiresAt: string | null,
+  now: Date = new Date(),
+  dueSoonDays: number = COMPLIANCE_DUE_SOON_DAYS,
+): ComplianceBucket {
+  if (!expiresAt) return "no_expiry";
+  const exp = new Date(expiresAt).getTime();
+  if (Number.isNaN(exp)) return "no_expiry";
+  const nowMs = now.getTime();
+  if (exp < nowMs) return "expired";
+  const dueSoonMs = nowMs + dueSoonDays * 24 * 60 * 60 * 1000;
+  if (exp <= dueSoonMs) return "due_soon";
+  return "ok";
+}
+
+function toComplianceRecord(row: any): ComplianceRecord {
+  return {
+    id: row.id,
+    profitCenterId: row.profit_center_id,
+    recordType: row.record_type,
+    referenceNo: row.reference_no,
+    description: row.description ?? null,
+    responsibleUserId: row.responsible_user_id ?? null,
+    issuedAt: row.issued_at ?? null,
+    expiresAt: row.expires_at ?? null,
+    isActive: row.is_active ?? true,
+    attachments: Array.isArray(row.attachments) ? row.attachments : [],
+    notes: row.notes ?? null,
+    createdBy: row.created_by,
+    createdAt: row.created_at,
+    updatedAt: row.updated_at,
+  };
+}
+
+export async function fetchComplianceRecords(profitCenterId: string): Promise<ComplianceRecord[]> {
+  const { data, error } = await client.from("compliance_records")
+    .select("*")
+    .eq("profit_center_id", profitCenterId)
+    .order("expires_at", { ascending: true, nullsFirst: false })
+    .limit(500);
+  if (error) throw error;
+  return (data ?? []).map(toComplianceRecord);
+}
+
+export interface CreateComplianceInput {
+  profitCenterId: string;
+  createdBy: string;
+  recordType: string;
+  referenceNo: string;
+  description?: string | null;
+  issuedAt?: string | null;
+  expiresAt?: string | null;
+  notes?: string | null;
+}
+
+export async function createComplianceRecord(input: CreateComplianceInput): Promise<ComplianceRecord> {
+  if (!input.recordType.trim() || !input.referenceNo.trim()) {
+    throw new Error("Record type and reference number are required.");
+  }
+  const { data, error } = await client.from("compliance_records")
+    .insert({
+      profit_center_id: input.profitCenterId,
+      created_by: input.createdBy,
+      record_type: input.recordType.trim(),
+      reference_no: input.referenceNo.trim(),
+      description: input.description ?? null,
+      issued_at: input.issuedAt ?? null,
+      expires_at: input.expiresAt ?? null,
+      notes: input.notes ?? null,
+    })
+    .select("*")
+    .single();
+  if (error) throw error;
+  return toComplianceRecord(data);
+}
+
+export interface UpdateComplianceInput {
+  id: string;
+  expiresAt?: string | null;
+  notes?: string | null;
+  isActive?: boolean;
+}
+
+export async function updateComplianceRecord(input: UpdateComplianceInput): Promise<ComplianceRecord> {
+  const patch: Record<string, unknown> = {};
+  if (input.expiresAt !== undefined) patch.expires_at = input.expiresAt;
+  if (input.notes !== undefined) patch.notes = input.notes;
+  if (input.isActive !== undefined) patch.is_active = input.isActive;
+  if (Object.keys(patch).length === 0) {
+    throw new Error("Nothing to update.");
+  }
+  const { data, error } = await client.from("compliance_records")
+    .update(patch)
+    .eq("id", input.id)
+    .select("*")
+    .single();
+  if (error) throw error;
+  return toComplianceRecord(data);
+}
+
+// =====================================================================
+// Phase D — Quality KPI aggregator (pure)
+// =====================================================================
+//
+// `buildQualityKpis` is the SSOT for the dashboard tab: it consumes
+// already-fetched arrays (no I/O) so it is fully unit-testable and
+// callable from anywhere — server-side reports, CSV exports, etc.
+
+export interface QualityKpis {
+  samples: {
+    total: number;
+    byStatus: Record<SampleStatus, number>;
+    openCount: number; // planned + collected + tested
+  };
+  bunkerTests: {
+    total: number;
+    pass: number;
+    conditional: number;
+    fail: number;
+    failRatePct: number; // (fail + conditional) / total * 100, 0 if no tests
+  };
+  fgInspections: {
+    total: number;
+    pending: number;
+    pass: number;
+    conditional: number;
+    fail: number;
+  };
+  dispatch: {
+    total: number;
+    pending: number;
+    cleared: number;
+    held: number;
+    rejected: number;
+  };
+  complaints: {
+    total: number;
+    open: number;
+    investigating: number;
+    correctiveAction: number;
+    closed: number;
+    activeCount: number; // anything not closed
+  };
+  compliance: {
+    total: number;
+    expired: number;
+    dueSoon: number;
+    ok: number;
+    noExpiry: number;
+  };
+}
+
+export interface BuildQualityKpisInput {
+  samples: QualitySample[];
+  bunkerTests: BunkerFeedTest[];
+  fgInspections: FgInspection[];
+  dispatch: DispatchClearance[];
+  complaints: QualityComplaint[];
+  compliance: ComplianceRecord[];
+  /** For deterministic tests on compliance buckets. */
+  now?: Date;
+}
+
+export function buildQualityKpis(input: BuildQualityKpisInput): QualityKpis {
+  const now = input.now ?? new Date();
+
+  const sampleByStatus: Record<SampleStatus, number> = {
+    planned: 0, collected: 0, tested: 0, released: 0, rejected: 0,
+  };
+  for (const s of input.samples) sampleByStatus[s.status]++;
+
+  let bPass = 0, bCond = 0, bFail = 0;
+  for (const b of input.bunkerTests) {
+    if (b.result === "pass") bPass++;
+    else if (b.result === "conditional") bCond++;
+    else if (b.result === "fail") bFail++;
+  }
+  const bTotal = input.bunkerTests.length;
+  const failRatePct = bTotal === 0 ? 0 : ((bFail + bCond) / bTotal) * 100;
+
+  let fgPending = 0, fgPass = 0, fgCond = 0, fgFail = 0;
+  for (const f of input.fgInspections) {
+    if (f.result === "pending") fgPending++;
+    else if (f.result === "pass") fgPass++;
+    else if (f.result === "conditional") fgCond++;
+    else if (f.result === "fail") fgFail++;
+  }
+
+  let dPending = 0, dCleared = 0, dHeld = 0, dRejected = 0;
+  for (const d of input.dispatch) {
+    if (d.status === "pending") dPending++;
+    else if (d.status === "cleared") dCleared++;
+    else if (d.status === "held") dHeld++;
+    else if (d.status === "rejected") dRejected++;
+  }
+
+  let cOpen = 0, cInv = 0, cCa = 0, cClosed = 0;
+  for (const c of input.complaints) {
+    if (c.status === "open") cOpen++;
+    else if (c.status === "investigating") cInv++;
+    else if (c.status === "corrective_action") cCa++;
+    else if (c.status === "closed") cClosed++;
+  }
+
+  let coExpired = 0, coDue = 0, coOk = 0, coNone = 0;
+  for (const r of input.compliance) {
+    const bucket = bucketComplianceExpiry(r.expiresAt, now);
+    if (bucket === "expired") coExpired++;
+    else if (bucket === "due_soon") coDue++;
+    else if (bucket === "ok") coOk++;
+    else coNone++;
+  }
+
+  return {
+    samples: {
+      total: input.samples.length,
+      byStatus: sampleByStatus,
+      openCount: sampleByStatus.planned + sampleByStatus.collected + sampleByStatus.tested,
+    },
+    bunkerTests: {
+      total: bTotal,
+      pass: bPass,
+      conditional: bCond,
+      fail: bFail,
+      failRatePct: Math.round(failRatePct * 10) / 10,
+    },
+    fgInspections: {
+      total: input.fgInspections.length,
+      pending: fgPending, pass: fgPass, conditional: fgCond, fail: fgFail,
+    },
+    dispatch: {
+      total: input.dispatch.length,
+      pending: dPending, cleared: dCleared, held: dHeld, rejected: dRejected,
+    },
+    complaints: {
+      total: input.complaints.length,
+      open: cOpen, investigating: cInv, correctiveAction: cCa, closed: cClosed,
+      activeCount: cOpen + cInv + cCa,
+    },
+    compliance: {
+      total: input.compliance.length,
+      expired: coExpired, dueSoon: coDue, ok: coOk, noExpiry: coNone,
+    },
+  };
+}

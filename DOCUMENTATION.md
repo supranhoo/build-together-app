@@ -517,3 +517,28 @@ Dispatch release gate (single source of truth: `checkDispatchGate` in `src/lib/q
   3. `fail` and `pending` results refuse clearance unconditionally.
 - Transitions to `held` or `rejected` require a non-empty reason (≥3 chars) for the audit trail.
 - Product/grade master integration for FG specs is deferred — current UI lets the operator enter spec bounds inline; the verdict is computed from those bounds.
+
+ - 2026-04-26 (Quality Control Phase D): **Customer Complaints (8D)**, **Compliance & Lab**, and **Quality Dashboard** tabs are now functional — the Quality module is fully live. Service layer additions in `src/lib/quality.ts`:
+   - Complaints: `canTransitionComplaint` / `nextComplaintStatuses` / `checkComplaintGate` / `createComplaint` / `transitionComplaint` enforce the 8D lifecycle `open → investigating → corrective_action → closed`. Closing requires both `root_cause` and `corrective_action` (≥3 chars each).
+   - Compliance: `bucketComplianceExpiry` (pure, injectable `now`) classifies expiry into `expired | due_soon | ok | no_expiry`. Threshold `COMPLIANCE_DUE_SOON_DAYS = 30`. `createComplianceRecord` / `updateComplianceRecord` / `fetchComplianceRecords` are thin DB wrappers.
+   - KPI aggregator: `buildQualityKpis` is the **single source of truth** consumed by `QCDashboardTab.tsx`. It takes already-fetched arrays (no I/O) and returns counts + the bunker `failRatePct = (fail+conditional)/total*100`. The dashboard never recomputes — it only renders.
+   Components: `src/components/quality/ComplaintsTab.tsx`, `src/components/quality/ComplianceTab.tsx`, `src/components/quality/QCDashboardTab.tsx`. Tests: `src/test/quality-phase-d.test.ts` (14 cases). 275/275 tests passing.
+
+### Quality Phase D — complaint, compliance & dashboard rules
+
+Complaint lifecycle (single source of truth in `src/lib/quality.ts`):
+- Strict forward-only chain `open → investigating → corrective_action → closed`. No skipping; no reopening (a re-occurrence opens a new complaint).
+- `closed` is terminal. Closing requires both `root_cause` and `corrective_action` (≥3 chars each); the gate refuses otherwise.
+
+Compliance expiry buckets (single source of truth: `bucketComplianceExpiry`):
+- `expired`   — `expires_at < now`
+- `due_soon`  — `now ≤ expires_at ≤ now + 30 d`
+- `ok`        — `expires_at > now + 30 d`
+- `no_expiry` — `expires_at IS NULL` or unparseable
+The 30-day threshold is exported as `COMPLIANCE_DUE_SOON_DAYS` so any change is one-line and tested.
+
+Quality dashboard (single source of truth: `buildQualityKpis`):
+- The dashboard is read-only and aggregates the six fetched arrays (samples, bunker tests, FG inspections, dispatch, complaints, compliance) without re-querying.
+- `samples.openCount = planned + collected + tested`.
+- `complaints.activeCount = open + investigating + corrective_action`.
+- Numbers shown on the dashboard MUST equal the counts on the underlying tabs — the function is the single math owner.

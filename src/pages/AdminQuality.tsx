@@ -1,11 +1,11 @@
 /**
- * Quality Control (Phases A + B).
+ * Quality Control (Phases A → D — full).
  *
  * 9-tab control panel for the Ferro Alloys Division.
  *  - 2 tabs deep-link to SSOT pages (Raw Material QC → GRN, Furnace Quality → Production Quality).
- *  - Sampling Management and Bunker Feed QC are functional (Phase B).
- *  - Dashboard, Finished Goods, Dispatch, Complaints, Compliance remain
- *    scaffolds and activate in Phases C/D per .lovable/plan.md.
+ *  - 7 tabs are functional: Dashboard, Sampling, Bunker Feed QC,
+ *    Finished Goods, Dispatch Clearance, Customer Complaints,
+ *    Compliance & Lab.
  *
  * Hard rules:
  *  - Semantic tokens only.
@@ -16,6 +16,9 @@ import { SamplingTab } from "@/components/quality/SamplingTab";
 import { BunkerFeedQCTab } from "@/components/quality/BunkerFeedQCTab";
 import { FinishedGoodsTab } from "@/components/quality/FinishedGoodsTab";
 import { DispatchClearanceTab } from "@/components/quality/DispatchClearanceTab";
+import { ComplaintsTab } from "@/components/quality/ComplaintsTab";
+import { ComplianceTab } from "@/components/quality/ComplianceTab";
+import { QCDashboardTab } from "@/components/quality/QCDashboardTab";
 import { useNavigate } from "react-router-dom";
 import {
   AlertCircle,
@@ -38,14 +41,13 @@ import { useWorkspace } from "@/hooks/use-workspace";
 
 type DeepLinkTarget = { to: string; label: string };
 type TabSpec =
-  | { id: string; label: string; icon: React.ComponentType<{ className?: string }>; kind: "scaffold"; description: string; phase: "C" | "D" }
   | { id: string; label: string; icon: React.ComponentType<{ className?: string }>; kind: "deeplink"; description: string; target: DeepLinkTarget }
   | { id: string; label: string; icon: React.ComponentType<{ className?: string }>; kind: "live"; description: string; render: () => JSX.Element };
 
 const TABS: TabSpec[] = [
-  { id: "dashboard", label: "Dashboard & KPIs", icon: LayoutDashboard, kind: "scaffold",
+  { id: "dashboard", label: "Dashboard & KPIs", icon: LayoutDashboard, kind: "live",
     description: "KPIs across samples, bunker tests, finished goods, dispatch and complaints.",
-    phase: "D" },
+    render: () => <QCDashboardTab /> },
   { id: "raw_material", label: "Raw Material QC", icon: FlaskConical, kind: "deeplink",
     description: "Incoming material quality (Mn %, Fe %, moisture %) is captured on each GRN. Single source of truth.",
     target: { to: "/portal/inventory/grn", label: "Open GRN with quality fields" } },
@@ -64,12 +66,12 @@ const TABS: TabSpec[] = [
   { id: "dispatch", label: "Dispatch Clearance", icon: Truck, kind: "live",
     description: "Release gate before shipment. Requires a passed FG inspection.",
     render: () => <DispatchClearanceTab /> },
-  { id: "complaints", label: "Customer Complaints", icon: AlertCircle, kind: "scaffold",
+  { id: "complaints", label: "Customer Complaints", icon: AlertCircle, kind: "live",
     description: "8D-style complaint workflow: open → investigating → corrective action → closed.",
-    phase: "D" },
-  { id: "compliance", label: "Compliance & Lab", icon: FileCheck, kind: "scaffold",
+    render: () => <ComplaintsTab /> },
+  { id: "compliance", label: "Compliance & Lab", icon: FileCheck, kind: "live",
     description: "Lab certificates and instrument calibrations with expiry tracking.",
-    phase: "D" },
+    render: () => <ComplianceTab /> },
 ];
 
 export default function AdminQuality() {
@@ -88,7 +90,7 @@ export default function AdminQuality() {
           </p>
         </div>
         <Badge variant="outline" className="border-primary/40 bg-primary/10">
-          Phase C live · Sampling, Bunker QC, FG Inspection, Dispatch Clearance
+          Quality Module fully live · Phases A → D
         </Badge>
       </div>
 
@@ -116,30 +118,18 @@ export default function AdminQuality() {
                     </CardTitle>
                     <CardDescription>{t.description}</CardDescription>
                   </div>
-                  {t.kind === "deeplink" && (
-                    <Button onClick={() => navigate(t.target.to)} variant="outline" className="gap-2">
-                      <ExternalLink className="h-4 w-4" /> {t.target.label}
-                    </Button>
-                  )}
-                  {t.kind === "scaffold" && (
-                    <Badge variant="secondary">Activates in Phase {t.phase}</Badge>
-                  )}
+                  <Button onClick={() => navigate(t.target.to)} variant="outline" className="gap-2">
+                    <ExternalLink className="h-4 w-4" /> {t.target.label}
+                  </Button>
                 </CardHeader>
                 <CardContent>
-                  {t.kind === "deeplink" ? (
-                    <div className="rounded-md border border-dashed border-border bg-muted/30 p-6 text-sm text-muted-foreground">
+                  <div className="rounded-md border border-dashed border-border bg-muted/30 p-6 text-sm text-muted-foreground flex items-start gap-2">
+                    <CheckCircle className="h-4 w-4 text-primary mt-0.5" />
+                    <span>
                       This screen lives in another module to keep a single source of truth.
                       The button above opens the existing page; data shown there is shared with Quality.
-                    </div>
-                  ) : (
-                    <div className="rounded-md border border-dashed border-border bg-muted/30 p-6 text-sm text-muted-foreground space-y-2">
-                      <p>Schema, RLS, audit triggers and permission grants for this tab are live in the database.</p>
-                      <p className="flex items-center gap-2 text-xs">
-                        <CheckCircle className="h-3.5 w-3.5 text-primary" />
-                        The interactive UI is delivered in Phase {t.phase}.
-                      </p>
-                    </div>
-                  )}
+                    </span>
+                  </div>
                 </CardContent>
               </Card>
             )}
