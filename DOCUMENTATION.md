@@ -558,3 +558,21 @@ Quality dashboard (single source of truth: `buildQualityKpis`):
 - **UI shells.** Both `AdminFinance` (`/admin/finance`) and `PortalFinance` (`/portal/finance`, also mounted under PortalShell so the plant sidebar stays visible) expose a 9-tab map. Phase A activates one working tab each (legacy `AdminCostRates` and legacy `PortalCosting` respectively); the other 8 render a phase-badged placeholder card and intentionally **never** display fake data.
 - **Tests.** `src/test/finance-phase-a.test.ts` covers active/inactive filtering, grade isolation and date-window bounds for both helpers (5 tests, all green). Existing 12-test `costing.test.ts` suite remains untouched and passing.
 - **Backward compatibility.** `src/lib/costing.ts` is **not modified** in Phase A. PortalCosting page is reused inside the new shell; the standalone `/portal/costing` route still works.
+
+## Phase 26 — Finance & Costing Module (Phase B: Standard Cost & Variance)
+
+- **Standard BOM editor** (`src/pages/AdminStandardBom.tsx`, mounted as the live `standard_bom` tab in `AdminFinance`). Append-only CRUD over `standard_cost_bom`. Form captures `(grade, product?, material, std_qty_per_mt, std_rate?, uom, effective_from, effective_to?, notes?)`. Soft-deactivation via `is_active = false` keeps history reproducible for past snapshots. Every create / deactivate writes `audit_logs` with `entity_type = 'standard_cost_bom'`.
+- **Variance engine** (extends `src/lib/finance.ts`, all pure):
+  - `buildVarianceRows({ productionMt, grade, onDate, actualByMaterial, bom, rateByMaterial }) → MaterialVarianceRow[]` — per-material decomposition. Uses managerial-accounting identity:
+    - `priceVariance = (actualRate − stdRate) × actualQty`
+    - `usageVariance = (actualQty − stdQty)   × stdRate`
+    - `totalVariance = actualCost − idealCost = priceVariance + usageVariance`
+  - Includes materials present in EITHER the BOM OR actual consumption (so unplanned consumption surfaces). Missing `stdRate` ⇒ both variances drop to 0 but `actualCost` still surfaces. Missing `actualRate` ⇒ `actualCost = 0` (cannot infer). Production = 0 ⇒ `idealQty = 0`, full actual cost shows as overspend.
+  - `sumVariance(rows)` — period totals.
+  - `byproductCreditTotal(credits, tonnageByType, onDate)` — date-aware credit ₹ across slag/dust/fines.
+  - `netCostPerMt({ grossCost, byproductCredit, productionMt })` — net-of-credit cost per MT, returns null when production ≤ 0.
+- **Mutations**: `createBomEntry`, `deactivateBomEntry` (typed wrappers, RLS-scoped).
+- **Variance Analysis page** (`src/pages/PortalFinanceVariance.tsx`, mounted as the live `variance` tab in `PortalFinance`): date-range + grade selector, summary KPIs (production / ideal / actual / total var with price+usage breakdown), full per-material matrix (sorted by `|totalVariance|` descending so worst offenders surface first), Excel export with Summary + ByMaterial sheets. Heats are filtered to selected `grade` via `heat_metallurgy.grade`; ungraded heats are excluded (still visible in the legacy Cost Sheet tab).
+- **Phase badge** updated: AdminFinance shows *Phase B · standard cost live*; PortalFinance shows *Phase B · variance analysis live*.
+- **Tests**: `src/test/finance-phase-b.test.ts` (10 cases) covers identity preservation `priceVar + usageVar = totalVar`, grade isolation, missing rate / null stdRate, zero production, unplanned consumption, sum aggregation, by-product credit math (incl. zero-tonnage / missing rate guards), and net cost per MT (incl. division-by-zero). Full suite **290/290 passing**, typecheck clean. Phase A tests untouched.
+- **Tabs still pending** (Phases C/D): power tariff, selling prices, period close & snapshots, profitability, alerts, FX, dashboard, reports — all rendering phase-badged placeholders.

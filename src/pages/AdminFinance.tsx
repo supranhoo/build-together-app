@@ -27,6 +27,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Badge } from "@/components/ui/badge";
 import { useWorkspace } from "@/hooks/use-workspace";
 import AdminCostRates from "@/pages/AdminCostRates";
+import AdminStandardBom from "@/pages/AdminStandardBom";
 
 type TabSpec = {
   id: string;
@@ -51,6 +52,7 @@ const TABS: TabSpec[] = [
     label: "Standard BOM",
     icon: Layers,
     description: "Standard recipe per grade — std qty per MT and std rate per material. Drives IDEAL cost.",
+    live: true,
     phase: "B",
   },
   {
@@ -135,7 +137,7 @@ export default function AdminFinance() {
           <div className="flex flex-wrap items-center gap-2">
             <CardTitle>Finance & Costing — {activeProfitCenter.name}</CardTitle>
             <Badge variant="secondary" className="text-[10px] uppercase tracking-wider">
-              Phase A · foundation live
+              Phase B · standard cost live
             </Badge>
           </div>
           <CardDescription>{activeTab.description}</CardDescription>
@@ -159,32 +161,35 @@ export default function AdminFinance() {
               })}
             </TabsList>
 
-            {TABS.map((t) => (
-              <TabsContent key={t.id} value={t.id} className="mt-6">
-                {t.live ? (
-                  <AdminCostRates />
-                ) : (
-                  <Card className="border-dashed">
-                    <CardHeader className="flex flex-row items-start gap-3">
-                      <Sparkles className="mt-1 h-5 w-5 text-primary" aria-hidden />
-                      <div>
-                        <CardTitle className="flex items-center gap-2">
-                          {t.label}
-                          <Badge variant={phaseBadgeVariant[t.phase]} className="text-[10px] uppercase">
-                            Phase {t.phase}
-                          </Badge>
-                        </CardTitle>
-                        <CardDescription className="mt-1">{t.description}</CardDescription>
-                      </div>
-                    </CardHeader>
-                    <CardContent className="text-sm text-muted-foreground">
-                      Configuration surface is registered. The schema table backing this tab
-                      is already deployed (Phase A). Editor UI lands in Phase {t.phase}.
-                    </CardContent>
-                  </Card>
-                )}
-              </TabsContent>
-            ))}
+            {TABS.map((t) => {
+              let liveBody: React.ReactNode = null;
+              if (t.id === "rate_pool") liveBody = <AdminCostRates />;
+              else if (t.id === "standard_bom") liveBody = <AdminStandardBom />;
+              return (
+                <TabsContent key={t.id} value={t.id} className="mt-6">
+                  {t.live && liveBody ? liveBody : (
+                    <Card className="border-dashed">
+                      <CardHeader className="flex flex-row items-start gap-3">
+                        <Sparkles className="mt-1 h-5 w-5 text-primary" aria-hidden />
+                        <div>
+                          <CardTitle className="flex items-center gap-2">
+                            {t.label}
+                            <Badge variant={phaseBadgeVariant[t.phase]} className="text-[10px] uppercase">
+                              Phase {t.phase}
+                            </Badge>
+                          </CardTitle>
+                          <CardDescription className="mt-1">{t.description}</CardDescription>
+                        </div>
+                      </CardHeader>
+                      <CardContent className="text-sm text-muted-foreground">
+                        Configuration surface is registered. The schema table backing this tab
+                        is already deployed (Phase A). Editor UI lands in Phase {t.phase}.
+                      </CardContent>
+                    </Card>
+                  )}
+                </TabsContent>
+              );
+            })}
           </Tabs>
         </CardContent>
       </Card>

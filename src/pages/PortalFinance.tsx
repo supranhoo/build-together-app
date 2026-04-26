@@ -32,6 +32,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Badge } from "@/components/ui/badge";
 import { useWorkspace } from "@/hooks/use-workspace";
 import PortalCosting from "@/pages/PortalCosting";
+import PortalFinanceVariance from "@/pages/PortalFinanceVariance";
 
 type TabSpec = {
   id: string;
@@ -66,6 +67,7 @@ const TABS: TabSpec[] = [
     label: "Variance Analysis",
     icon: TrendingUp,
     description: "IDEAL vs ACTUAL vs VAR per furnace, decomposed into price and usage variance.",
+    live: true,
     phase: "B",
   },
   {
@@ -144,7 +146,7 @@ export default function PortalFinance() {
           <div className="flex flex-wrap items-center gap-2">
             <CardTitle>Finance & Costing — {activeProfitCenter.name}</CardTitle>
             <Badge variant="secondary" className="text-[10px] uppercase tracking-wider">
-              Phase A · foundation live
+              Phase B · variance analysis live
             </Badge>
           </div>
           <CardDescription>{activeTab.description}</CardDescription>
@@ -168,33 +170,36 @@ export default function PortalFinance() {
               })}
             </TabsList>
 
-            {TABS.map((t) => (
-              <TabsContent key={t.id} value={t.id} className="mt-6">
-                {t.live ? (
-                  <PortalCosting />
-                ) : (
-                  <Card className="border-dashed">
-                    <CardHeader className="flex flex-row items-start gap-3">
-                      <Sparkles className="mt-1 h-5 w-5 text-primary" aria-hidden />
-                      <div>
-                        <CardTitle className="flex items-center gap-2">
-                          {t.label}
-                          <Badge variant={phaseBadgeVariant[t.phase]} className="text-[10px] uppercase">
-                            Phase {t.phase}
-                          </Badge>
-                        </CardTitle>
-                        <CardDescription className="mt-1">{t.description}</CardDescription>
-                      </div>
-                    </CardHeader>
-                    <CardContent className="text-sm text-muted-foreground">
-                      This tab is registered in the Finance & Costing module map and will
-                      activate in Phase {t.phase}. Until then it intentionally shows no data — the
-                      module never displays placeholder numbers.
-                    </CardContent>
-                  </Card>
-                )}
-              </TabsContent>
-            ))}
+            {TABS.map((t) => {
+              let liveBody: React.ReactNode = null;
+              if (t.id === "cost_sheet") liveBody = <PortalCosting />;
+              else if (t.id === "variance") liveBody = <PortalFinanceVariance />;
+              return (
+                <TabsContent key={t.id} value={t.id} className="mt-6">
+                  {t.live && liveBody ? liveBody : (
+                    <Card className="border-dashed">
+                      <CardHeader className="flex flex-row items-start gap-3">
+                        <Sparkles className="mt-1 h-5 w-5 text-primary" aria-hidden />
+                        <div>
+                          <CardTitle className="flex items-center gap-2">
+                            {t.label}
+                            <Badge variant={phaseBadgeVariant[t.phase]} className="text-[10px] uppercase">
+                              Phase {t.phase}
+                            </Badge>
+                          </CardTitle>
+                          <CardDescription className="mt-1">{t.description}</CardDescription>
+                        </div>
+                      </CardHeader>
+                      <CardContent className="text-sm text-muted-foreground">
+                        This tab is registered in the Finance & Costing module map and will
+                        activate in Phase {t.phase}. Until then it intentionally shows no data — the
+                        module never displays placeholder numbers.
+                      </CardContent>
+                    </Card>
+                  )}
+                </TabsContent>
+              );
+            })}
           </Tabs>
         </CardContent>
       </Card>
