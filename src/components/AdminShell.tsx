@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { Cog, FlaskConical, LayoutDashboard, LogOut, Menu, ShoppingCart } from "lucide-react";
+import { Calculator, Cog, FlaskConical, LayoutDashboard, LogOut, Menu, ShoppingCart } from "lucide-react";
 import { Outlet, useLocation } from "react-router-dom";
 import { BFCLLogo } from "@/components/BFCLLogo";
 import { NavLink } from "@/components/NavLink";
@@ -17,6 +17,7 @@ export const adminNavItems = [
   { label: "Admin Settings", to: "/admin/settings", icon: Cog },
   { label: "Procurement", to: "/admin/procurement", icon: ShoppingCart },
   { label: "Quality Control", to: "/admin/quality", icon: FlaskConical },
+  { label: "Finance & Costing", to: "/admin/finance", icon: Calculator },
 ];
 
 export function AdminShell() {

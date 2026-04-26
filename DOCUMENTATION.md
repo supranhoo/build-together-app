@@ -542,3 +542,19 @@ Quality dashboard (single source of truth: `buildQualityKpis`):
 - `samples.openCount = planned + collected + tested`.
 - `complaints.activeCount = open + investigating + corrective_action`.
 - Numbers shown on the dashboard MUST equal the counts on the underlying tabs — the function is the single math owner.
+
+## Phase 25 — Finance & Costing Module Foundation (Phase A)
+
+- **Module registration.** `app_modules` row `finance` (label *Finance & Costing*, route segment `finance`, sort 50, icon `Calculator`). Auto-enabled in `profit_center_modules` for every workspace already running Procurement, so the Ferro Alloys Division sidebar shows it without manual toggling.
+- **Schema (4 tables, all RLS-enabled).**
+  - `standard_cost_bom` — IDEAL recipe: `(grade, product, material_id, std_qty_per_mt, std_rate, uom, effective_from, effective_to, is_active)`. Workspace-managers can manage; everyone in the workspace can view.
+  - `cost_period_snapshots` — `(period_start, period_end, payload jsonb, locked_at, locked_by)`. **Immutable**: only INSERT and DELETE policies exist; no UPDATE policy. Once a month is locked the numbers cannot be tampered with even if a back-dated rate is posted later.
+  - `cost_alert_rules` — `(rule_name, kpi_key, comparator, threshold, severity)`. CHECK constraints on comparator (`gt|gte|lt|lte|eq|ne`) and severity (`info|warning|critical`).
+  - `byproduct_credits` — `(byproduct_type, rate, uom, effective_from, effective_to)`. Free-text type per zero-hardcoding rule.
+- **Library (`src/lib/finance.ts`).** Pure helpers:
+  - `bomEffectiveOn(bom, grade, materialId, onDate)` — date-bounded BOM lookup that also filters out inactive rows.
+  - `byproductRateOn(credits, type, onDate)` — date-bounded credit rate lookup.
+  - Typed fetchers: `fetchStandardBom`, `fetchSnapshots`, `fetchAlertRules`, `fetchByproductCredits`.
+- **UI shells.** Both `AdminFinance` (`/admin/finance`) and `PortalFinance` (`/portal/finance`, also mounted under PortalShell so the plant sidebar stays visible) expose a 9-tab map. Phase A activates one working tab each (legacy `AdminCostRates` and legacy `PortalCosting` respectively); the other 8 render a phase-badged placeholder card and intentionally **never** display fake data.
+- **Tests.** `src/test/finance-phase-a.test.ts` covers active/inactive filtering, grade isolation and date-window bounds for both helpers (5 tests, all green). Existing 12-test `costing.test.ts` suite remains untouched and passing.
+- **Backward compatibility.** `src/lib/costing.ts` is **not modified** in Phase A. PortalCosting page is reused inside the new shell; the standalone `/portal/costing` route still works.

@@ -1,102 +1,134 @@
-# Quality Control Module — Plan (revised)
 
-Build a Quality Control surface modeled on the uploaded `QualityControlModule.tsx`, adapted to this project's patterns (shadcn `Tabs`, semantic tokens, `useWorkspace`, Supabase RLS, SSOT). Same delivery model as Procurement: phased build, every code change ships with tests, `DOCUMENTATION.md` and `POLICY.md` updates in the same response.
+# Finance & Costing Module — Plan
 
-## Change vs. previous plan
+**Status: Phase A ✅ complete · Phase B / C / D pending**
 
-- **Removed**: "CLU Quality" tab (CLU is not part of the Ferro Alloys Division process).
-- **Added**: **"Bunker Feed QC"** tab — pre-consumption test of ore and reductant items being fed from raw-material bunkers to the furnace. Purpose: every material actually consumed must have a test report verifying it meets scope/specification before it is charged.
+## Phase A — done (2026-04-26)
 
-## Scope (9 tabs)
+- 4 schema tables deployed with RLS: `standard_cost_bom`, `cost_period_snapshots` (immutable — no UPDATE policy), `cost_alert_rules`, `byproduct_credits`
+- `finance` module registered in `app_modules` and auto-enabled for every workspace that has Procurement (Ferro Alloys Division included)
+- 9-tab `AdminFinance` shell at `/admin/finance` (Rate & Cost Pool tab live, 8 placeholders with phase badges)
+- 9-tab `PortalFinance` shell at `/portal/finance` (Cost Sheet tab live, 8 placeholders with phase badges)
+- `src/lib/finance.ts` library — typed fetchers + `bomEffectiveOn` / `byproductRateOn` helpers
+- `src/test/finance-phase-a.test.ts` — 5 tests, all green
+- AdminShell sidebar updated (`Calculator` icon)
+- PortalShell `iconMap` extended (procurement, quality, finance icons added)
 
-1. **Dashboard & KPIs** — live aggregator
-2. **Raw Material QC** — deep-link to GRN (incoming Mn%/Fe%/moisture already on `grn_logs`) + classification vs. spec
-3. **Sampling Management** — sample plans, lot tracking, status workflow
-4. **Bunker Feed QC** *(replaces CLU)* — per-bunker test of ore + reductant before charging; gates `material_consumption` against an approved test
-5. **Furnace Quality** — deep-link to existing `PortalProductionQuality` (FG Mn%, slag MnO%, dust Mn% per heat — already live)
-6. **Finished Goods QC** — batch-level FG inspection, pass/fail, certificate of analysis
-7. **Dispatch Clearance** — release gate before shipment, requires FG pass
-8. **Customer Complaints** — NCR / 8D workflow
-9. **Compliance & Lab** — lab cert expiry, instrument calibration
+## Original gap analysis
 
-## Bunker Feed QC — design detail
+## What exists today (audit)
 
-**Why it exists**: Incoming GRN tests prove what a supplier delivered, but material sitting in bunkers can degrade (moisture pickup, segregation, contamination). Before any ore or reductant is fed to the furnace, a fresh bunker sample must be tested against the workspace material spec (target Mn%, FC%, moisture max, size range stored in `materials.specs` JSON).
+**Engine (`src/lib/costing.ts`)** — 4 pure functions:
+- `latestRateOn` — picks effective `cost_rates` row by date
+- `materialCost` — Σ(qty × rate)
+- `conversionCost` — power × rate + fixed × days (flat, single tariff)
+- `buildCostBreakdown` — total, cost/MT, cost/Mn, single variance vs target
 
-**New table — `bunker_feed_tests`** (workspace-scoped, RLS-gated, audit-logged)
-- `id`, `profit_center_id`, `material_id`, `stock_location_id` (= bunker), `tested_at`
-- `mn_pct`, `fc_pct`, `moisture_pct`, `size_range`, `extra_specs jsonb` (free-form for ash %, P %, S %, etc.)
-- `result` enum `bunker_test_result` (`pass` / `conditional` / `fail`)
-- `valid_until` (timestamp — beyond this, a fresh test is required)
-- `notes`, `created_by`, `created_at`
+**UI (`src/pages/PortalCosting.tsx`)** — single page, single tab:
+- Date + furnace filter
+- 8 KPI cards (actual cost only)
+- Heat-level table (heat #, tap time, weight, power)
+- Excel export (Summary + Heats sheets)
 
-**Spec source (zero-hardcoding §10)**: Targets and tolerances come from `materials.specs` and a new `profit_center_settings` key `quality.bunker_spec_tolerances` (e.g. moisture max +1%, Mn min −2%). No business numbers in code.
+**Admin** — `AdminCostRates.tsx` (rate master, append-only), 4 settings keys (`costing.power_rate_per_mwh`, `costing.fixed_cost_per_day`, `costing.target_cost_per_mt`, `costing.target_grade_mn_pct`)
 
-**Material-type filter**: Tab UI lists only materials whose `category` / `group_name` resolves to ore or reductant via the existing `production.material_groups` setting (same source PortalProductionFAD already uses). No hardcoded "SAF-1" / fixed material lists.
+**Schema** — `cost_rates`, `material_consumption`, `heat_logs`, `heat_metallurgy` (slag/dust/FG Mn%), `fx_rates`, `currencies` already present.
 
-**Consumption gate (policy, not enforced in DB this phase)**:
-- `POLICY.md` records: a `material_consumption` row for an ore/reductant material should reference an active `bunker_feed_tests` row (matching `material_id` + `stock_location_id`, `result IN ('pass','conditional')`, `valid_until >= now()`).
-- Phase B ships a UI warning + dashboard counter "consumptions without active bunker test". A future phase can promote this to a hard DB trigger once historical data is clean.
+---
 
-**SSOT**: Bunker = `stock_locations` row. Materials = `materials`. Specs = `materials.specs` + workspace tolerances. No duplication.
+## Critical gaps (what's missing for a real ferro-alloys cost system)
 
-## SSOT — what we reuse vs. what's new
+| # | Gap | Business impact |
+|---|---|---|
+| 1 | **No Standard Cost / BOM** — only ACTUAL is computed | Cannot answer "what *should* this heat have cost?" — no benchmark |
+| 2 | **No variance decomposition** — single number, no price/usage split | Can't tell purchasing vs operations who caused the over-spend |
+| 3 | **No by-product credits** — slag and dust thrown away in costing | Net cost/MT overstated by ₹3–8K typical |
+| 4 | **No recovery costing** — Mn lost to slag (heat_metallurgy.slag_mno_pct) ignored | Hidden ₹/MT loss invisible to operators |
+| 5 | **Flat power rate** — no TOD/slab tariff, no kWh-per-MT trend | Ferro plants live and die by power — biggest single cost |
+| 6 | **No period close / snapshot** — recompute on every load, history can shift if rates back-dated | Audit failure: April cost can change in May |
+| 7 | **No furnace-level cost matrix** — single roll-up only | Can't compare F1 vs F2 efficiency |
+| 8 | **No grade/product split** — all heats lumped together | Si-Mn vs Fe-Mn margins invisible |
+| 9 | **No selling price / profitability** — costs only, no margin | Can't drive grade-mix decisions |
+| 10 | **No FX handling on imported ore** — `fx_rates` table exists but unused in costing | Imported Mn ore (USD) marked at stale INR rate |
+| 11 | **No budget vs actual** — no monthly target to track against | No early warning on cost drift |
+| 12 | **No alerts** — silent until month-end | Bad heat caught next month, not next shift |
 
-**Reuse (deep-link, no duplication)**:
-- Raw Material QC → `grn_logs` quality fields at `/portal/inventory/grn`
-- Furnace Quality → `heat_metallurgy` at `/portal/production` quality tab
-- KPI / Reports → central surfaces
+---
 
-**New tables (6)**: `quality_samples`, `bunker_feed_tests`, `fg_inspections`, `dispatch_clearances`, `quality_complaints`, `compliance_records`. New permission resource `quality` with actions `inspect`, `bunker_test`, `clear`, `complaint`, `compliance`.
+## Phase plan (4 phases, additive — no breaking change to existing engine)
 
-## Routes & nav
+### Phase A — Foundation: Module shell + 4 schema tables
+- Register `finance` module in `app_modules` (so it shows in Module Configuration sidebar like `quality` was)
+- Create 9-tab `AdminFinance` + `PortalFinance` shells (replace single-page PortalCosting as the legacy "Cost Sheet" tab inside)
+- Migrations for 4 new tables:
+  - `standard_cost_bom` — BOM per (grade, material) with std_qty_per_mt + std_rate
+  - `cost_period_snapshots` — immutable monthly freeze (jsonb payload + locked_at + locked_by)
+  - `cost_alert_rules` — threshold rules per workspace (kpi, op, value)
+  - `byproduct_credits` — slag/dust/fines sold rates by period
+- All RLS via existing `has_profit_center_access` / `can_manage_profit_center` helpers
 
-- `/portal/quality` and `/admin/quality` — same component (SSOT), same fix pattern as Procurement (rendered inside `PortalShell` so plant sidebar stays visible).
-- Admin sidebar entry "Quality Control" added to `src/components/AdminShell.tsx`.
+### Phase B — Standard Cost & Variance Engine
+- `AdminFinance > Standard BOM` tab — editor for std recipe per grade
+- `PortalFinance > Cost Sheet` upgraded to **IDEAL vs ACTUAL vs VAR** matrix (per furnace, per heat)
+- Extend `src/lib/costing.ts` (additive, keep existing exports) with:
+  - `priceVariance(actualRate, stdRate, actualQty)` — purchasing variance
+  - `usageVariance(actualQty, stdQty, stdRate)` — operations variance
+  - `recoveryLoss(slagQty, slagMnPct, mnRate)` — Mn lost to slag in ₹
+  - `byproductCredit(slagQty, slagRate, dustQty, dustRate)`
+  - `costPerMtNet(grossCost, byproductCredit, productionMt)`
+- Unit tests in `src/test/finance-phase-b.test.ts`
 
-## Phased delivery (mirrors Procurement)
+### Phase C — Power, Profitability & Period Close
+- `PortalFinance > Power Analysis` tab — kWh/MT trend, TOD slab decomposition, demand-charge tracking
+- `PortalFinance > Profitability` tab — selling price (from `profit_center_settings.finance.selling_price.<grade>`) − net cost = margin per MT per grade
+- `PortalFinance > Period Close` tab — admin-only: lock a month, write `cost_period_snapshots` row with full breakdown JSON; subsequent reads of that period serve from snapshot, not live
+- Tariff slabs added to settings: `finance.power_tariff.slabs` JSON
+- Unit tests in `src/test/finance-phase-c.test.ts`
 
-**Phase A — Shell + schema**
-- Migration: 6 tables + enums (`sample_status`, `inspection_result`, `complaint_status`, `dispatch_status`, `bunker_test_result`), RLS, audit triggers via existing `log_procurement_event` pattern, permission grants seed.
-- New page `src/pages/AdminQuality.tsx` — 9-tab shell (shadcn `Tabs`, semantic tokens only).
-- Routes registered, sidebar entry added.
-- Tests: `src/test/quality-phase-a.test.ts` (route audit, tab list, RLS smoke).
+### Phase D — Alerts, FX & Dashboard
+- `AdminFinance > Cost Alerts` tab — threshold rules (e.g. cost/MT > ₹95K, kWh/MT > 3800)
+- `PortalFinance > Dashboard` tab — 12-card overview, MTD vs budget, top-3 variance drivers, alert feed
+- FX integration: imported materials priced via `fx_rates` on consumption date (extend `latestRateOn` with optional currency conversion, no breaking change)
+- `PortalFinance > Reports` tab — period-over-period Excel export with all sheets (Summary, Heats, BOM Variance, By-products, Power, Profitability)
+- Unit tests in `src/test/finance-phase-d.test.ts`
 
-**Phase B — Sampling + Bunker Feed QC** ✅ done 2026-04-26
-- `src/components/quality/SamplingTab.tsx`, `src/components/quality/BunkerFeedQCTab.tsx`.
-- `src/lib/quality.ts` service layer — `canTransitionSample`, `evaluateBunkerTest(observed, specs) → { result, deviations[] }`, `specsFromMaterial`, plus DB I/O wrappers.
-- Raw Material QC and Furnace Quality remain SSOT deep-links (no duplicate UI built).
-- Tests: `src/test/quality-phase-b.test.ts` — 13 cases covering lifecycle + verdict ladder + AdminQuality wiring. 245/245 suite green.
+---
 
-**Phase C — FG + Dispatch** ✅ done 2026-04-26
-- `src/components/quality/FinishedGoodsTab.tsx` — create + score (pending rows scoreable; non-pending immutable per RLS).
-- `src/components/quality/DispatchClearanceTab.tsx` — create + status transitions through `checkDispatchGate`.
-- `src/lib/quality.ts` adds `evaluateFgInspection`, `createFgInspection`, `scoreFgInspection`, `canTransitionDispatch`, `nextDispatchStatuses`, `checkDispatchGate`, `createDispatchClearance`, `transitionDispatch`.
-- Tests: `src/test/quality-phase-c.test.ts` — 16 cases. 261/261 suite green.
+## Tab map (final)
 
-**Phase D — Complaints + Compliance + Dashboard** ✅ done 2026-04-26
-- `ComplaintsTab.tsx` — 8D lifecycle (`open → investigating → corrective_action → closed`); closing requires root cause + corrective action.
-- `ComplianceTab.tsx` — cert/calibration registry with `bucketComplianceExpiry` (`expired`/`due_soon`/`ok`/`no_expiry`, 30-day window).
-- `QCDashboardTab.tsx` — read-only aggregator backed by pure `buildQualityKpis` (SSOT, no I/O).
-- Service additions in `src/lib/quality.ts`: complaint gate, compliance bucketer, KPI aggregator (all pure).
-- Note: "Consumptions without active bunker test" counter is deferred — current Bunker QC rows do not yet carry a heat-link, so the counter would be misleading. Tracked as a follow-up once `material_consumption` carries an explicit bunker-test reference.
-- Tests: `src/test/quality-phase-d.test.ts` — 14 cases. 275/275 suite green.
+```text
+AdminFinance                   PortalFinance
+────────────────               ────────────────
+1. Rate & Cost Pool*           1. Dashboard
+2. Standard BOM (new)          2. Cost Sheet (IDEAL|ACT|VAR)
+3. By-product Credits (new)    3. Power Analysis
+4. Power Tariff Slabs (new)    4. Profitability
+5. Selling Prices (new)        5. By-products
+6. Cost Alerts (new)           6. Variance Analysis
+7. Budget Targets (new)        7. Period Snapshots
+8. Period Close (new)          8. Reports
+9. FX & Currency (new)         9. Cost Sheet (legacy)*
 
-## Risk & Impact (per project knowledge §9)
+* = wraps existing pages, no rewrite
+```
 
-- **Data**: Additive only — 6 new tables, 5 enums, 1 new permission resource. No existing tables touched.
-- **Workflow**: New role actions default to denied; admin grants. Bunker test consumption gate is policy + UI warning in Phase B (not a hard DB trigger), to avoid blocking historical workflows.
-- **UI/UX**: Renders inside `PortalShell` (sidebar visible). Semantic tokens only.
-- **Regression**: Low. Raw Material and Furnace tabs deep-link rather than duplicate. Existing GRN entry, `PortalProductionQuality`, `material_consumption` writes unchanged.
-- **Mitigation**: Per-phase unit tests; full suite must stay green. Append-only RLS on inspection tables.
+---
 
-## Out of scope (call out, don't build)
+## Architectural rules followed
 
-- Hard DB trigger blocking consumption without active bunker test (deferred until historical data verified clean).
-- Lab instrument auto-import (manual entry only).
-- Auto-rendered Certificate of Analysis PDFs (data captured; rendering deferred).
-- CLU module (explicitly excluded — not part of Ferro Alloys Division).
+- **Zero hardcoding** — BOM, tariff slabs, selling prices, alert thresholds all in DB / settings
+- **SSOT** — DOCUMENTATION.md + POLICY.md updated each phase
+- **Surgical** — existing `costing.ts` exports preserved; new functions added, none renamed
+- **RLS-first** — all new tables use existing helper functions
+- **Snapshots = immutable** — once locked, period numbers cannot change even if rates are back-dated
+- **Test-driven** — one test file per phase, happy + failure cases
 
-## Confirm before I start
+---
 
-On approval, I'll begin with **Phase A** (schema + shell + routes + admin sidebar + tests + DOCUMENTATION/POLICY updates), then wait for "go Phase B" etc. — same cadence as Procurement.
+## Questions before Phase A
+
+1. **Module naming** — call it `Finance & Costing` or just `Costing`? (affects sidebar label and route segment)
+2. **Rate change policy** — when a rate is back-dated to a closed period, should the system (a) reject, (b) warn but allow, or (c) require an admin override? This affects snapshot integrity.
+3. **Selling price source** — manual setting per grade now, or wait for a future `sales_orders` table?
+4. **Budget granularity** — monthly cost/MT target only, or also per-cost-element (material / power / fixed) targets?
+
