@@ -34,6 +34,7 @@ const STATUSES: SalesInquiryStatus[] = ["open", "quoted", "won", "lost", "cancel
 export function InquiriesTab({ profitCenterId, isExport }: Props) {
   const { session } = useAuth();
   const { toast } = useToast();
+  const [params, setParams] = useSearchParams();
   const [rows, setRows] = useState<SalesInquiry[]>([]);
   const [customers, setCustomers] = useState<SalesCustomer[]>([]);
   const [loading, setLoading] = useState(false);
@@ -44,6 +45,28 @@ export function InquiriesTab({ profitCenterId, isExport }: Props) {
     expectedPrice: "", currencyCode: isExport ? "USD" : "INR",
     incoterms: isExport ? "CIF" : "", port: "",
   });
+
+  // URL filters
+  const statusParam = params.get("status") ?? "";
+  const statusFilter = useMemo(
+    () => statusParam.split(",").map((s) => s.trim()).filter(Boolean) as SalesInquiryStatus[],
+    [statusParam],
+  );
+  const detailId = params.get("detail") ?? "";
+  const filteredRows = useMemo(
+    () => statusFilter.length === 0 ? rows : rows.filter((r) => statusFilter.includes(r.status)),
+    [rows, statusFilter],
+  );
+  const detailRecord = useMemo(
+    () => detailId ? rows.find((r) => r.id === detailId) ?? null : null,
+    [rows, detailId],
+  );
+
+  const updateUrl = (updates: Record<string, string | null>) =>
+    setParams((cur) => applyFilters(cur, updates), { replace: true });
+  const clearStatusFilter = () => updateUrl({ status: null });
+  const openDetail = (id: string) => updateUrl({ detail: id });
+  const closeDetail = () => updateUrl({ detail: null });
 
   const load = async () => {
     setLoading(true);
