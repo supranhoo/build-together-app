@@ -14,6 +14,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Badge } from "@/components/ui/badge";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Button } from "@/components/ui/button";
+import { AccentKpiCard } from "@/components/ui/accent-kpi-card";
 import {
   aggregateSalesKpis,
   fetchInquiries,
@@ -63,48 +64,33 @@ export function DashboardTab({ profitCenterId, isExport, onJumpTab }: Props) {
 
   return (
     <div className="space-y-6">
-      {/* Row 1: 5 colored-border KPI cards */}
+      {/* Row 1: 5 colored-border KPI cards — all `module="sales"` so the
+          colour rail stays consistent with every other Sales-owned KPI
+          across the app (see MODULE_ACCENTS contract). */}
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-4">
-        <AccentKpi
-          accent="border-l-blue-500"
-          iconColor="text-blue-500"
-          icon={Search}
-          title="Total Inquiries"
-          value={String(totalInquiries)}
+        <AccentKpiCard
+          module="sales" icon={Search}
+          title="Total Inquiries" value={String(totalInquiries)}
           sub={`Active ${viewLabel} requests`}
         />
-        <AccentKpi
-          accent="border-l-indigo-500"
-          iconColor="text-indigo-500"
-          icon={FileText}
-          title="Active Offers"
-          value={String(kpis.quotedInquiries)}
+        <AccentKpiCard
+          module="sales" icon={FileText}
+          title="Active Offers" value={String(kpis.quotedInquiries)}
           sub={`Pending ${viewLabel} approval`}
         />
-        <AccentKpi
-          accent="border-l-emerald-500"
-          iconColor="text-emerald-500"
-          icon={ShoppingCart}
-          title="Confirmed Orders"
-          value={String(kpis.confirmedOrders)}
+        <AccentKpiCard
+          module="sales" icon={ShoppingCart}
+          title="Confirmed Orders" value={String(kpis.confirmedOrders)}
           sub={`In ${viewLabel} production`}
         />
-        <AccentKpi
-          accent="border-l-amber-500"
-          iconColor="text-amber-500"
-          icon={Truck}
-          title="Available Stock"
-          value="0"
-          unit="MT"
+        <AccentKpiCard
+          module="sales" icon={Truck}
+          title="Available Stock" value="0" unit="MT"
           sub="Ready for release"
         />
-        <AccentKpi
-          accent="border-l-purple-500"
-          iconColor="text-purple-500"
-          icon={CheckCircle2}
-          title="Dispatched Qty"
-          value={fmtMt(kpis.dispatchedMt)}
-          unit="MT"
+        <AccentKpiCard
+          module="sales" icon={CheckCircle2}
+          title="Dispatched Qty" value={fmtMt(kpis.dispatchedMt)} unit="MT"
           sub="Historical performance"
         />
       </div>
