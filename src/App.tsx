@@ -49,6 +49,7 @@ import PortalInventoryTransfers from "./pages/PortalInventoryTransfers";
 import PortalInventoryMinMax from "./pages/PortalInventoryMinMax";
 import PortalInventoryReports from "./pages/PortalInventoryReports";
 import PortalInventoryLedger from "./pages/PortalInventoryLedger";
+import PortalInventoryMasterData from "./pages/PortalInventoryMasterData";
 import PortalCosting from "./pages/PortalCosting";
 import PortalReports from "./pages/PortalReports";
 import NotFound from "./pages/NotFound";
@@ -86,6 +87,7 @@ const App = () => (
                       <Route path="min-max" element={<PortalInventoryMinMax />} />
                       <Route path="reports" element={<PortalInventoryReports />} />
                       <Route path="ledger" element={<PortalInventoryLedger />} />
+                      <Route path="master-data" element={<PortalInventoryMasterData />} />
                     </Route>
                     <Route path="costing" element={<PortalCosting />} />
                     <Route path="reports" element={<PortalReports />} />
@@ -121,6 +123,10 @@ const App = () => (
                     <Route path="report-deliveries" element={<Navigate to="/admin/settings?tab=report-deliveries" replace />} />
                     <Route path="roles" element={<Navigate to="/admin/settings?tab=roles" replace />} />
                     <Route path="users" element={<Navigate to="/admin/settings?tab=users" replace />} />
+                    {/* Master Data was relocated to the Inventory module so the
+                        SSOT screens live next to their primary consumer. */}
+                    <Route path="master-data" element={<Navigate to="/portal/inventory/master-data" replace />} />
+                    <Route path="settings/master-data" element={<Navigate to="/portal/inventory/master-data" replace />} />
                   </Route>
                 </Route>
               </Route>

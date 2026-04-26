@@ -1,5 +1,5 @@
 import { useMemo } from "react";
-import { useSearchParams } from "react-router-dom";
+import { Navigate, useSearchParams } from "react-router-dom";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
 import AdminWorkspaces from "./AdminWorkspaces";
 import AdminModules from "./AdminModules";
@@ -14,18 +14,21 @@ import AdminReportDeliveries from "./AdminReportDeliveries";
 import AdminRoles from "./AdminRoles";
 import AdminAudit from "./AdminAudit";
 import AdminUsers from "./AdminUsers";
-import AdminMasterData from "./AdminMasterData";
 
 /**
  * Admin Settings tabs — single entry point that hosts every administrative
  * configuration section. Each tab simply renders the existing page component
  * unchanged, so business logic, RLS, and audit behavior are preserved.
+ *
+ * Note: "Master Data" was relocated to the Inventory module
+ * (`/portal/inventory/master-data`) so the same SSOT screens live next to
+ * the operational module that consumes them most. The legacy URL
+ * `/admin/settings?tab=master-data` is redirected from `App.tsx`.
  */
 export const ADMIN_SETTINGS_TABS = [
   { key: "workspaces", label: "Profit Centers", Component: AdminWorkspaces },
   { key: "modules", label: "Modules", Component: AdminModules },
   { key: "users", label: "Users", Component: AdminUsers },
-  { key: "master-data", label: "Master Data", Component: AdminMasterData },
   { key: "access", label: "Access", Component: AdminAccess },
   { key: "settings", label: "Settings", Component: AdminRawSettings },
   { key: "furnaces", label: "Furnaces", Component: AdminFurnaces },
@@ -50,7 +53,14 @@ export function resolveAdminSettingsTab(raw: string | null | undefined): AdminSe
 
 export default function AdminSettings() {
   const [params, setParams] = useSearchParams();
-  const active = useMemo(() => resolveAdminSettingsTab(params.get("tab")), [params]);
+  const rawTab = params.get("tab");
+  const active = useMemo(() => resolveAdminSettingsTab(rawTab), [rawTab]);
+
+  // Legacy: bookmarks like ?tab=master-data must land on the new Inventory
+  // location, not silently fall back to the first Admin tab.
+  if (rawTab === "master-data") {
+    return <Navigate to="/portal/inventory/master-data" replace />;
+  }
 
   const handleChange = (next: string) => {
     setParams((current) => {
