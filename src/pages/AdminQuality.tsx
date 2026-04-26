@@ -90,7 +90,7 @@ export default function AdminQuality() {
           </p>
         </div>
         <Badge variant="outline" className="border-primary/40 bg-primary/10">
-          Phase C live · Sampling, Bunker QC, FG Inspection, Dispatch Clearance
+          Quality Module fully live · Phases A → D
         </Badge>
       </div>
 
