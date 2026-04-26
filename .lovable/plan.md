@@ -1,193 +1,142 @@
-# Finance & Costing — Phase C
 
-Activates 4 of the remaining tabs: **Power Tariff** (admin) + **Power Analysis** (portal), **Selling Prices** (admin) + **Profitability** (portal), and **Period Close** (admin) + **Period Snapshots** (portal). All work is additive — no Phase A/B behavior changes.
+# Sales & Export Module — Build Plan
+
+## Pushback first (must read)
+
+The uploaded `Sales.tsx` (1,314 lines) is a single monolithic reference from another codebase. Building it verbatim violates several project rules:
+
+1. **Hardcoded styling** — uses `bg-white`, `text-slate-900`, `bg-blue-600`, etc. This project mandates **semantic tokens only** (`bg-card`, `text-foreground`, `bg-primary`). The reference UI cannot be copy-pasted.
+2. **No backend** — the reference has 11 entity types (customers, inquiries, offers, orders, allocations, dispatches, quality, shipments, invoices, payments, LCs) with **zero schema** in this project. Building all 11 in one round violates SSOT, RCA, and surgical-change rules and would produce massive untested code.
+3. **Mock-heavy** — most tabs in the reference use inline hardcoded arrays. This project's rule: realistic mock data must come from real workspace-scoped tables with RLS.
+4. **Domestic/Export toggle** — the reference uses a single `isExport` boolean discriminator on every entity. That's a viable approach and we'll keep it, but it must be a typed enum + index, not loose JSON.
+
+**Recommendation**: build in 4 phases over 4 rounds. This plan covers **Phase A only**: the module shell + 3 most-foundational functional tabs (Customers, Inquiries, Orders) + the dashboard. Other tabs render scaffolds that say "Coming in Phase B/C" with deep-links where SSOT already exists (e.g., Quality → existing Quality module; Dispatch → existing dispatch_clearances).
+
+If you want all 12 tabs built now, say so explicitly and I'll re-plan — but expect lower per-tab quality.
 
 ---
 
-## 1. Schema (one migration)
+## Phase A scope (this round)
 
-Three new tables, all RLS-secured with the same admin-write / workspace-read pattern used in Phase A.
+### 1. Module registration
+- Insert `sales` into `app_modules` (key=`sales`, route_segment=`sales`, icon=`ShoppingCart`, sort after `quality`).
+- Add `<Route path="sales" element={<PortalSales />} />` inside the portal shell in `src/App.tsx`.
+- Mount the same component under `/admin/sales` (mirroring procurement/quality SSOT pattern).
 
-### `power_tariff_slabs`
-Time-Of-Day power tariff slabs with effective-date tracking.
+### 2. Database schema (one migration)
+Three core tables, workspace-scoped, RLS-first, append-only where appropriate:
 
-| column | type | notes |
-|---|---|---|
-| `id` | uuid PK | |
-| `profit_center_id` | uuid | RLS scope |
-| `slab_name` | text | e.g. "Off-peak", "Normal", "Peak" |
-| `start_hour` | int (0-23) | inclusive |
-| `end_hour` | int (1-24) | exclusive |
-| `rate_per_mwh` | numeric | ₹/MWh |
-| `season` | text nullable | "summer" / "monsoon" / null = all-year |
-| `effective_from` | date | |
-| `effective_to` | date nullable | |
-| `is_active` | bool default true | |
-| `notes`, `created_by`, `created_at`, `updated_at` | | standard |
+```text
+sales_customers
+  id, profit_center_id, code (unique per pc), name, customer_type
+  ('steel_mill'|'trader'|'foundry'|'distributor'|'other'),
+  is_export bool, country (nullable), region (nullable),
+  contact_email, contact_phone, payment_terms_days,
+  credit_limit numeric, currency_code, gst_or_tax_id,
+  is_active, created_by, created_at, updated_at
 
-Plus a separate row type for fixed/demand charges via `slab_name = 'demand_charge'` with `start_hour=0, end_hour=24` — keeps one table, one effective-date logic.
+sales_inquiries
+  id, profit_center_id, inquiry_no (auto), inquiry_date,
+  customer_id (fk), is_export, product, grade, qty_mt,
+  expected_price, currency_code, incoterms, port,
+  status enum ('open'|'quoted'|'won'|'lost'|'cancelled'),
+  notes, created_by, created_at, updated_at
 
-### `selling_prices`
-Per-grade selling price, effective-dated. Manual entry now (per the user's earlier choice — no `sales_orders` dependency).
-
-| column | type |
-|---|---|
-| `id` | uuid PK |
-| `profit_center_id` | uuid |
-| `grade` | text |
-| `product` | text nullable |
-| `price_per_mt` | numeric |
-| `currency_code` | text default 'INR' |
-| `effective_from` | date |
-| `effective_to` | date nullable |
-| `is_active` | bool |
-| `notes`, `created_by`, `created_at`, `updated_at` | |
-
-### Period close — reuse existing `cost_period_snapshots`
-Already deployed in Phase A (immutable, no UPDATE policy). Phase C just writes to it from the new "Period Close" workflow. The `payload` jsonb stores:
-```
-{
-  "summary": { grossCost, byproductCredit, netCost, productionMt, netCostPerMt },
-  "variance": { idealCost, actualCost, priceVariance, usageVariance },
-  "power":    { totalMwh, totalCost, kwhPerMt, byTodSlab: [...] },
-  "byproducts": { totals by type },
-  "profitability": { byGrade: [...] },
-  "lockedRates": { /* hash of effective rates at lock time, for audit */ }
-}
+sales_orders
+  id, profit_center_id, so_number (auto), order_date,
+  customer_id, inquiry_id (nullable fk), is_export,
+  product, grade, qty_mt, price_per_mt, currency_code,
+  fx_rate (nullable), incoterms, port_of_loading,
+  port_of_discharge, status enum
+  ('draft'|'confirmed'|'in_production'|'ready_for_dispatch'
+   |'dispatched'|'sailed'|'delivered'|'invoiced'|'paid'|'cancelled'),
+  total_value (generated), notes, created_by, created_at, updated_at
 ```
 
-### RLS (mirrors Phase A)
-- SELECT: `has_profit_center_access`
-- INSERT/UPDATE/DELETE on `power_tariff_slabs` and `selling_prices`: admin only via `can_manage_profit_center`
-- `cost_period_snapshots`: already correct (insert by admin, no update, super-admin delete)
+**RLS pattern** (mirrors `bunker_feed_tests`):
+- SELECT: `has_profit_center_access(auth.uid(), profit_center_id)`
+- INSERT: workspace access + `created_by = auth.uid()` + new permission `user_can_act(auth.uid(), 'sales', '<action>')`
+- UPDATE: workspace access + permission (orders are mutable; inquiries mutable while not won/lost)
+- DELETE: super_admin only
 
----
+**New permission grants** seeded: `sales:create`, `sales:edit`, `sales:approve`, `sales:dispatch` for `super_admin`, `manager`, `employee` roles per existing pattern in `permission_grants`.
 
-## 2. Service layer (`src/lib/finance.ts` — additive)
+**Auto-numbering**: trigger `set_so_number()` and `set_inquiry_no()` per profit center (e.g., `SO-2026-00001`), like other modules.
 
-New types + pure functions. No changes to existing exports.
+### 3. Service layer — `src/lib/sales.ts`
+Pure, deterministic helpers + Supabase calls:
+- `fetchCustomers(pcId, { isExport? })`, `createCustomer`, `updateCustomer`, `deactivateCustomer`
+- `fetchInquiries(pcId, filters)`, `createInquiry`, `updateInquiryStatus`
+- `fetchOrders(pcId, filters)`, `createOrder`, `updateOrderStatus`, `convertInquiryToOrder`
+- `aggregateSalesKpis(orders, invoices?)` — pure; returns `{ totalBookingMt, confirmedOrders, dispatchedMt, openInquiries, exportPctByValue, domesticPctByValue }`. Handles empty arrays without NaN.
 
-### Types
-```ts
-PowerTariffSlab, SellingPrice
+All write functions write `audit_logs` rows via existing `createAuditLog`.
+
+### 4. UI — page + components
+
+```
+src/pages/PortalSales.tsx                 (shell, header with Domestic/Export toggle, tabs)
+src/components/sales/
+  DashboardTab.tsx          (live — KPI cards + recent orders + market mix)
+  CustomersTab.tsx          (live — list, create dialog, deactivate)
+  InquiriesTab.tsx          (live — list, create dialog, status update)
+  OrdersTab.tsx             (live — list, create from scratch or from inquiry, status update)
+  ProductionAllocationTab.tsx  (scaffold + deep-link to /portal/production)
+  DispatchTab.tsx              (scaffold + deep-link to /portal/quality?tab=dispatch)
+  QualityTab.tsx               (scaffold + deep-link to /portal/quality)
+  ShipmentTab.tsx              (scaffold — Phase B; reuses import_shipments pattern)
+  InvoicesTab.tsx              (scaffold — Phase C)
+  BankingLcTab.tsx             (scaffold — Phase D, hidden when toggle = Domestic)
+  ReportsTab.tsx               (scaffold — Phase D)
 ```
 
-### Fetchers / mutations
-```ts
-fetchPowerTariffSlabs(pcId)
-createPowerTariffSlab(input) / deactivatePowerTariffSlab(id)
-fetchSellingPrices(pcId)
-createSellingPrice(input) / deactivateSellingPrice(id)
-createPeriodSnapshot({ pcId, periodStart, periodEnd, payload, notes })
-```
+Conventions (non-negotiable):
+- Use `Tabs`/`TabsList`/`TabsTrigger` from shadcn (matches Procurement/Quality), **not** the reference's hand-rolled tab buttons.
+- Replace every `bg-white`, `text-slate-*`, `bg-blue-600`, `text-blue-700` etc. with semantic tokens (`bg-card`, `text-card-foreground`, `text-muted-foreground`, `bg-primary`, `text-primary`, `border-border`).
+- Replace inline `Modal` from the reference with shadcn `Dialog`.
+- All data fetched via `src/lib/sales.ts`; no `supabase.from(...)` calls inside components.
+- Domestic/Export toggle stored in component state, passed as `isExport` filter to service calls.
+- `useWorkspace().activeProfitCenter` gates everything; show "Select a workspace first" card when null (mirrors `AdminSellingPrices`).
 
-### Pure logic
-```ts
-// TOD decomposition: split a heat's MWh across slabs by tap_time hour.
-// For Phase C we use tap_time as the proxy for the hour — no separate
-// half-hourly meter feed yet. Documented as such in DOCUMENTATION.md.
-splitMwhByTodSlab(heats: HeatLog[], slabs: PowerTariffSlab[], onDate: string)
-  -> { slabName -> { mwh, costRs } }
+### 5. Tests — `src/test/sales-phase-a.test.ts`
+Pure logic only:
+- `aggregateSalesKpis` — happy path, empty array (no NaN), mixed export/domestic split, single-record edge case.
+- `convertInquiryToOrder` — shape mapping (status transition, currency carry-over, qty preserved).
+- Customer code uniqueness validation helper.
+Target: ≥6 passing tests.
 
-// Selling-price effective lookup (mirrors bomEffectiveOn)
-sellingPriceOn(prices, grade, onDate) -> number | null
-
-// Profitability per grade
-profitabilityByGrade({
-  netCostPerMt: { grade -> number },
-  prices: SellingPrice[],
-  onDate,
-}) -> Array<{ grade, sellingPrice, netCost, marginPerMt, marginPct }>
-
-// Snapshot builder — assembles the payload from already-computed
-// summary/variance/power/byproducts/profitability objects. Pure function so
-// it is unit-testable and the UI just calls fetchers + assembler + insert.
-buildSnapshotPayload(input) -> SnapshotPayload
-```
+### 6. Documentation & policy sync (same response)
+- Append "Sales & Export — Phase A" section to `DOCUMENTATION.md` (data model, RLS matrix, status state-machine, phase scope).
+- Append matching policy block to `POLICY.md`: who can create/approve/dispatch, audit requirements, FX/currency policy (record fx_rate at order confirmation; freeze on invoice — Phase C).
+- Append entry to `.lovable/plan.md` Version History.
 
 ---
 
-## 3. UI surfaces
+## Pre-implementation risk report
 
-### Admin (`/admin/finance`)
-- **Power Tariff** tab (`AdminPowerTariff.tsx`) — table of slabs with grade-style append-only editor: slab name, hour range, rate, season, effective-from. Soft-deactivate. Validation: `start_hour < end_hour`, no overlap warning (warn, not block — matches the user's "warn but allow" rate-change preference from Phase A planning).
-- **Selling Prices** tab (`AdminSellingPrices.tsx`) — same effective-dated editor pattern as Standard BOM: grade, product, price/MT, currency, effective-from. Append-only.
-- **Period Close** tab (`AdminPeriodClose.tsx`) — month selector → "Compute Preview" runs all Phase A/B/C calculations for that month → shows the snapshot payload → "Lock Period" button writes to `cost_period_snapshots`. Locked periods cannot be unlocked from the UI (super-admin DB-level only). Audit log written via existing `audit_logs` insert.
-
-### Portal (`/portal/finance`)
-- **Power Analysis** tab (`PortalPowerAnalysis.tsx`) — KPI cards (kWh/MT, total ₹, % cost from power), TOD slab table (MWh × rate per slab), trend line of kWh/MT by day. Uses `splitMwhByTodSlab` against existing `heat_logs.tap_time` and `heat_logs.power_mwh`.
-- **Profitability** tab (`PortalProfitability.tsx`) — per-grade table: Selling Price | Gross Cost/MT | By-product Credit/MT | Net Cost/MT | **Margin/MT** | **Margin %**. Filters by date range. Reuses Phase B variance scope.
-- **Period Snapshots** tab (`PortalSnapshots.tsx`) — list of locked periods with payload viewer (read-only). Clicking a row opens a drawer with the full snapshot summary.
-
-### Tab activation
-In `AdminFinance.tsx` and `PortalFinance.tsx`:
-- Mark `power_tariff`, `selling_prices`, `period_close` as `live: true` (admin)
-- Mark `power`, `profitability`, `snapshots` as `live: true` (portal)
-- Wire each to its new component
-- Update phase badge to **"Phase C · power, profitability & period close live"**
+- **Data Impact**: 3 new tables, 1 enum, 4 new permission grants, 1 new module row. No changes to existing tables.
+- **Workflow Impact**: New "sales_clerk" workflow surfaces; permissions default to `manager`+`super_admin` create/edit. `employee` read-only until you say otherwise.
+- **UI Impact**: New top-level Portal tab "Sales". Domestic/Export toggle in module header. No changes to other modules.
+- **Regression Risk**: Low — all additive. Quality and Dispatch tabs are deep-links so we don't fork existing flows.
+- **Mitigation**: All schema gated by RLS using existing helpers (`has_profit_center_access`, `can_manage_profit_center`, `user_can_act`). Append-only audit log for every status transition. Tests cover pure logic; UI smoke-checked via TS compile + existing test suite.
 
 ---
 
-## 4. Tests (`src/test/finance-phase-c.test.ts`)
+## What is explicitly NOT in Phase A (pushback)
 
-Pure-logic only (consistent with Phase B test style):
-1. `splitMwhByTodSlab` distributes a heat's MWh into the correct slab by hour.
-2. Slab effective-date filter respects `effective_from`/`effective_to`.
-3. Demand-charge slab (0–24) catches all hours.
-4. `sellingPriceOn` picks the latest effective row.
-5. `profitabilityByGrade` computes `marginPerMt = sellingPrice − netCost` and `marginPct = margin / sellingPrice`.
-6. `profitabilityByGrade` returns `null`-safe entries when selling price is missing for a grade.
-7. `buildSnapshotPayload` produces the documented JSON shape and includes `lockedRates` hash.
-8. Snapshot payload is deterministic (same inputs → byte-identical JSON) — guards audit integrity.
-9. Period close overlap guard: building a snapshot for an already-locked period throws.
-10. Margin % handles zero selling price without div/0.
-
-Plus extending `example.test.tsx` route audit with the 3 new admin pages + 3 new portal components.
+- Container stuffing tracker, vessel booking UI, BL document checklist (Phase B, needs `sales_shipments` + `sales_documents` tables).
+- Commercial invoicing & payment receipts (Phase C, needs `sales_invoices`, `sales_payments`).
+- LC tracking, FX forwards, document negotiation (Phase D, needs `sales_letters_of_credit`, `fx_forward_contracts` — would partially overlap existing `fx_rates` so we'll reuse).
+- Reports/Insights tab with management KPI matrix (Phase D — depends on invoices+payments existing).
+- Inline-editable rows, drag-drop, bulk import — none of those are in the reference either.
 
 ---
 
-## 5. Documentation & policy
+## Open questions (decide before I run the migration)
 
-- **DOCUMENTATION.md**: add Phase C section — schema, TOD computation note (tap_time proxy), snapshot JSON shape, period-close workflow.
-- **POLICY.md**: append rules — *"Once a period is locked, its numbers are immutable. Back-dated rate changes do NOT alter locked periods. New snapshots must use a strictly later `period_start` than any existing locked snapshot for the same workspace."*
-- **Version History**: add `Phase C – Power Tariff (TOD), Selling Prices, Profitability, Period Close`.
+1. **Customer code generation**: auto (`CUST-2026-00001`) or manual entry? Reference uses manual `CUST-001`. I'll default to **auto** unless you say manual.
+2. **Soft vs hard delete**: orders should be soft-cancelled (status=`cancelled`), customers soft-deactivated (`is_active=false`). Confirm.
+3. **Multi-currency on domestic**: domestic orders default `currency_code='INR'`, export defaults `'USD'`. Toggle controls this. OK?
+4. **Inquiry → Order conversion**: lock the inquiry (status=`won`) when converted, or allow multiple orders from one inquiry? I'll default to **single conversion locks the inquiry** unless you say otherwise.
 
----
-
-## 6. Risk & impact (per project policy)
-
-- **Data**: 2 new tables + new rows in existing `cost_period_snapshots`. Zero migration of historical data. RLS mirrors proven Phase A pattern.
-- **Workflow**: Period close is the only destructive-feeling action — it's INSERT-only into an immutable table, surfaced behind a confirm dialog with a 3-character minimum reason (matches `void_heat_log` pattern).
-- **UI**: 6 new components, all rendered inside existing tab shells — no navigation changes.
-- **Regression**: Phase A/B code paths and exports are untouched. Variance engine continues to read live rates; locked snapshots are a separate read path used only by `PortalSnapshots`.
-- **Mitigation**: pure-function tests, deterministic snapshot serialization, append-only rate tables.
-
----
-
-## 7. Files
-
-**New**
-- `src/pages/AdminPowerTariff.tsx`
-- `src/pages/AdminSellingPrices.tsx`
-- `src/pages/AdminPeriodClose.tsx`
-- `src/pages/PortalPowerAnalysis.tsx`
-- `src/pages/PortalProfitability.tsx`
-- `src/pages/PortalSnapshots.tsx`
-- `src/test/finance-phase-c.test.ts`
-- `supabase/migrations/<ts>_finance_phase_c.sql`
-
-**Edited (additive only)**
-- `src/lib/finance.ts` — new types, fetchers, mutations, pure logic
-- `src/pages/AdminFinance.tsx` — wire 3 tabs, update phase badge
-- `src/pages/PortalFinance.tsx` — wire 3 tabs, update phase badge
-- `src/test/example.test.tsx` — route audit
-- `DOCUMENTATION.md`, `POLICY.md`, `.lovable/plan.md`
-
-After approval I'll execute the migration first, then ship code + tests in one pass and report the green test count.
-
-## Phase C — shipped ✅
-- Migration: `power_tariff_slabs`, `selling_prices` (RLS, admin-write).
-- Service: `splitMwhByTodSlab`, `sellingPriceOn`, `profitabilityByGrade`, `buildSnapshotPayload`, `createPeriodSnapshot` (+ overlap guard).
-- Admin: PowerTariff, SellingPrices, PeriodClose (compute preview → lock).
-- Portal: PowerAnalysis, Profitability, Snapshots (read-only sheet).
-- Tests: 11 new (TOD, sellingPrice, profitability, deterministic snapshot). Total 301/301.
+Reply "go" + answers to the four questions (or just "go, defaults") and I'll implement Phase A end-to-end in one batch (migration + service + 4 live tabs + 8 scaffolds + tests + docs).
