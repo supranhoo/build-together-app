@@ -102,25 +102,28 @@ export function QCDashboardTab() {
 
   return (
     <div className="space-y-4">
-      <Card>
-        <CardHeader className="flex flex-row items-start justify-between gap-3 space-y-0">
-          <div>
-            <CardTitle className="flex items-center gap-2">
-              <LayoutDashboard className="h-5 w-5 text-primary" /> Quality KPIs
-            </CardTitle>
-            <CardDescription>
-              Snapshot across Sampling, Bunker QC, Finished Goods, Dispatch, Complaints and Compliance.
-              Numbers here mirror the underlying tabs.
-            </CardDescription>
-          </div>
-          {loading && <Badge variant="outline">Loading…</Badge>}
-        </CardHeader>
-        <CardContent>
-          <div className="grid grid-cols-2 gap-3 md:grid-cols-3 lg:grid-cols-6">
-            {headline.map((h) => (<MiniStat key={h.label} label={h.label} value={h.value} tone={h.tone} />))}
-          </div>
-        </CardContent>
-      </Card>
+      <div className="flex items-start justify-between gap-3">
+        <div>
+          <h2 className="flex items-center gap-2 text-lg font-semibold">
+            <LayoutDashboard className="h-5 w-5 text-emerald-500" /> Quality KPIs
+          </h2>
+          <p className="text-sm text-muted-foreground">
+            Snapshot across Sampling, Bunker QC, Finished Goods, Dispatch, Complaints and Compliance.
+            Numbers here mirror the underlying tabs.
+          </p>
+        </div>
+        {loading && <Badge variant="outline">Loading…</Badge>}
+      </div>
+
+      {/* Headline KPIs — uniform `quality` accent (semantic colour map). */}
+      <div className="grid grid-cols-1 gap-4 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-6">
+        <AccentKpiCard module="quality" icon={Target}         title="Open samples"        value={String(kpis.samples.openCount)}            sub="Awaiting result" />
+        <AccentKpiCard module="quality" icon={ClipboardCheck} title="Bunker fail-rate"    value={kpis.bunkerTests.failRatePct.toFixed(1)} unit="%" sub={`${kpis.bunkerTests.fail} of ${kpis.bunkerTests.total} failed`} />
+        <AccentKpiCard module="quality" icon={Package}        title="FG pending"          value={String(kpis.fgInspections.pending)}        sub={`${kpis.fgInspections.total} inspections`} />
+        <AccentKpiCard module="quality" icon={Truck}          title="Dispatch held"       value={String(kpis.dispatch.held)}                sub={`${kpis.dispatch.cleared} cleared`} />
+        <AccentKpiCard module="quality" icon={AlertCircle}    title="Active complaints"   value={String(kpis.complaints.activeCount)}       sub={`${kpis.complaints.closed} closed`} />
+        <AccentKpiCard module="quality" icon={FileCheck}      title="Compliance expired"  value={String(kpis.compliance.expired)}           sub={`${kpis.compliance.dueSoon} due soon`} />
+      </div>
 
       <div className="grid gap-4 md:grid-cols-2">
         <Card>
