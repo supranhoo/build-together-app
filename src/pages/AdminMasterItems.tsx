@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -21,6 +21,12 @@ import {
   type MasterItem,
   type MaterialType,
 } from "@/lib/master-data";
+import { downloadCsv, parseCsv, toCsv } from "@/lib/csv";
+import {
+  buildItemTemplateRows,
+  itemsToCsvRows,
+  parseItemCsv,
+} from "@/lib/master-items-csv";
 
 const UOMS = ["kg", "MT", "litre", "piece", "ton"];
 
@@ -67,6 +73,9 @@ export default function AdminMasterItems() {
   const [search, setSearch] = useState("");
   const [typeFilter, setTypeFilter] = useState<MaterialType | "all">("all");
   const [groupFilter, setGroupFilter] = useState<string>("all");
+  const fileInputRef = useRef<HTMLInputElement | null>(null);
+  const [importing, setImporting] = useState(false);
+  const [importReport, setImportReport] = useState<{ inserted: number; failed: number; errors: string[] } | null>(null);
 
   const load = async () => {
     if (!activeProfitCenter) return;
