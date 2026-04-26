@@ -61,6 +61,8 @@ import {
 import { mnBalance, mnInput, type MaterialSpecLookup } from "@/lib/ferro-alloys";
 import { fetchProductionAlertThresholds, DEFAULT_PRODUCTION_ALERTS, type ProductionAlertThresholds } from "@/lib/production-alerts";
 import { computeProductionKpis, indexMetallurgyByHeat } from "@/lib/production-rollups";
+import { AccentKpiCard } from "@/components/ui/accent-kpi-card";
+import { Factory, Gauge, Zap } from "lucide-react";
 
 
 
@@ -418,37 +420,27 @@ export default function PortalProduction() {
 
   return (
     <div className="space-y-6">
-      {/* Production KPI strip — sits ABOVE the existing tabs. Read-only. */}
+      {/* Production KPI strip — sits ABOVE the existing tabs. Read-only.
+          Uniform `production` accent (semantic colour map). */}
       <div className="grid gap-3 sm:grid-cols-3">
-        <Card className="border-border bg-card shadow-panel">
-          <CardHeader className="pb-2">
-            <CardTitle className="text-xs font-medium text-muted-foreground">Total Production</CardTitle>
-          </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-semibold">{fmt(kpis.totalProductionMt, 2)} <span className="text-sm font-normal text-muted-foreground">MT</span></div>
-            <div className="text-xs text-muted-foreground mt-1">{kpis.heatCount} heats (latest 200, voids excluded)</div>
-          </CardContent>
-        </Card>
-        <Card className={`border-border bg-card shadow-panel ${recoveryAlert ? "border-destructive/60" : ""}`}>
-          <CardHeader className="pb-2">
-            <CardTitle className="text-xs font-medium text-muted-foreground">Avg Recovery</CardTitle>
-          </CardHeader>
-          <CardContent>
-            <div className={`text-2xl font-semibold ${recoveryAlert ? "text-destructive" : ""}`}>{fmt(kpis.avgRecoveryPct, 2, "%")}</div>
-            <div className="text-xs text-muted-foreground mt-1">
-              {kpis.heatsWithMetallurgy} heats w/ metallurgy · target ≥ {thresholds.recoveryMinPct}%
-            </div>
-          </CardContent>
-        </Card>
-        <Card className="border-border bg-card shadow-panel">
-          <CardHeader className="pb-2">
-            <CardTitle className="text-xs font-medium text-muted-foreground">Avg kWh / MT</CardTitle>
-          </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-semibold">{fmt(kpis.avgKwhPerMt, 0)}</div>
-            <div className="text-xs text-muted-foreground mt-1">{fmt(kpis.totalPowerMwh, 2)} MWh total</div>
-          </CardContent>
-        </Card>
+        <AccentKpiCard
+          module="production" icon={Factory}
+          title="Total Production"
+          value={fmt(kpis.totalProductionMt, 2)} unit="MT"
+          sub={`${kpis.heatCount} heats (latest 200, voids excluded)`}
+        />
+        <AccentKpiCard
+          module={recoveryAlert ? "maintenance" : "production"} icon={Gauge}
+          title="Avg Recovery"
+          value={fmt(kpis.avgRecoveryPct, 2, "%")}
+          sub={`${kpis.heatsWithMetallurgy} heats w/ metallurgy · target ≥ ${thresholds.recoveryMinPct}%`}
+        />
+        <AccentKpiCard
+          module="production" icon={Zap}
+          title="Avg kWh / MT"
+          value={fmt(kpis.avgKwhPerMt, 0)}
+          sub={`${fmt(kpis.totalPowerMwh, 2)} MWh total`}
+        />
       </div>
       {/* Phase 23 — Heat-wise View tab removed at user request. The Heat-logs
           management Card (entry Dialog, filters, table, bulk-void) lived inside
