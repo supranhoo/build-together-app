@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -21,6 +21,12 @@ import {
   type MasterItem,
   type MaterialType,
 } from "@/lib/master-data";
+import { downloadCsv, parseCsv, toCsv } from "@/lib/csv";
+import {
+  buildItemTemplateRows,
+  itemsToCsvRows,
+  parseItemCsv,
+} from "@/lib/master-items-csv";
 
 const UOMS = ["kg", "MT", "litre", "piece", "ton"];
 
@@ -67,6 +73,9 @@ export default function AdminMasterItems() {
   const [search, setSearch] = useState("");
   const [typeFilter, setTypeFilter] = useState<MaterialType | "all">("all");
   const [groupFilter, setGroupFilter] = useState<string>("all");
+  const fileInputRef = useRef<HTMLInputElement | null>(null);
+  const [importing, setImporting] = useState(false);
+  const [importReport, setImportReport] = useState<{ inserted: number; failed: number; errors: string[] } | null>(null);
 
   const load = async () => {
     if (!activeProfitCenter) return;
@@ -156,6 +165,55 @@ export default function AdminMasterItems() {
     }
   };
 
+  const handleDownloadTemplate = () => {
+    downloadCsv("item-master-template.csv", toCsv(buildItemTemplateRows()));
+  };
+
+  const handleExport = () => {
+    if (!activeProfitCenter) return;
+    const fname = `item-master-${activeProfitCenter.name.replace(/\s+/g, "-").toLowerCase()}-${new Date().toISOString().slice(0, 10)}.csv`;
+    downloadCsv(fname, toCsv(itemsToCsvRows(items)));
+  };
+
+  const handleBulkUpload = async (file: File) => {
+    if (!activeProfitCenter || !session?.user) return;
+    setImporting(true);
+    setImportReport(null);
+    try {
+      const text = await file.text();
+      const rawRows = parseCsv(text);
+      const { rows, errors } = parseItemCsv(rawRows);
+      const messages: string[] = errors.map((e) => `Row ${e.rowNumber}: ${e.message}`);
+      let inserted = 0;
+      for (const { rowNumber, input } of rows) {
+        try {
+          await upsertMasterItem({ ...input, profitCenterId: activeProfitCenter.id });
+          await createAuditLog({
+            actorUserId: session.user.id,
+            profitCenterId: activeProfitCenter.id,
+            entityType: "item_master",
+            action: "item_master.bulk_upserted",
+            changeSummary: { code: input.code, name: input.name, type: input.type, source: "csv_bulk_upload" },
+          });
+          inserted += 1;
+        } catch (e) {
+          messages.push(`Row ${rowNumber} (${input.code}): ${e instanceof Error ? e.message : "save failed"}`);
+        }
+      }
+      setImportReport({ inserted, failed: messages.length, errors: messages });
+      toast({
+        title: `Bulk upload finished — ${inserted} saved, ${messages.length} skipped`,
+        variant: messages.length > 0 ? "destructive" : "default",
+      });
+      await load();
+    } catch (e) {
+      toast({ title: "Bulk upload failed", description: e instanceof Error ? e.message : "", variant: "destructive" });
+    } finally {
+      setImporting(false);
+      if (fileInputRef.current) fileInputRef.current.value = "";
+    }
+  };
+
   if (!activeProfitCenter) {
     return <Card><CardHeader><CardTitle>Item Master</CardTitle></CardHeader><CardContent className="text-muted-foreground">Select a workspace first.</CardContent></Card>;
   }
@@ -180,6 +238,21 @@ export default function AdminMasterItems() {
               {groupOptions.map((g) => <SelectItem key={g} value={g}>{g}</SelectItem>)}
             </SelectContent>
           </Select>
+          <Button variant="outline" onClick={handleDownloadTemplate} title="Download a CSV template with example row">Template</Button>
+          <Button variant="outline" onClick={handleExport} disabled={items.length === 0} title="Export current items to CSV">Export</Button>
+          <input
+            ref={fileInputRef}
+            type="file"
+            accept=".csv,text/csv"
+            className="hidden"
+            onChange={(e) => {
+              const f = e.target.files?.[0];
+              if (f) void handleBulkUpload(f);
+            }}
+          />
+          <Button variant="outline" onClick={() => fileInputRef.current?.click()} disabled={importing}>
+            {importing ? "Uploading…" : "Bulk upload"}
+          </Button>
           <Dialog open={open} onOpenChange={setOpen}>
             <DialogTrigger asChild><Button onClick={openNew}>New item</Button></DialogTrigger>
             <DialogContent className="max-w-2xl">
@@ -229,6 +302,20 @@ export default function AdminMasterItems() {
         </div>
       </CardHeader>
       <CardContent>
+        {importReport && (
+          <div className={`mb-4 rounded-md border p-3 text-sm ${importReport.failed > 0 ? "border-destructive/40 bg-destructive/5 text-destructive" : "border-emerald-500/40 bg-emerald-500/5 text-emerald-700 dark:text-emerald-400"}`}>
+            <div className="flex items-center justify-between">
+              <span><strong>{importReport.inserted}</strong> rows saved · <strong>{importReport.failed}</strong> skipped</span>
+              <Button size="sm" variant="ghost" onClick={() => setImportReport(null)}>Dismiss</Button>
+            </div>
+            {importReport.errors.length > 0 && (
+              <ul className="mt-2 max-h-40 list-disc overflow-y-auto pl-5 text-xs">
+                {importReport.errors.slice(0, 100).map((msg, i) => <li key={i}>{msg}</li>)}
+                {importReport.errors.length > 100 && <li>…and {importReport.errors.length - 100} more</li>}
+              </ul>
+            )}
+          </div>
+        )}
         <Table>
           <TableHeader>
             <TableRow>

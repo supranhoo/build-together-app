@@ -107,6 +107,7 @@
 - Material `type` (RM / FG / WIP / Consumable), `machine_type` (FAD / CLU / DRI), and `cost_type` (fixed / variable) are PostgreSQL enums — never hardcoded as string literals in business logic. UI dropdown options derive from these enums.
 - Every master data create or update appends an `audit_logs` row.
 - Pin sort_order is user-controlled. Reordering MUST NOT trigger any KPI recomputation — pins are display metadata only.
+- **Bulk upload (CSV)**: Item Master accepts CSV bulk upload. The importer MUST go through the same `upsertMasterItem` SSOT used by the single-item dialog — it MUST NOT bypass RLS, MUST NOT skip the `audit_logs` write, and MUST NOT introduce a parallel insert path. Per-row failures are collected and reported to the user; one bad row never aborts the batch. The CSV header is canonical (`code,name,type,group_name,subgroup,uom,std_cost,min_level,max_level,reorder_level,specs_json,is_active`) and is shared between Template download, Export, and Bulk upload so a round-trip (Export → edit in Excel → Bulk upload) always works. `type` MUST validate against the `MATERIAL_TYPES` enum — never accept free-text values.
 - Pin sort_order is user-controlled. Reordering MUST NOT trigger any KPI recomputation — pins are display metadata only.
 
 ## Pin Reorder & Forecast Display Governance (Phase 9, extended in Phase 11)
