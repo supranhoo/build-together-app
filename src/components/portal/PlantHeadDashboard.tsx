@@ -13,7 +13,7 @@
 import { useEffect, useMemo, useState } from "react";
 import { Link } from "react-router-dom";
 import {
-  Activity, AlertTriangle, Boxes, Calendar, CheckCircle2, ClipboardList,
+  Activity, AlertTriangle, Boxes, Calendar, CheckCircle2,
   DollarSign, Factory, Gauge, MessageSquareWarning, Package, ShieldCheck,
   ShoppingCart, Sparkles, TrendingUp, Truck, Wrench, Zap,
 } from "lucide-react";
