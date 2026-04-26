@@ -28,6 +28,9 @@ import { Badge } from "@/components/ui/badge";
 import { useWorkspace } from "@/hooks/use-workspace";
 import AdminCostRates from "@/pages/AdminCostRates";
 import AdminStandardBom from "@/pages/AdminStandardBom";
+import AdminPowerTariff from "@/pages/AdminPowerTariff";
+import AdminSellingPrices from "@/pages/AdminSellingPrices";
+import AdminPeriodClose from "@/pages/AdminPeriodClose";
 
 type TabSpec = {
   id: string;
@@ -67,6 +70,7 @@ const TABS: TabSpec[] = [
     label: "Power Tariff",
     icon: Zap,
     description: "Time-Of-Day tariff slabs, demand-charge rates and seasonal rates.",
+    live: true,
     phase: "C",
   },
   {
@@ -74,6 +78,7 @@ const TABS: TabSpec[] = [
     label: "Selling Prices",
     icon: Tag,
     description: "Current selling price per grade — feeds the Profitability tab.",
+    live: true,
     phase: "C",
   },
   {
@@ -95,6 +100,7 @@ const TABS: TabSpec[] = [
     label: "Period Close",
     icon: Calendar,
     description: "Lock a month — writes an immutable snapshot. Subsequent reads serve from the snapshot.",
+    live: true,
     phase: "C",
   },
   {
@@ -137,7 +143,7 @@ export default function AdminFinance() {
           <div className="flex flex-wrap items-center gap-2">
             <CardTitle>Finance & Costing — {activeProfitCenter.name}</CardTitle>
             <Badge variant="secondary" className="text-[10px] uppercase tracking-wider">
-              Phase B · standard cost live
+              Phase C · power, prices & period close live
             </Badge>
           </div>
           <CardDescription>{activeTab.description}</CardDescription>
@@ -165,6 +171,9 @@ export default function AdminFinance() {
               let liveBody: React.ReactNode = null;
               if (t.id === "rate_pool") liveBody = <AdminCostRates />;
               else if (t.id === "standard_bom") liveBody = <AdminStandardBom />;
+              else if (t.id === "power_tariff") liveBody = <AdminPowerTariff />;
+              else if (t.id === "selling_prices") liveBody = <AdminSellingPrices />;
+              else if (t.id === "period_close") liveBody = <AdminPeriodClose />;
               return (
                 <TabsContent key={t.id} value={t.id} className="mt-6">
                   {t.live && liveBody ? liveBody : (
