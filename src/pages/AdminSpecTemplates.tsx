@@ -240,6 +240,7 @@ export default function AdminSpecTemplates() {
         </Dialog>
       </CardHeader>
       <CardContent>
+        <div className="overflow-x-auto">
         <Table>
           <TableHeader>
             <TableRow>
@@ -248,6 +249,11 @@ export default function AdminSpecTemplates() {
               <TableHead>Group</TableHead>
               <TableHead>Subgroup</TableHead>
               <TableHead>Fields</TableHead>
+              {FIXED_SPEC_COLUMNS.map((c) => (
+                <TableHead key={c.key} className="whitespace-nowrap">
+                  {c.key}{c.unit ? ` (${c.unit})` : ""}
+                </TableHead>
+              ))}
               <TableHead>Required</TableHead>
               <TableHead>Active</TableHead>
               <TableHead></TableHead>
@@ -255,13 +261,25 @@ export default function AdminSpecTemplates() {
           </TableHeader>
           <TableBody>
             {loading && (
-              <TableRow><TableCell colSpan={8} className="text-muted-foreground">Loading…</TableCell></TableRow>
+              <TableRow><TableCell colSpan={9 + FIXED_SPEC_COLUMNS.length} className="text-muted-foreground">Loading…</TableCell></TableRow>
             )}
             {!loading && templates.map((t) => {
               const reqCount = t.fields.filter((f) => f.required).length;
               const chips = templateFieldsToChips(t.fields, 8);
               const overflow = t.fields.length - chips.length;
               const isOpen = expanded.has(t.id);
+              // Build a synthetic specs object so the same `getSpecValue` lookup
+              // works on template fields (value = formatted range / "✓").
+              const fieldSummary: Record<string, string> = {};
+              for (const f of t.fields) {
+                const min = (f.min ?? "").toString().trim();
+                const max = (f.max ?? "").toString().trim();
+                let display = "✓";
+                if (min && max) display = `${min}–${max}`;
+                else if (min) display = `≥${min}`;
+                else if (max) display = `≤${max}`;
+                fieldSummary[f.key] = display;
+              }
               return (
                 <Fragment key={t.id}>
                   <TableRow>
@@ -297,6 +315,14 @@ export default function AdminSpecTemplates() {
                         </div>
                       )}
                     </TableCell>
+                    {FIXED_SPEC_COLUMNS.map((c) => {
+                      const v = getSpecValue(fieldSummary, c);
+                      return (
+                        <TableCell key={c.key} className="whitespace-nowrap tabular-nums align-top">
+                          {v ?? <span className="text-muted-foreground">—</span>}
+                        </TableCell>
+                      );
+                    })}
                     <TableCell className="align-top">{reqCount}</TableCell>
                     <TableCell className="align-top">{t.isActive ? "Yes" : "No"}</TableCell>
                     <TableCell className="align-top"><Button size="sm" variant="outline" onClick={() => openEdit(t)}>Edit</Button></TableCell>
@@ -304,7 +330,7 @@ export default function AdminSpecTemplates() {
                   {isOpen && t.fields.length > 0 && (
                     <TableRow className="bg-panel/40">
                       <TableCell></TableCell>
-                      <TableCell colSpan={7} className="py-3">
+                      <TableCell colSpan={8 + FIXED_SPEC_COLUMNS.length} className="py-3">
                         <div className="rounded-md border border-border bg-card">
                           <Table>
                             <TableHeader>
@@ -341,13 +367,14 @@ export default function AdminSpecTemplates() {
             })}
             {!loading && templates.length === 0 && (
               <TableRow>
-                <TableCell colSpan={8} className="text-muted-foreground">
+                <TableCell colSpan={9 + FIXED_SPEC_COLUMNS.length} className="text-muted-foreground">
                   No spec templates yet. Click "New template" to define mandatory specs for a Type / Group / Subgroup.
                 </TableCell>
               </TableRow>
             )}
           </TableBody>
         </Table>
+        </div>
       </CardContent>
     </Card>
   );
