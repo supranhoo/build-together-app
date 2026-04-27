@@ -163,5 +163,33 @@ describe("applyTemplateToRows", () => {
     const twice = applyTemplateToRows(template, once);
     expect(twice.map((r) => r.key)).toEqual(once.map((r) => r.key));
     expect(twice.map((r) => r.value)).toEqual(once.map((r) => r.value));
+});
+
+describe("appendStandardSpecFields", () => {
+  it("appends every standard column when starting empty", () => {
+    const out = appendStandardSpecFields([], FIXED_SPEC_COLUMNS);
+    expect(out.map((f) => f.key)).toEqual(FIXED_SPEC_COLUMNS.map((c) => c.key));
+    expect(out.every((f) => f.numeric)).toBe(true);
+    expect(out.find((f) => f.key === "Mn")?.unit).toBe("%");
+    expect(out.find((f) => f.key === "Size")?.unit).toBe("mm");
   });
+
+  it("skips keys already present (case-insensitive) and preserves existing fields", () => {
+    const existing = [field({ key: "mn", label: "Manganese", unit: "%", min: "30", numeric: true })];
+    const out = appendStandardSpecFields(existing, FIXED_SPEC_COLUMNS);
+    // existing Mn row stays first and untouched
+    expect(out[0].key).toBe("mn");
+    expect(out[0].min).toBe("30");
+    // Mn is not duplicated
+    expect(out.filter((f) => f.key.toLowerCase() === "mn")).toHaveLength(1);
+    // Total = existing + (standard - 1 dedup)
+    expect(out).toHaveLength(FIXED_SPEC_COLUMNS.length);
+  });
+
+  it("does not mutate the input array", () => {
+    const input: SpecTemplateField[] = [];
+    appendStandardSpecFields(input, FIXED_SPEC_COLUMNS);
+    expect(input).toHaveLength(0);
+  });
+});
 });
