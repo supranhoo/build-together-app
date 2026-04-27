@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -141,15 +141,39 @@ export default function AdminMasterItems() {
     [templates, form.type, form.groupName, form.subgroup],
   );
 
-  const handleApplyTemplate = () => {
-    if (!matchedTemplate) return;
-    const next = applyTemplateToRows(matchedTemplate, form.specRows);
-    setForm({ ...form, specRows: next });
-    toast({
-      title: "Template applied",
-      description: `${matchedTemplate.fields.length} field${matchedTemplate.fields.length === 1 ? "" : "s"} from ${matchedTemplate.type} / ${matchedTemplate.groupName}${matchedTemplate.subgroup ? ` / ${matchedTemplate.subgroup}` : ""}`,
+  /**
+   * Auto-apply spec template when the operator changes Group / Type / Subgroup.
+   * Uses the same merge as the old manual button: preserves any value the
+   * operator already typed for matching keys, appends extra free-form rows.
+   * Existing items keep their loaded specs untouched on open — we only fire
+   * when nature actually changes.
+   */
+  const handleGroupChange = useCallback((nextGroup: string) => {
+    setForm((prev) => {
+      if (prev.groupName === nextGroup) return prev;
+      const tpl = findTemplateForNature(templates, prev.type || null, nextGroup, prev.subgroup);
+      const specRows = tpl ? applyTemplateToRows(tpl, prev.specRows) : prev.specRows;
+      return { ...prev, groupName: nextGroup, specRows };
     });
-  };
+  }, [templates]);
+
+  const handleTypeChange = useCallback((nextType: MaterialType) => {
+    setForm((prev) => {
+      if (prev.type === nextType) return prev;
+      const tpl = findTemplateForNature(templates, nextType, prev.groupName, prev.subgroup);
+      const specRows = tpl ? applyTemplateToRows(tpl, prev.specRows) : prev.specRows;
+      return { ...prev, type: nextType, specRows };
+    });
+  }, [templates]);
+
+  const handleSubgroupChange = useCallback((nextSubgroup: string) => {
+    setForm((prev) => {
+      if (prev.subgroup === nextSubgroup) return prev;
+      const tpl = findTemplateForNature(templates, prev.type || null, prev.groupName, nextSubgroup);
+      const specRows = tpl ? applyTemplateToRows(tpl, prev.specRows) : prev.specRows;
+      return { ...prev, subgroup: nextSubgroup, specRows };
+    });
+  }, [templates]);
 
   const handleSave = async () => {
     if (!activeProfitCenter || !session?.user) return;
@@ -298,7 +322,7 @@ export default function AdminMasterItems() {
                 <div><Label>Name</Label><Input value={form.name} onChange={(e) => setForm({ ...form, name: e.target.value })} /></div>
                 <div>
                   <Label>Type</Label>
-                  <Select value={form.type} onValueChange={(v) => setForm({ ...form, type: v as MaterialType })}>
+                  <Select value={form.type} onValueChange={(v) => handleTypeChange(v as MaterialType)}>
                     <SelectTrigger><SelectValue placeholder="Select type" /></SelectTrigger>
                     <SelectContent>
                       {MATERIAL_TYPES.map((t) => <SelectItem key={t} value={t}>{t}</SelectItem>)}
@@ -314,29 +338,24 @@ export default function AdminMasterItems() {
                     </SelectContent>
                   </Select>
                 </div>
-                <div><Label>Group</Label><Input value={form.groupName} onChange={(e) => setForm({ ...form, groupName: e.target.value })} /></div>
-                <div><Label>Subgroup</Label><Input value={form.subgroup} onChange={(e) => setForm({ ...form, subgroup: e.target.value })} /></div>
+                <div><Label>Group</Label><Input value={form.groupName} onChange={(e) => handleGroupChange(e.target.value)} list="item-group-options" placeholder="ORE, Reductant, Fluxes…" /><datalist id="item-group-options">{groupOptions.map((g) => <option key={g} value={g} />)}</datalist></div>
+                <div><Label>Subgroup</Label><Input value={form.subgroup} onChange={(e) => handleSubgroupChange(e.target.value)} /></div>
                 <div><Label>Std cost</Label><Input type="number" step="0.0001" value={form.stdCost} onChange={(e) => setForm({ ...form, stdCost: e.target.value })} /></div>
                 <div><Label>Reorder level</Label><Input type="number" step="0.001" value={form.reorderLevel} onChange={(e) => setForm({ ...form, reorderLevel: e.target.value })} /></div>
                 <div><Label>Min level</Label><Input type="number" step="0.001" value={form.minLevel} onChange={(e) => setForm({ ...form, minLevel: e.target.value })} /></div>
                 <div><Label>Max level</Label><Input type="number" step="0.001" value={form.maxLevel} onChange={(e) => setForm({ ...form, maxLevel: e.target.value })} /></div>
                 <div className="sm:col-span-2 space-y-2">
-                  <div className="flex flex-wrap items-center justify-between gap-2 rounded-md border border-dashed border-border bg-panel/50 px-3 py-2 text-xs">
-                    {matchedTemplate ? (
-                      <>
-                        <span className="text-muted-foreground">
-                          Matching template: <strong className="text-foreground">{matchedTemplate.type} / {matchedTemplate.groupName}{matchedTemplate.subgroup ? ` / ${matchedTemplate.subgroup}` : " (whole group)"}</strong> — {matchedTemplate.fields.length} field{matchedTemplate.fields.length === 1 ? "" : "s"}
-                        </span>
-                        <Button type="button" size="sm" variant="outline" onClick={handleApplyTemplate}>
-                          Apply template
-                        </Button>
-                      </>
-                    ) : (
-                      <span className="text-muted-foreground">
-                        No spec template defined for this Type / Group / Subgroup. Add one under <em>Master Data → Specifications</em> to enable mapping.
-                      </span>
-                    )}
-                  </div>
+                  {matchedTemplate ? (
+                    <div className="rounded-md border border-dashed border-border bg-panel/50 px-3 py-2 text-xs text-muted-foreground">
+                      Specs auto-loaded from <strong className="text-foreground">{matchedTemplate.groupName}{matchedTemplate.subgroup ? ` / ${matchedTemplate.subgroup}` : ""}</strong> template ({matchedTemplate.fields.length} field{matchedTemplate.fields.length === 1 ? "" : "s"}). Admin can edit fields under <em>Master Data → Specifications</em>.
+                    </div>
+                  ) : (
+                    form.groupName && (
+                      <div className="rounded-md border border-dashed border-border bg-panel/50 px-3 py-2 text-xs text-muted-foreground">
+                        No spec template defined for "{form.groupName}". Add one under <em>Master Data → Specifications</em> to auto-load fields.
+                      </div>
+                    )
+                  )}
                   <SpecsEditor
                     rows={form.specRows}
                     errors={specErrors}

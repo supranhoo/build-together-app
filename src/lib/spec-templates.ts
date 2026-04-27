@@ -214,8 +214,15 @@ export async function upsertSpecTemplate(input: UpsertTemplateInput) {
 
 /**
  * Find the most specific template that matches the item's nature.
- * Prefers an exact subgroup match; falls back to the group-level template
- * (subgroup === '').
+ *
+ * Lookup precedence:
+ *   1. Exact (Type, Group, Subgroup)
+ *   2. (Type, Group, blank subgroup) — group-level template for that Type
+ *   3. (any Type, Group, blank subgroup) — group-only template, used when
+ *      the operator hasn't picked a Type yet OR the seed templates are
+ *      Type-agnostic (e.g. ORE / Reductant / Fluxes / Paste).
+ *
+ * Returns null when nothing matches. Group is required; Type is optional.
  */
 export function findTemplateForNature(
   templates: SpecTemplate[],
@@ -223,14 +230,19 @@ export function findTemplateForNature(
   groupName: string | null | undefined,
   subgroup: string | null | undefined,
 ): SpecTemplate | null {
-  if (!type || !groupName) return null;
-  const t = type.trim();
+  if (!groupName) return null;
+  const t = (type ?? "").trim();
   const g = groupName.trim();
   const s = (subgroup ?? "").trim();
-  const active = templates.filter((tpl) => tpl.isActive && tpl.type === t && tpl.groupName === g);
+  const active = templates.filter((tpl) => tpl.isActive && tpl.groupName === g);
   if (active.length === 0) return null;
-  const exact = active.find((tpl) => tpl.subgroup === s);
-  if (exact) return exact;
+  if (t) {
+    const exact = active.find((tpl) => tpl.type === t && tpl.subgroup === s);
+    if (exact) return exact;
+    const groupForType = active.find((tpl) => tpl.type === t && tpl.subgroup === "");
+    if (groupForType) return groupForType;
+  }
+  // Group-only fallback: any Type, blank subgroup. Picks the first match.
   return active.find((tpl) => tpl.subgroup === "") ?? null;
 }
 

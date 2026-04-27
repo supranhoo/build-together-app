@@ -68,9 +68,9 @@ describe("findTemplateForNature", () => {
   const exact = tpl({ id: "exact", type: "RM", groupName: "Ores", subgroup: "Mn-Ore" });
   const groupLevel = tpl({ id: "group", type: "RM", groupName: "Ores", subgroup: "" });
   const inactive = tpl({ id: "off", type: "RM", groupName: "Ores", subgroup: "Mn-Ore", isActive: false });
+  const groupOnly = tpl({ id: "group-only", type: "RM", groupName: "ORE", subgroup: "" });
 
-  it("returns null when type or group missing", () => {
-    expect(findTemplateForNature([groupLevel], null, "Ores", "Mn-Ore")).toBeNull();
+  it("returns null when group missing", () => {
     expect(findTemplateForNature([groupLevel], "RM", null, "Mn-Ore")).toBeNull();
   });
 
@@ -89,8 +89,15 @@ describe("findTemplateForNature", () => {
     expect(t).toBeNull();
   });
 
-  it("returns null when nothing matches the type/group", () => {
-    expect(findTemplateForNature([groupLevel], "FG", "Ores", "")).toBeNull();
+  it("falls back to any-Type group-only template when type doesn't match", () => {
+    // Operator picked Type=FG but the only template is RM/ORE — group-only fallback fires.
+    const t = findTemplateForNature([groupOnly], "FG", "ORE", "");
+    expect(t?.id).toBe("group-only");
+  });
+
+  it("matches group-only template when type is unset", () => {
+    const t = findTemplateForNature([groupOnly], null, "ORE", "");
+    expect(t?.id).toBe("group-only");
   });
 });
 
