@@ -332,3 +332,10 @@
 - 2026-04-27 (Specs visible in list views): added `Specs` column on Item Master list (chip summary) and chip-list + expandable per-field detail table on Spec Templates list, both backed by the new pure `spec-summary` helpers (13 unit tests).
 - 2026-04-27 (Specs as fixed columns): replaced the chip cell on the Item Master list with thirteen dedicated columns (Mn / Moisture / Fe / SiO2 / CaO / Al2O3 / MgO / P / S / FC / VM / Ash / Size); same column block added to the Spec Templates list showing the enforced range per cell. Single named constant `FIXED_SPEC_COLUMNS` + alias-aware `getSpecValue` in `src/lib/spec-columns.ts` (with typo tolerance for AI2O3, Mgo, Si02, Fixed Carbon, etc.); 7 unit tests.
 
+
+## Item Catalogue Policy (PoC, 2026-04-27)
+- Operator chose "Hard cutover" for downstream architecture but PoC scope was confirmed first; cutover is **deferred** until the tree-view UX is validated.
+- Reserved spec keys (`_role`, `_category`, `_mn_recovery_pct`, `_fe_recovery_pct`) are an explicit, documented deviation from Rule #10 (zero-hardcoding) — chosen because they enable Phase A without breaking 40+ downstream files that reference `materials`. Migration path: when Phase B promotes them to first-class columns, this section will be replaced.
+- Metallurgical role enum is hardcoded (5 values: `mn_source`, `carbon_source`, `flux`, `product`, `waste`) per operator-supplied list. Will move to admin-managed master data in Phase B.
+- Recovery % must be in [0, 100]. Item-level value overrides furnace-level recovery (furnace-level not yet implemented — tracked for Phase B).
+- Save is blocked when a matching template's required fields are missing from the item's specs.
