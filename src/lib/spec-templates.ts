@@ -115,6 +115,35 @@ export function emptyTemplateField(): SpecTemplateField {
   };
 }
 
+/**
+ * Append the standard ferro-alloy spec columns (Mn, Moisture, Fe, SiO2, CaO,
+ * Al2O3, MgO, P, S, FC, VM, Ash, Size) to the given fields, skipping any
+ * keys already present (case-insensitive). Pure — caller decides when to
+ * apply. Used by the "Add standard specs" quick action in `SpecTemplateEditor`
+ * so admins don't have to type every chemistry key by hand.
+ */
+export function appendStandardSpecFields(
+  fields: SpecTemplateField[],
+  standard: ReadonlyArray<{ key: string; unit: string }>,
+): SpecTemplateField[] {
+  const existing = new Set(fields.map((f) => f.key.trim().toLowerCase()).filter(Boolean));
+  const additions: SpecTemplateField[] = [];
+  standard.forEach((c, i) => {
+    if (existing.has(c.key.toLowerCase())) return;
+    additions.push({
+      key: c.key,
+      label: c.key,
+      unit: c.unit,
+      required: false,
+      numeric: true,
+      min: "",
+      max: "",
+      sortOrder: fields.length + i,
+    });
+  });
+  return [...fields, ...additions];
+}
+
 // ---------- Validation ----------
 
 /**
