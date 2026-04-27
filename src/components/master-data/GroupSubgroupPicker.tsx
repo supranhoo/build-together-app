@@ -70,6 +70,12 @@ export function GroupSubgroupPicker({
         <datalist id={subgroupListId}>
           {subgroupOptions.map((s) => <option key={s} value={s} />)}
         </datalist>
+        {group && subgroupOptions.length === 0 && (
+          <p className="mt-1 text-xs text-muted-foreground">
+            No subgroups defined for <span className="font-medium">{group}</span>. Add them under{" "}
+            <em>Master Data → Group &amp; Hierarchy</em>, or just type a value to save it inline.
+          </p>
+        )}
       </div>
     </>
   );
