@@ -52,9 +52,20 @@ export function SpecTemplateEditor({
     <div className="space-y-2">
       <div className="flex items-center justify-between">
         <Label>Specification fields</Label>
-        <Button type="button" size="sm" variant="outline" onClick={add}>
-          Add field
-        </Button>
+        <div className="flex gap-2">
+          <Button
+            type="button"
+            size="sm"
+            variant="outline"
+            onClick={() => onChange(appendStandardSpecFields(fields, FIXED_SPEC_COLUMNS))}
+            title="Append Mn, Moisture, Fe, SiO2, CaO, Al2O3, MgO, P, S, FC, VM, Ash, Size (skips keys already present)"
+          >
+            Add standard specs
+          </Button>
+          <Button type="button" size="sm" variant="outline" onClick={add}>
+            Add field
+          </Button>
+        </div>
       </div>
       {fields.length === 0 && (
         <p className="rounded-md border border-dashed border-border bg-panel px-3 py-4 text-center text-xs text-muted-foreground">
