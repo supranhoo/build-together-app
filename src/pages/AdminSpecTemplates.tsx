@@ -186,22 +186,16 @@ export default function AdminSpecTemplates() {
                     </SelectContent>
                   </Select>
                 </div>
-                <div>
-                  <Label>Group</Label>
-                  <Input
-                    value={form.groupName}
-                    onChange={(e) => setForm({ ...form, groupName: e.target.value })}
-                    placeholder="e.g. Ores"
-                  />
-                </div>
-                <div>
-                  <Label>Subgroup (optional)</Label>
-                  <Input
-                    value={form.subgroup}
-                    onChange={(e) => setForm({ ...form, subgroup: e.target.value })}
-                    placeholder="Blank = whole group"
-                  />
-                </div>
+                <GroupSubgroupPicker
+                  groups={groups}
+                  group={form.groupName}
+                  subgroup={form.subgroup}
+                  onGroupChange={(v) => setForm({ ...form, groupName: v })}
+                  onSubgroupChange={(v) => setForm({ ...form, subgroup: v })}
+                  groupListId="spec-tpl-group-options"
+                  subgroupListId="spec-tpl-subgroup-options"
+                  subgroupPlaceholder="Blank = whole group"
+                />
               </div>
               <div>
                 <Label>Notes</Label>
