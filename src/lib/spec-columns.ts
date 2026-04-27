@@ -20,13 +20,28 @@ export interface FixedSpecColumn {
   aliases: string[];
 }
 
+/**
+ * Column order matches the operator-supplied list (2026-04-27):
+ *   Mn · Moisture · Fe · SiO2 · CaO · Al2O3 · MgO · P · S · FC · VM · Ash
+ * Plus Size (mm) appended for raw-material lump/fines screening.
+ *
+ * Aliases tolerate common typos seen in operator-entered specs ("AI2O3" with
+ * a capital-i instead of an L, "Mgo" lowercase o, "Sio2", etc.) so legacy
+ * free-form keys still display in the right column.
+ */
 export const FIXED_SPEC_COLUMNS: FixedSpecColumn[] = [
   { key: "Mn", unit: "%", aliases: ["mn", "mn%", "mn_pct", "manganese"] },
+  { key: "Moisture", unit: "%", aliases: ["moisture", "moisture%", "moisture_pct", "h2o", "moist"] },
   { key: "Fe", unit: "%", aliases: ["fe", "fe%", "fe_pct", "iron"] },
-  { key: "Si", unit: "%", aliases: ["si", "si%", "si_pct", "silicon"] },
+  { key: "SiO2", unit: "%", aliases: ["sio2", "sio2%", "sio2_pct", "silica", "si02"] },
+  { key: "CaO", unit: "%", aliases: ["cao", "cao%", "cao_pct", "calcium oxide", "ca0"] },
+  { key: "Al2O3", unit: "%", aliases: ["al2o3", "al2o3%", "al2o3_pct", "alumina", "ai2o3", "al203", "ai203"] },
+  { key: "MgO", unit: "%", aliases: ["mgo", "mgo%", "mgo_pct", "magnesia", "mg0"] },
   { key: "P", unit: "%", aliases: ["p", "p%", "p_pct", "phosphorus", "phos"] },
   { key: "S", unit: "%", aliases: ["s", "s%", "s_pct", "sulphur", "sulfur"] },
-  { key: "Moisture", unit: "%", aliases: ["moisture", "moisture%", "moisture_pct", "h2o"] },
+  { key: "FC", unit: "%", aliases: ["fc", "fc%", "fc_pct", "fixed carbon", "fixed_carbon"] },
+  { key: "VM", unit: "%", aliases: ["vm", "vm%", "vm_pct", "volatile matter", "volatile_matter"] },
+  { key: "Ash", unit: "%", aliases: ["ash", "ash%", "ash_pct"] },
   { key: "Size", unit: "mm", aliases: ["size", "size_mm", "size mm", "size range", "size_range"] },
 ];
 
