@@ -23,6 +23,9 @@ import {
 } from "@/lib/spec-templates";
 import { SpecTemplateEditor } from "@/components/master-data/SpecTemplateEditor";
 import { GroupSubgroupPicker } from "@/components/master-data/GroupSubgroupPicker";
+import { templateFieldsToChips } from "@/lib/spec-summary";
+import { ChevronDown, ChevronRight } from "lucide-react";
+import { Fragment } from "react";
 
 interface FormState {
   id?: string;
@@ -59,6 +62,14 @@ export default function AdminSpecTemplates() {
   const [open, setOpen] = useState(false);
   const [form, setForm] = useState<FormState>(empty);
   const [saving, setSaving] = useState(false);
+  const [expanded, setExpanded] = useState<Set<string>>(new Set());
+  const toggleExpanded = (id: string) =>
+    setExpanded((prev) => {
+      const next = new Set(prev);
+      if (next.has(id)) next.delete(id);
+      else next.add(id);
+      return next;
+    });
 
   const load = async () => {
     if (!activeProfitCenter) return;
@@ -231,6 +242,7 @@ export default function AdminSpecTemplates() {
         <Table>
           <TableHeader>
             <TableRow>
+              <TableHead className="w-8"></TableHead>
               <TableHead>Type</TableHead>
               <TableHead>Group</TableHead>
               <TableHead>Subgroup</TableHead>
@@ -242,25 +254,93 @@ export default function AdminSpecTemplates() {
           </TableHeader>
           <TableBody>
             {loading && (
-              <TableRow><TableCell colSpan={7} className="text-muted-foreground">Loading…</TableCell></TableRow>
+              <TableRow><TableCell colSpan={8} className="text-muted-foreground">Loading…</TableCell></TableRow>
             )}
             {!loading && templates.map((t) => {
               const reqCount = t.fields.filter((f) => f.required).length;
+              const chips = templateFieldsToChips(t.fields, 8);
+              const overflow = t.fields.length - chips.length;
+              const isOpen = expanded.has(t.id);
               return (
-                <TableRow key={t.id}>
-                  <TableCell className="font-medium">{t.type}</TableCell>
-                  <TableCell>{t.groupName}</TableCell>
-                  <TableCell>{t.subgroup === "" ? <Badge variant="outline">whole group</Badge> : t.subgroup}</TableCell>
-                  <TableCell>{t.fields.length}</TableCell>
-                  <TableCell>{reqCount}</TableCell>
-                  <TableCell>{t.isActive ? "Yes" : "No"}</TableCell>
-                  <TableCell><Button size="sm" variant="outline" onClick={() => openEdit(t)}>Edit</Button></TableCell>
-                </TableRow>
+                <Fragment key={t.id}>
+                  <TableRow>
+                    <TableCell className="w-8 align-top">
+                      {t.fields.length > 0 && (
+                        <Button
+                          size="sm"
+                          variant="ghost"
+                          className="h-7 w-7 p-0"
+                          onClick={() => toggleExpanded(t.id)}
+                          aria-label={isOpen ? "Collapse fields" : "Expand fields"}
+                        >
+                          {isOpen ? <ChevronDown className="h-4 w-4" /> : <ChevronRight className="h-4 w-4" />}
+                        </Button>
+                      )}
+                    </TableCell>
+                    <TableCell className="font-medium align-top">{t.type}</TableCell>
+                    <TableCell className="align-top">{t.groupName}</TableCell>
+                    <TableCell className="align-top">{t.subgroup === "" ? <Badge variant="outline">whole group</Badge> : t.subgroup}</TableCell>
+                    <TableCell className="max-w-[24rem] align-top">
+                      {chips.length === 0 ? (
+                        <span className="text-muted-foreground">—</span>
+                      ) : (
+                        <div className="flex flex-wrap gap-1">
+                          {chips.map((c) => (
+                            <Badge key={c.key} variant="outline" className="font-normal">{c.label}</Badge>
+                          ))}
+                          {overflow > 0 && (
+                            <Badge variant="secondary" className="font-normal" title={`${overflow} more field${overflow === 1 ? "" : "s"}`}>
+                              +{overflow}
+                            </Badge>
+                          )}
+                        </div>
+                      )}
+                    </TableCell>
+                    <TableCell className="align-top">{reqCount}</TableCell>
+                    <TableCell className="align-top">{t.isActive ? "Yes" : "No"}</TableCell>
+                    <TableCell className="align-top"><Button size="sm" variant="outline" onClick={() => openEdit(t)}>Edit</Button></TableCell>
+                  </TableRow>
+                  {isOpen && t.fields.length > 0 && (
+                    <TableRow className="bg-panel/40">
+                      <TableCell></TableCell>
+                      <TableCell colSpan={7} className="py-3">
+                        <div className="rounded-md border border-border bg-card">
+                          <Table>
+                            <TableHeader>
+                              <TableRow>
+                                <TableHead>Key</TableHead>
+                                <TableHead>Label</TableHead>
+                                <TableHead>Unit</TableHead>
+                                <TableHead>Required</TableHead>
+                                <TableHead>Numeric</TableHead>
+                                <TableHead>Min</TableHead>
+                                <TableHead>Max</TableHead>
+                              </TableRow>
+                            </TableHeader>
+                            <TableBody>
+                              {t.fields.map((f, i) => (
+                                <TableRow key={`${f.key}-${i}`}>
+                                  <TableCell className="font-mono text-xs">{f.key}</TableCell>
+                                  <TableCell>{f.label || "—"}</TableCell>
+                                  <TableCell>{f.unit || "—"}</TableCell>
+                                  <TableCell>{f.required ? "Yes" : "No"}</TableCell>
+                                  <TableCell>{f.numeric ? "Yes" : "No"}</TableCell>
+                                  <TableCell>{f.min || "—"}</TableCell>
+                                  <TableCell>{f.max || "—"}</TableCell>
+                                </TableRow>
+                              ))}
+                            </TableBody>
+                          </Table>
+                        </div>
+                      </TableCell>
+                    </TableRow>
+                  )}
+                </Fragment>
               );
             })}
             {!loading && templates.length === 0 && (
               <TableRow>
-                <TableCell colSpan={7} className="text-muted-foreground">
+                <TableCell colSpan={8} className="text-muted-foreground">
                   No spec templates yet. Click "New template" to define mandatory specs for a Type / Group / Subgroup.
                 </TableCell>
               </TableRow>
