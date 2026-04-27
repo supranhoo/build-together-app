@@ -4,10 +4,12 @@ import { Switch } from "@/components/ui/switch";
 import { Label } from "@/components/ui/label";
 import { cn } from "@/lib/utils";
 import {
+  appendStandardSpecFields,
   emptyTemplateField,
   type FieldValidationError,
   type SpecTemplateField,
 } from "@/lib/spec-templates";
+import { FIXED_SPEC_COLUMNS } from "@/lib/spec-columns";
 
 /**
  * Editor for the `fields` array of a Spec Template. Pure presentational —
