@@ -1,12 +1,14 @@
 import { describe, it, expect } from "vitest";
 import {
   applyTemplateToRows,
+  appendStandardSpecFields,
   emptyTemplateField,
   findTemplateForNature,
   validateTemplateFields,
   type SpecTemplate,
   type SpecTemplateField,
 } from "@/lib/spec-templates";
+import { FIXED_SPEC_COLUMNS } from "@/lib/spec-columns";
 import { emptySpecRow, type SpecRow } from "@/lib/master-item-specs";
 
 function field(overrides: Partial<SpecTemplateField> = {}): SpecTemplateField {
