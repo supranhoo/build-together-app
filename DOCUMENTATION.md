@@ -663,26 +663,34 @@ Per user decision (2026-04-26), every KPI tile rendered via `<AccentKpiCard />` 
 ### Version History
 - 2026-04-26 (Item Master Specs editor): replaced free-form JSON textarea with structured rows editor (`SpecsEditor`) + strict required + numeric range validation. Added 14 unit tests covering migration, validation, and serialization. 414/414 passing.
 
-## Specifications Master — Spec Templates per Nature (2026-04-26)
+## Specifications Master — Spec Templates per Nature (2026-04-26, updated 2026-04-27)
 
-**Decision** — Per-nature mandatory spec fields are managed via a new admin master table `spec_templates`, mounted as the **Specifications** tab inside Master Data (`/portal/inventory/master-data?md=specs`). Mapping to items is **manual**: an "Apply template" button on the Item Master form pulls the matching template's fields into the spec rows editor.
+**Decision** — Per-nature mandatory spec fields are managed via the admin master table `spec_templates`, mounted as the **Specifications** tab inside Master Data (`/portal/inventory/master-data?md=specs`). Mapping to items is **automatic** — the moment the operator changes Type, Group, or Subgroup on the Item Master form, the matching template's fields replace the spec rows (operator-typed values for matching keys are preserved; unmatched per-item rows are kept appended).
 
 **Schema** — `spec_templates` row per `(profit_center_id, type, group_name, subgroup)` (UNIQUE). `subgroup = ''` means the template applies to the whole group when no subgroup-specific template exists. The `fields` jsonb stores an ordered array of `{ key, label, unit, required, numeric, min, max, sort_order }`. RLS: workspace users read their workspaces; workspace admins (and super admins) insert/update; super admins delete.
 
 **Lookup precedence** — `findTemplateForNature(templates, type, group, subgroup)` returns the most specific active template:
 1. Exact `(type, group, subgroup)` match.
-2. Group-level fallback `(type, group, subgroup='')`.
-3. Otherwise `null`.
+2. Group-level for that Type `(type, group, subgroup='')`.
+3. **Group-only** — any active template `(group, subgroup='')` regardless of Type. Used when Type is unset OR when the seeded templates are Type-agnostic (e.g. ORE, Reductant, Fluxes, Paste).
+4. Otherwise `null`.
 
-**Manual mapping contract** — `applyTemplateToRows(template, rows)`:
+**Auto-mapping contract** — On every change to `form.type | form.groupName | form.subgroup` the form recomputes the match. If a template is found, `applyTemplateToRows(template, rows)` runs:
 - Each template field becomes a row, with `unit/required/numeric/min/max` overwritten from the template.
 - If a row with the same key (case-insensitive) already exists, the operator's `value` is preserved.
 - Rows whose keys are not in the template are appended at the end (per-item extras are kept).
-- Pure / idempotent — calling it twice with the same template produces the same result.
+- Pure / idempotent.
 
-**Existing items policy** — Lazy enforcement (per project decision 2026-04-26). Items saved before a template existed keep their stored JSON. The operator opts in by clicking "Apply template" the next time they edit the item; from that point, the per-item validator (`validateSpecRows`) enforces required + numeric range.
+**Existing items policy** — Lazy enforcement preserved. Items saved before a template existed keep their stored JSON; on edit, specs load as-is and only refresh when the operator actively changes Type/Group/Subgroup. From that point, the per-item validator (`validateSpecRows`) enforces required + numeric range.
 
-**Why no auto-apply** — Auto-rewriting historical items on template change would (a) violate Rule #3 (Surgical Changes) and (b) silently mutate audited records. Manual mapping keeps the operator in the loop and produces an `audit_logs` entry on save.
+**Seeded templates (2026-04-27)** — One-off seed inserts the four group-level templates per profit center (idempotent via UNIQUE key):
+- `RM / ORE` — Mn, Moisture, Fe, SiO₂, CaO, Al₂O₃, MgO, P, S (all numeric, %, 0–100, required).
+- `RM / Reductant` — FC, Moisture, VM, Ash (all numeric, %, 0–100, required).
+- `RM / Fluxes` — CaO (numeric, %, 0–100, required).
+- `RM / Paste` — CaO (numeric, %, 0–100, required).
+Admin can edit, add, or disable any field under Master Data → Specifications.
 
 ### Version History
 - 2026-04-26 (Spec Templates master): added `spec_templates` table + RLS + `src/lib/spec-templates.ts` (lookup, validation, manual mapping) + `AdminSpecTemplates` page mounted as Master Data → Specifications tab + "Apply template" action on Item Master form. 14 new unit tests covering validation, nature lookup precedence, and idempotent mapping.
+- 2026-04-27 (Auto-apply + group-only fallback): `findTemplateForNature` gains a third precedence rung (group-only, any Type) for the seeded ORE/Reductant/Fluxes/Paste templates. Item Master form auto-applies the matching template on Type/Group/Subgroup change; manual "Apply template" button removed. Seed migration loads the four default templates per profit center. 16 unit tests.
+
