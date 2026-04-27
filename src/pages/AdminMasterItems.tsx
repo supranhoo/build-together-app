@@ -13,10 +13,12 @@ import { useToast } from "@/hooks/use-toast";
 import { createAuditLog } from "@/lib/workspace";
 import {
   fetchMasterItems,
+  fetchMaterialGroups,
   filterItems,
   upsertMasterItem,
   MATERIAL_TYPES,
   type MasterItem,
+  type MaterialGroup,
   type MaterialType,
 } from "@/lib/master-data";
 import { downloadCsv, parseCsv, toCsv } from "@/lib/csv";
@@ -32,6 +34,7 @@ import {
   type SpecRow,
 } from "@/lib/master-item-specs";
 import { SpecsEditor } from "@/components/master-data/SpecsEditor";
+import { GroupSubgroupPicker } from "@/components/master-data/GroupSubgroupPicker";
 import {
   applyTemplateToRows,
   fetchSpecTemplates,
@@ -78,6 +81,7 @@ export default function AdminMasterItems() {
   const { toast } = useToast();
   const [items, setItems] = useState<MasterItem[]>([]);
   const [templates, setTemplates] = useState<SpecTemplate[]>([]);
+  const [groups, setGroups] = useState<MaterialGroup[]>([]);
   const [loading, setLoading] = useState(false);
   const [open, setOpen] = useState(false);
   const [form, setForm] = useState<FormState>(empty);
@@ -93,12 +97,14 @@ export default function AdminMasterItems() {
     if (!activeProfitCenter) return;
     setLoading(true);
     try {
-      const [itemsRes, templatesRes] = await Promise.all([
+      const [itemsRes, templatesRes, groupsRes] = await Promise.all([
         fetchMasterItems(activeProfitCenter.id),
         fetchSpecTemplates(activeProfitCenter.id).catch(() => [] as SpecTemplate[]),
+        fetchMaterialGroups(activeProfitCenter.id).catch(() => [] as MaterialGroup[]),
       ]);
       setItems(itemsRes);
       setTemplates(templatesRes);
+      setGroups(groupsRes);
     } finally {
       setLoading(false);
     }
@@ -106,11 +112,19 @@ export default function AdminMasterItems() {
 
   useEffect(() => { void load(); /* eslint-disable-next-line */ }, [activeProfitCenter?.id]);
 
+  // Distinct groups from items — fed as `extras` into the picker so legacy
+  // free-form values (typed before we wired material_groups) stay selectable.
   const groupOptions = useMemo(() => {
     const set = new Set<string>();
     items.forEach((i) => { if (i.groupName) set.add(i.groupName); });
     return Array.from(set).sort();
   }, [items]);
+  const subgroupExtras = useMemo(
+    () => items
+      .filter((i) => (i.groupName ?? "").trim().toLowerCase() === form.groupName.trim().toLowerCase())
+      .map((i) => i.subgroup),
+    [items, form.groupName],
+  );
 
   const filtered = useMemo(() => filterItems(items, search, typeFilter, groupFilter), [items, search, typeFilter, groupFilter]);
 
