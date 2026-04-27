@@ -414,7 +414,8 @@ export default function AdminMasterItems() {
             )}
           </div>
         )}
-        <Table>
+        <div className="overflow-x-auto">
+          <Table>
           <TableHeader>
             <TableRow>
               <TableHead>Code</TableHead>
@@ -462,7 +463,8 @@ export default function AdminMasterItems() {
               <TableRow><TableCell colSpan={10 + FIXED_SPEC_COLUMNS.length} className="text-muted-foreground">No items match these filters.</TableCell></TableRow>
             )}
           </TableBody>
-        </Table>
+          </Table>
+        </div>
       </CardContent>
     </Card>
   );
