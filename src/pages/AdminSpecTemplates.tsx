@@ -12,7 +12,7 @@ import { useWorkspace } from "@/hooks/use-workspace";
 import { useAuth } from "@/hooks/use-auth";
 import { useToast } from "@/hooks/use-toast";
 import { createAuditLog } from "@/lib/workspace";
-import { MATERIAL_TYPES, type MaterialType } from "@/lib/master-data";
+import { fetchMaterialGroups, MATERIAL_TYPES, type MaterialGroup, type MaterialType } from "@/lib/master-data";
 import {
   emptyTemplateField,
   fetchSpecTemplates,
@@ -22,6 +22,7 @@ import {
   type SpecTemplateField,
 } from "@/lib/spec-templates";
 import { SpecTemplateEditor } from "@/components/master-data/SpecTemplateEditor";
+import { GroupSubgroupPicker } from "@/components/master-data/GroupSubgroupPicker";
 
 interface FormState {
   id?: string;
@@ -53,6 +54,7 @@ export default function AdminSpecTemplates() {
   const { session } = useAuth();
   const { toast } = useToast();
   const [templates, setTemplates] = useState<SpecTemplate[]>([]);
+  const [groups, setGroups] = useState<MaterialGroup[]>([]);
   const [loading, setLoading] = useState(false);
   const [open, setOpen] = useState(false);
   const [form, setForm] = useState<FormState>(empty);
@@ -62,7 +64,12 @@ export default function AdminSpecTemplates() {
     if (!activeProfitCenter) return;
     setLoading(true);
     try {
-      setTemplates(await fetchSpecTemplates(activeProfitCenter.id));
+      const [tplRes, grpRes] = await Promise.all([
+        fetchSpecTemplates(activeProfitCenter.id),
+        fetchMaterialGroups(activeProfitCenter.id).catch(() => [] as MaterialGroup[]),
+      ]);
+      setTemplates(tplRes);
+      setGroups(grpRes);
     } catch (e) {
       toast({ title: "Load failed", description: e instanceof Error ? e.message : "", variant: "destructive" });
     } finally {
@@ -179,22 +186,16 @@ export default function AdminSpecTemplates() {
                     </SelectContent>
                   </Select>
                 </div>
-                <div>
-                  <Label>Group</Label>
-                  <Input
-                    value={form.groupName}
-                    onChange={(e) => setForm({ ...form, groupName: e.target.value })}
-                    placeholder="e.g. Ores"
-                  />
-                </div>
-                <div>
-                  <Label>Subgroup (optional)</Label>
-                  <Input
-                    value={form.subgroup}
-                    onChange={(e) => setForm({ ...form, subgroup: e.target.value })}
-                    placeholder="Blank = whole group"
-                  />
-                </div>
+                <GroupSubgroupPicker
+                  groups={groups}
+                  group={form.groupName}
+                  subgroup={form.subgroup}
+                  onGroupChange={(v) => setForm({ ...form, groupName: v })}
+                  onSubgroupChange={(v) => setForm({ ...form, subgroup: v })}
+                  groupListId="spec-tpl-group-options"
+                  subgroupListId="spec-tpl-subgroup-options"
+                  subgroupPlaceholder="Blank = whole group"
+                />
               </div>
               <div>
                 <Label>Notes</Label>
