@@ -352,8 +352,17 @@ export default function AdminMasterItems() {
                     </SelectContent>
                   </Select>
                 </div>
-                <div><Label>Group</Label><Input value={form.groupName} onChange={(e) => handleGroupChange(e.target.value)} list="item-group-options" placeholder="ORE, Reductant, Fluxes…" /><datalist id="item-group-options">{groupOptions.map((g) => <option key={g} value={g} />)}</datalist></div>
-                <div><Label>Subgroup</Label><Input value={form.subgroup} onChange={(e) => handleSubgroupChange(e.target.value)} /></div>
+                <GroupSubgroupPicker
+                  groups={groups}
+                  group={form.groupName}
+                  subgroup={form.subgroup}
+                  groupExtras={groupOptions}
+                  subgroupExtras={subgroupExtras}
+                  onGroupChange={handleGroupChange}
+                  onSubgroupChange={handleSubgroupChange}
+                  groupListId="item-group-options"
+                  subgroupListId="item-subgroup-options"
+                />
                 <div><Label>Std cost</Label><Input type="number" step="0.0001" value={form.stdCost} onChange={(e) => setForm({ ...form, stdCost: e.target.value })} /></div>
                 <div><Label>Reorder level</Label><Input type="number" step="0.001" value={form.reorderLevel} onChange={(e) => setForm({ ...form, reorderLevel: e.target.value })} /></div>
                 <div><Label>Min level</Label><Input type="number" step="0.001" value={form.minLevel} onChange={(e) => setForm({ ...form, minLevel: e.target.value })} /></div>
