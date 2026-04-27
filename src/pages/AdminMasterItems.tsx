@@ -35,6 +35,8 @@ import {
 } from "@/lib/master-item-specs";
 import { SpecsEditor } from "@/components/master-data/SpecsEditor";
 import { GroupSubgroupPicker } from "@/components/master-data/GroupSubgroupPicker";
+import { Badge } from "@/components/ui/badge";
+import { specsObjectToChips } from "@/lib/spec-summary";
 import {
   applyTemplateToRows,
   fetchSpecTemplates,
@@ -424,28 +426,53 @@ export default function AdminMasterItems() {
               <TableHead>UOM</TableHead>
               <TableHead>Std cost</TableHead>
               <TableHead>Reorder</TableHead>
+              <TableHead>Specs</TableHead>
               <TableHead>Active</TableHead>
               <TableHead></TableHead>
             </TableRow>
           </TableHeader>
           <TableBody>
-            {loading && <TableRow><TableCell colSpan={10} className="text-muted-foreground">Loading…</TableCell></TableRow>}
-            {!loading && filtered.map((item) => (
-              <TableRow key={item.id}>
-                <TableCell className="font-medium">{item.code}</TableCell>
-                <TableCell>{item.name}</TableCell>
-                <TableCell>{item.type ?? "—"}</TableCell>
-                <TableCell>{item.groupName ?? "—"}</TableCell>
-                <TableCell>{item.subgroup ?? "—"}</TableCell>
-                <TableCell>{item.uom}</TableCell>
-                <TableCell>{item.stdCost ?? "—"}</TableCell>
-                <TableCell>{item.reorderLevel ?? "—"}</TableCell>
-                <TableCell>{item.isActive ? "Yes" : "No"}</TableCell>
-                <TableCell><Button size="sm" variant="outline" onClick={() => openEdit(item)}>Edit</Button></TableCell>
-              </TableRow>
-            ))}
+            {loading && <TableRow><TableCell colSpan={11} className="text-muted-foreground">Loading…</TableCell></TableRow>}
+            {!loading && filtered.map((item) => {
+              const chips = specsObjectToChips(item.specs, 6);
+              const total = item.specs ? Object.keys(item.specs).filter((k) => k.trim() !== "").length : 0;
+              const overflow = total - chips.length;
+              return (
+                <TableRow key={item.id}>
+                  <TableCell className="font-medium">{item.code}</TableCell>
+                  <TableCell>{item.name}</TableCell>
+                  <TableCell>{item.type ?? "—"}</TableCell>
+                  <TableCell>{item.groupName ?? "—"}</TableCell>
+                  <TableCell>{item.subgroup ?? "—"}</TableCell>
+                  <TableCell>{item.uom}</TableCell>
+                  <TableCell>{item.stdCost ?? "—"}</TableCell>
+                  <TableCell>{item.reorderLevel ?? "—"}</TableCell>
+                  <TableCell className="max-w-[18rem]">
+                    {chips.length === 0 ? (
+                      <span className="text-muted-foreground">—</span>
+                    ) : (
+                      <div className="flex flex-wrap gap-1">
+                        {chips.map((c) => (
+                          <Badge key={c.key} variant="outline" className="font-normal">
+                            <span className="font-medium">{c.label}</span>
+                            {c.value ? <span className="ml-1">: {c.value}</span> : null}
+                          </Badge>
+                        ))}
+                        {overflow > 0 && (
+                          <Badge variant="secondary" className="font-normal" title={`${overflow} more spec${overflow === 1 ? "" : "s"}`}>
+                            +{overflow}
+                          </Badge>
+                        )}
+                      </div>
+                    )}
+                  </TableCell>
+                  <TableCell>{item.isActive ? "Yes" : "No"}</TableCell>
+                  <TableCell><Button size="sm" variant="outline" onClick={() => openEdit(item)}>Edit</Button></TableCell>
+                </TableRow>
+              );
+            })}
             {!loading && filtered.length === 0 && (
-              <TableRow><TableCell colSpan={10} className="text-muted-foreground">No items match these filters.</TableCell></TableRow>
+              <TableRow><TableCell colSpan={11} className="text-muted-foreground">No items match these filters.</TableCell></TableRow>
             )}
           </TableBody>
         </Table>
