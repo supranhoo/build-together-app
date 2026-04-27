@@ -4,7 +4,7 @@ import { FIXED_SPEC_COLUMNS, getSpecValue } from "@/lib/spec-columns";
 describe("spec-columns", () => {
   it("exposes the fixed column list in stable order", () => {
     expect(FIXED_SPEC_COLUMNS.map((c) => c.key)).toEqual([
-      "Mn", "Fe", "Si", "P", "S", "Moisture", "Size",
+      "Mn", "Moisture", "Fe", "SiO2", "CaO", "Al2O3", "MgO", "P", "S", "FC", "VM", "Ash", "Size",
     ]);
   });
 
@@ -32,5 +32,25 @@ describe("spec-columns", () => {
   it("does not match unrelated keys", () => {
     const fe = FIXED_SPEC_COLUMNS.find((c) => c.key === "Fe")!;
     expect(getSpecValue({ Mn: 38 }, fe)).toBeNull();
+  });
+
+  it("tolerates common operator typos for oxide keys", () => {
+    const al = FIXED_SPEC_COLUMNS.find((c) => c.key === "Al2O3")!;
+    const mg = FIXED_SPEC_COLUMNS.find((c) => c.key === "MgO")!;
+    const sio2 = FIXED_SPEC_COLUMNS.find((c) => c.key === "SiO2")!;
+    // Capital "I" instead of "L", and digit "0" instead of "O" — both seen in legacy data.
+    expect(getSpecValue({ "AI2O3": 4.5 }, al)).toBe("4.5");
+    expect(getSpecValue({ "Al203": "5" }, al)).toBe("5");
+    expect(getSpecValue({ Mgo: 2.1 }, mg)).toBe("2.1");
+    expect(getSpecValue({ "Si02": 30 }, sio2)).toBe("30");
+  });
+
+  it("resolves FC, VM and Ash for proximate-analysis specs", () => {
+    const fc = FIXED_SPEC_COLUMNS.find((c) => c.key === "FC")!;
+    const vm = FIXED_SPEC_COLUMNS.find((c) => c.key === "VM")!;
+    const ash = FIXED_SPEC_COLUMNS.find((c) => c.key === "Ash")!;
+    expect(getSpecValue({ "Fixed Carbon": 82 }, fc)).toBe("82");
+    expect(getSpecValue({ volatile_matter: 6 }, vm)).toBe("6");
+    expect(getSpecValue({ Ash: "12" }, ash)).toBe("12");
   });
 });
