@@ -24,6 +24,7 @@ import {
 import { SpecTemplateEditor } from "@/components/master-data/SpecTemplateEditor";
 import { GroupSubgroupPicker } from "@/components/master-data/GroupSubgroupPicker";
 import { templateFieldsToChips } from "@/lib/spec-summary";
+import { FIXED_SPEC_COLUMNS, getSpecValue } from "@/lib/spec-columns";
 import { ChevronDown, ChevronRight } from "lucide-react";
 import { Fragment } from "react";
 
