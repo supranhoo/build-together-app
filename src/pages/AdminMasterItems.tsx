@@ -420,6 +420,7 @@ export default function AdminMasterItems() {
               <TableHead>Name</TableHead>
               <TableHead>Type</TableHead>
               <TableHead>Group</TableHead>
+              <TableHead>Subgroup</TableHead>
               <TableHead>UOM</TableHead>
               <TableHead>Std cost</TableHead>
               <TableHead>Reorder</TableHead>
@@ -428,13 +429,14 @@ export default function AdminMasterItems() {
             </TableRow>
           </TableHeader>
           <TableBody>
-            {loading && <TableRow><TableCell colSpan={9} className="text-muted-foreground">Loading…</TableCell></TableRow>}
+            {loading && <TableRow><TableCell colSpan={10} className="text-muted-foreground">Loading…</TableCell></TableRow>}
             {!loading && filtered.map((item) => (
               <TableRow key={item.id}>
                 <TableCell className="font-medium">{item.code}</TableCell>
                 <TableCell>{item.name}</TableCell>
                 <TableCell>{item.type ?? "—"}</TableCell>
-                <TableCell>{item.groupName ?? "—"}{item.subgroup ? ` / ${item.subgroup}` : ""}</TableCell>
+                <TableCell>{item.groupName ?? "—"}</TableCell>
+                <TableCell>{item.subgroup ?? "—"}</TableCell>
                 <TableCell>{item.uom}</TableCell>
                 <TableCell>{item.stdCost ?? "—"}</TableCell>
                 <TableCell>{item.reorderLevel ?? "—"}</TableCell>
@@ -443,7 +445,7 @@ export default function AdminMasterItems() {
               </TableRow>
             ))}
             {!loading && filtered.length === 0 && (
-              <TableRow><TableCell colSpan={9} className="text-muted-foreground">No items match these filters.</TableCell></TableRow>
+              <TableRow><TableCell colSpan={10} className="text-muted-foreground">No items match these filters.</TableCell></TableRow>
             )}
           </TableBody>
         </Table>
