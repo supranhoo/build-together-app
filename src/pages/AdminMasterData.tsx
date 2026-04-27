@@ -2,6 +2,7 @@ import { useMemo } from "react";
 import { useSearchParams } from "react-router-dom";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
 import AdminMasterItems from "./AdminMasterItems";
+import AdminItemCatalogue from "./AdminItemCatalogue";
 import AdminMaterialGroups from "./AdminMaterialGroups";
 import AdminSpecTemplates from "./AdminSpecTemplates";
 import AdminFurnaces from "./AdminFurnaces";
@@ -16,6 +17,7 @@ import AdminKpis from "./AdminKpis";
  */
 export const MASTER_DATA_TABS = [
   { key: "items", label: "Item Master", Component: AdminMasterItems },
+  { key: "catalogue", label: "Item Catalogue", Component: AdminItemCatalogue },
   { key: "groups", label: "Group & Hierarchy", Component: AdminMaterialGroups },
   { key: "specs", label: "Specifications", Component: AdminSpecTemplates },
   { key: "furnaces", label: "Furnace / Machine", Component: AdminFurnaces },
