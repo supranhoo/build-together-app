@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -141,15 +141,39 @@ export default function AdminMasterItems() {
     [templates, form.type, form.groupName, form.subgroup],
   );
 
-  const handleApplyTemplate = () => {
-    if (!matchedTemplate) return;
-    const next = applyTemplateToRows(matchedTemplate, form.specRows);
-    setForm({ ...form, specRows: next });
-    toast({
-      title: "Template applied",
-      description: `${matchedTemplate.fields.length} field${matchedTemplate.fields.length === 1 ? "" : "s"} from ${matchedTemplate.type} / ${matchedTemplate.groupName}${matchedTemplate.subgroup ? ` / ${matchedTemplate.subgroup}` : ""}`,
+  /**
+   * Auto-apply spec template when the operator changes Group / Type / Subgroup.
+   * Uses the same merge as the old manual button: preserves any value the
+   * operator already typed for matching keys, appends extra free-form rows.
+   * Existing items keep their loaded specs untouched on open — we only fire
+   * when nature actually changes.
+   */
+  const handleGroupChange = useCallback((nextGroup: string) => {
+    setForm((prev) => {
+      if (prev.groupName === nextGroup) return prev;
+      const tpl = findTemplateForNature(templates, prev.type || null, nextGroup, prev.subgroup);
+      const specRows = tpl ? applyTemplateToRows(tpl, prev.specRows) : prev.specRows;
+      return { ...prev, groupName: nextGroup, specRows };
     });
-  };
+  }, [templates]);
+
+  const handleTypeChange = useCallback((nextType: MaterialType) => {
+    setForm((prev) => {
+      if (prev.type === nextType) return prev;
+      const tpl = findTemplateForNature(templates, nextType, prev.groupName, prev.subgroup);
+      const specRows = tpl ? applyTemplateToRows(tpl, prev.specRows) : prev.specRows;
+      return { ...prev, type: nextType, specRows };
+    });
+  }, [templates]);
+
+  const handleSubgroupChange = useCallback((nextSubgroup: string) => {
+    setForm((prev) => {
+      if (prev.subgroup === nextSubgroup) return prev;
+      const tpl = findTemplateForNature(templates, prev.type || null, prev.groupName, nextSubgroup);
+      const specRows = tpl ? applyTemplateToRows(tpl, prev.specRows) : prev.specRows;
+      return { ...prev, subgroup: nextSubgroup, specRows };
+    });
+  }, [templates]);
 
   const handleSave = async () => {
     if (!activeProfitCenter || !session?.user) return;
