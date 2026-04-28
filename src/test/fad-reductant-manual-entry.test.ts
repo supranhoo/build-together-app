@@ -107,7 +107,7 @@ describe("FAD reductant manual entry", () => {
 
   it("flags QC override when entered value differs from baseline by > 0.01%", () => {
     expect(isOverride(84.5, 84)).toBe(true);
-    expect(isOverride(83.99, 84)).toBe(false); // 0.01 exactly => not flagged
+    expect(isOverride(84.005, 84)).toBe(false); // within tolerance
     expect(isOverride(84.02, 84)).toBe(true);
   });
 
