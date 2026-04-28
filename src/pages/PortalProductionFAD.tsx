@@ -67,11 +67,7 @@ interface PasteRow {
 
 const newId = () => Math.random().toString(36).slice(2);
 
-function specNum(item: MasterItem | undefined, key: string): number {
-  const v = (item?.specs ?? {}) as Record<string, unknown>;
-  const n = Number(v[key]);
-  return Number.isFinite(n) ? n : 0;
-}
+const fmtPct = (v: number | null) => (v === null ? "—" : `${v.toFixed(2)}%`);
 
 function recoveryColor(pct: number | null, minOk: number): string {
   if (pct === null) return "text-muted-foreground";
