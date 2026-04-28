@@ -50,6 +50,13 @@ interface ReductantRow {
   vmPct: number;
   ashPct: number;
   moisturePct: number;
+  // Item-Master baseline at the moment the material was picked. Operators may
+  // override the four chemistry fields above from the QC Lab report; the UI
+  // surfaces a `QC` badge whenever a value deviates from its baseline.
+  baselineFcPct: number | null;
+  baselineVmPct: number | null;
+  baselineAshPct: number | null;
+  baselineMoisturePct: number | null;
 }
 
 interface FluxRow {
@@ -193,7 +200,11 @@ export default function PortalProductionFAD() {
   const addReductant = () =>
     setReductantRows((r) => [
       ...r,
-      { id: newId(), materialId: "", type: "Coke", qty: 0, unit: "Kg", fcPct: 0, vmPct: 0, ashPct: 0, moisturePct: 0 },
+      {
+        id: newId(), materialId: "", type: "Coke", qty: 0, unit: "Kg",
+        fcPct: 0, vmPct: 0, ashPct: 0, moisturePct: 0,
+        baselineFcPct: null, baselineVmPct: null, baselineAshPct: null, baselineMoisturePct: null,
+      },
     ]);
   const addFlux = () => setFluxRows((r) => [...r, { id: newId(), materialId: "", qtyMt: 0, moisturePct: 0 }]);
   const addPaste = () => setPasteRows((r) => [...r, { id: newId(), materialId: "", qtyKg: 0 }]);
@@ -216,6 +227,10 @@ export default function PortalProductionFAD() {
       moisturePct: r.moisturePct ?? 0,
     });
   };
+  // Reductants: prefill chemistry from the Item Master AND store the same
+  // values as the baseline. Operator can then overwrite any of the four
+  // chemistry fields from the QC Lab report; deviations are flagged with a
+  // `QC` badge in the table.
   const onPickReductantMaterial = (rowId: string, materialId: string) => {
     const m = materialMap.get(materialId);
     const r = resolveFadItemSpecs(m, "reductant");
@@ -225,6 +240,10 @@ export default function PortalProductionFAD() {
       vmPct: r.vmPct ?? 0,
       ashPct: r.ashPct ?? 0,
       moisturePct: r.moisturePct ?? 0,
+      baselineFcPct: r.fcPct,
+      baselineVmPct: r.vmPct,
+      baselineAshPct: r.ashPct,
+      baselineMoisturePct: r.moisturePct,
     });
   };
   const onPickFluxMaterial = (rowId: string, materialId: string) => {
