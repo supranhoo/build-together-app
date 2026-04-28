@@ -640,7 +640,10 @@ export default function PortalProductionFAD() {
                         </TableRow>
                       </TableHeader>
                       <TableBody>
-                        {calc.reductantResults.map((r) => (
+                        {calc.reductantResults.map((r) => {
+                          const err = specErrorByRow.get(r.id);
+                          return (
+                          <>
                           <TableRow key={r.id}>
                             <TableCell>
                               <Select value={r.materialId} onValueChange={(v) => onPickReductantMaterial(r.id, v)}>
@@ -675,14 +678,12 @@ export default function PortalProductionFAD() {
                                 </SelectContent>
                               </Select>
                             </TableCell>
-                            <TableCell>
-                              <Input type="number" step="0.01" value={r.moisturePct}
-                                onChange={(e) => updateRow(setReductantRows, r.id, { moisturePct: Number(e.target.value) })}
-                                className={moistureWarn(r.moisturePct) ? "border-amber-500" : ""} />
+                            <TableCell className={`text-center font-mono ${moistureWarn(r.moisturePct) ? "text-amber-600 font-bold" : ""}`} title="From item spec">
+                              {r.materialId ? `${r.moisturePct.toFixed(2)}%` : "—"}
                             </TableCell>
-                            <TableCell><Input type="number" step="0.01" value={r.fcPct} onChange={(e) => updateRow(setReductantRows, r.id, { fcPct: Number(e.target.value) })} /></TableCell>
-                            <TableCell><Input type="number" step="0.01" value={r.vmPct} onChange={(e) => updateRow(setReductantRows, r.id, { vmPct: Number(e.target.value) })} /></TableCell>
-                            <TableCell><Input type="number" step="0.01" value={r.ashPct} onChange={(e) => updateRow(setReductantRows, r.id, { ashPct: Number(e.target.value) })} /></TableCell>
+                            <TableCell className="text-center font-mono" title="From item spec">{r.materialId ? `${r.fcPct.toFixed(2)}%` : "—"}</TableCell>
+                            <TableCell className="text-center font-mono" title="From item spec">{r.materialId ? `${r.vmPct.toFixed(2)}%` : "—"}</TableCell>
+                            <TableCell className="text-center font-mono" title="From item spec">{r.materialId ? `${r.ashPct.toFixed(2)}%` : "—"}</TableCell>
                             <TableCell className="bg-muted/40 text-center font-medium font-mono">{r.fcInput.toFixed(3)}</TableCell>
                             <TableCell>
                               <Button variant="ghost" size="icon" onClick={() => removeRow(setReductantRows, r.id)} className="text-destructive">
@@ -690,7 +691,16 @@ export default function PortalProductionFAD() {
                               </Button>
                             </TableCell>
                           </TableRow>
-                        ))}
+                          {err && (
+                            <TableRow key={`${r.id}-err`}>
+                              <TableCell colSpan={10} className="py-1 text-xs text-destructive bg-destructive/5">
+                                <AlertTriangle className="inline h-3 w-3 mr-1" />{err}
+                              </TableCell>
+                            </TableRow>
+                          )}
+                          </>
+                          );
+                        })}
                         <TableRow className="bg-muted font-bold">
                           <TableCell colSpan={8} className="text-right">Total FC (Dry):</TableCell>
                           <TableCell className="text-center text-primary">{calc.totalFC.toFixed(3)} MT</TableCell>
