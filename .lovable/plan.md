@@ -1,66 +1,78 @@
-# Plan: Lock FAD spec fields to item-master values
-
-## Problem (from screenshot + code audit)
-
-On `Portal → Production → FAD`, the four consumption sections (Mn Ore, Reductant, Flux, Paste) show editable inputs for **Mn %, Moisture %, FC %, VM %, Ash %**. Two defects:
-
-1. **Manual override allowed.** Operators can type any number, breaking the rule that item specs are the single source of truth for chemistry. Mn balance & recovery then disagree with QC and costing.
-2. **Prefill is broken.** `onPickOreMaterial` reads spec keys `mnPct` / `moisturePct`, but items actually store `Mn` / `Moisture` (see `FIXED_SPEC_COLUMNS` and `getSpecValue` aliases). Result: picking SIN-001 leaves Mn=0, Moisture=0 — exactly what the screenshot shows — and the operator is forced to type values manually.
-
 ## Goal
 
-When a material is selected in any FAD consumption row:
-- Chemistry/proximate fields (Mn %, Moisture %, FC %, VM %, Ash %) are **prefilled from the item's stored specs** using the same alias-tolerant lookup the rest of the app uses.
-- Those fields are **read-only** (display, not `<Input>`), with a small "from item spec" hint.
-- If the picked item is missing a required spec, the row shows an inline error and the heat cannot be saved/submitted (Rule #4 / #6 — block, don't silently zero).
-- Operator only enters **quantities** (and unit for reductant).
+On the **FAD Production Entry → Reductant** step, allow operators to manually type **FC %, VM %, Ash %, Moisture %** values from the shift's Quality Lab report. Item-Master values still prefill the row when a reductant is picked, but operators can overwrite them.
 
-No schema changes. No new tables. Specs continue to live in `materials.specs`.
+Ore, Flux, and Paste behaviour stays unchanged (Item-Master locked, as before).
 
-## Scope (surgical)
+---
 
-### `src/pages/PortalProductionFAD.tsx`
-- Replace ad-hoc `specNum(item, "mnPct")` lookups with the canonical `getSpecValue` from `@/lib/spec-columns` (handles `Mn`, `mn`, `Manganese`, `mn_pct`, `Mn %`, etc.).
-- In `onPickOreMaterial` / `onPickReductantMaterial` / `onPickFluxMaterial`: resolve specs once and store on the row; if any required spec is missing, leave it `null` (not 0) so we can flag it.
-- Render the chemistry cells as plain text (e.g. `38.0 %`) instead of `<Input>`. Keep the trash + material picker + qty `<Input>` editable.
-- Add a row-level validation: missing required spec → red badge "Spec missing — update item master" + disable Save/Submit.
-- Update the `mnInputCalc` lookup map to feed values from the resolved row (no behavior change to `ferro-alloys.ts`).
+## Why
 
-### `src/lib/production-entry-fad.ts`
-- Add a guard in `submitFadEntry` that rejects any consumption row whose source item is missing a required spec for its kind (`ore → Mn, Moisture`; `reductant → FC, VM, Ash, Moisture`; `flux → Moisture`). Throw `FadEntryError(..., "consumption")`. Defense-in-depth so the API can't be bypassed even if the UI guard regresses.
+Reductant chemistry (Coke / Coal / Char) varies meaningfully batch-to-batch — the QC Lab issues a fresh report each shift. Item-Master values are only nominal grade specs, not actual lot values. Locking the fields forced operators to either skip heats or get an admin to re-edit the Item Master per shift, which is wrong.
 
-### Required-spec contract per kind
-| Kind | Required specs | Optional |
-|---|---|---|
-| Ore | Mn, Moisture | Fe, SiO2, CaO, Al2O3, MgO, P, S, Size |
-| Reductant | FC, VM, Ash, Moisture | S |
-| Flux | Moisture | CaO, MgO, SiO2 |
-| Paste | — (qty only) | — |
+Ore and Flux specs are stable enough to keep locked.
 
-These keys match `FIXED_SPEC_COLUMNS` exactly, so any item already maintained in Item Master / Item Catalogue will just work.
+---
 
-### Tests (new — `src/test/production-fad-prefill.test.ts`)
-1. `resolveItemSpecs(oreItem)` returns Mn/Moisture from canonical keys.
-2. Same, with legacy alias keys (`mn_pct`, `moisture_pct`).
-3. Missing required spec → returns null + flag.
-4. `submitFadEntry` rejects ore row whose item has no Mn spec, with `step: "consumption"`.
-5. Reductant row missing FC blocks submission.
-6. Flux row missing Moisture blocks submission.
-7. Paste row with only qty is accepted (no chemistry required).
+## What changes (user-visible)
 
-Existing 469 tests keep passing — no public API changes to `ferro-alloys.ts`, `inventory.ts`, or `heat-metallurgy.ts`.
+1. **Reductant table cells become editable inputs again** for Moisture %, FC %, VM %, Ash %.
+2. **Prefill on material pick** — values are populated from the Item Master so operators only have to type the deltas the QC report shows.
+3. **"QC override" badge** — when a value differs from the Item-Master baseline by more than 0.01 %, a small amber `QC` chip appears next to the cell with a tooltip showing the baseline.
+4. **Save Draft / Submit no longer blocked** by missing reductant specs — operator-typed values count.
+5. **Audit trail** — the saved heat record stores both the Item-Master baseline and the entered value per reductant row, so QC and audits can review deviations later.
 
-## Out of scope (deferred)
-- The 4-tab Item Catalogue editor (PoC already shipped) is unchanged. This task only **enforces** that FAD reads from those specs.
-- No migration of existing draft heats.
-- No change to recovery formulas; only the inputs become trustworthy.
+Ore, Flux, Paste sections: **no change** — still locked to Item Master, still gated.
 
-## Documentation & Policy (Rule #5 — same response)
-- `DOCUMENTATION.md`: under "Production Entry – FAD", add subsection "Spec source of truth" describing prefill + read-only behavior + required-spec table + version-history bump.
-- `POLICY.md`: add rule "FAD consumption chemistry MUST come from Item Master specs. Operators cannot override Mn %, Moisture %, FC %, VM %, Ash % at entry. Items missing required specs block heat submission."
+---
+
+## Technical plan
+
+### Files to edit
+- `src/lib/fad-spec-resolver.ts` — drop `reductant` from `FAD_REQUIRED_SPECS` (becomes `[]`); keep the resolver returning `mnPct/moisturePct/fcPct/vmPct/ashPct` for prefill use. Ore and Flux stay required.
+- `src/pages/PortalProductionFAD.tsx`
+  - Restore `<Input type="number">` cells for the 4 reductant chemistry columns (`moisturePct`, `fcPct`, `vmPct`, `ashPct`); wire to existing `updateRow(setReductantRows, …)`.
+  - On `onPickReductantMaterial`, also store baseline values in a new sibling field `baseline: { fcPct, vmPct, ashPct, moisturePct }` on the row (no schema change — purely client state).
+  - Add a small `QC` badge component beside each cell when `Math.abs(current − baseline) > 0.01`.
+  - Drop reductant rows from the `specErrors` memo so they no longer disable Save.
+- `src/lib/production-entry-fad.ts` (`submitFadEntry`)
+  - Persist the per-row baseline + entered value pair in the existing consumption payload's `notes` / metadata field (no DB migration; uses the JSON column already present on consumption rows).
+  - Remove the reductant-required-spec validation it currently performs.
+
+### Files to add
+- `src/test/fad-reductant-manual-entry.test.ts` — covers:
+  1. Prefill populates baseline + current from Item Master.
+  2. Operator override is preserved through `submitFadEntry`.
+  3. Override delta > 0.01 flags QC; <= 0.01 does not.
+  4. Empty reductant cells no longer block submission (only Ore/Flux/Paste still gate).
+
+### Files to update
+- `DOCUMENTATION.md` — Production Entry → Reductant section: change "locked, Item-Master only" to "prefilled from Item Master, operator may override per QC Lab report; overrides are stored on the heat record".
+- `POLICY.md` — supersede the 2026-04-28 lock-down clause for **reductants only**. Ore and Flux stay locked. Add a new clause: *"Reductant chemistry on a heat may deviate from Item-Master; the entered value is the system of record for that heat. Item-Master baseline is retained for audit."*
+
+### What stays the same
+- Ore Mn % / Moisture % — locked.
+- Flux Moisture % — locked.
+- Paste — qty only.
+- All existing tests for Ore/Flux/Paste validation.
+- DB schema — no migration.
+
+---
 
 ## Risk & impact
-- **Data**: none — read-only display change + a save guard. No DB migration.
-- **Workflow**: operators who today type chemistry will now be blocked when items lack specs. Mitigation: error message tells them which item + which spec is missing; admins fix it once in Item Master and the heat saves.
-- **Regression**: low. `ferro-alloys.ts` math unchanged; only the values fed to it change source (item spec vs row input). All existing FAD tests cover the math path.
-- **UI**: minor — five inputs become text labels per row.
+
+| Area | Impact |
+|---|---|
+| Data | None — reuses existing JSON metadata column on consumption rows. |
+| Workflow | Operator can now save heats QC-Lab-style; previously stuck behind admin Item-Master edits. |
+| UI/UX | 4 cells per reductant row become editable; one new amber chip. |
+| Regression | Low — change is scoped to reductant section; Ore/Flux/Paste paths untouched. New tests pin behaviour. |
+| Mitigation | Override badge + persisted baseline give QC/audit full visibility into deviations. |
+
+---
+
+## Out of scope
+
+- No QC Lab report import / upload (manual typing only, per current request).
+- No change to Ore or Flux locking.
+- No new role or permission — uses existing FAD entry permission.
