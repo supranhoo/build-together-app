@@ -203,28 +203,34 @@ export default function PortalProductionFAD() {
   const removeRow = <T extends { id: string }>(setter: React.Dispatch<React.SetStateAction<T[]>>, id: string) =>
     setter((rows) => rows.filter((r) => r.id !== id));
 
-  // When ore material picked, prefill mn% / moisture from spec
+  // When a material is picked, prefill chemistry from item-master specs
+  // (single source of truth — operators cannot type these). 0 is used as the
+  // calc-safe stand-in when a spec is missing; the row will be flagged via
+  // `specErrorsByRow` and Save is blocked until the item is fixed.
   const onPickOreMaterial = (rowId: string, materialId: string) => {
     const m = materialMap.get(materialId);
+    const r = resolveFadItemSpecs(m, "ore");
     updateRow(setOreRows, rowId, {
       materialId,
-      mnPct: specNum(m, "mnPct") || specNum(m, "mn"),
-      moisturePct: specNum(m, "moisturePct") || specNum(m, "moisture"),
+      mnPct: r.mnPct ?? 0,
+      moisturePct: r.moisturePct ?? 0,
     });
   };
   const onPickReductantMaterial = (rowId: string, materialId: string) => {
     const m = materialMap.get(materialId);
+    const r = resolveFadItemSpecs(m, "reductant");
     updateRow(setReductantRows, rowId, {
       materialId,
-      fcPct: specNum(m, "fcPct") || specNum(m, "fc"),
-      vmPct: specNum(m, "vmPct") || specNum(m, "vm"),
-      ashPct: specNum(m, "ashPct") || specNum(m, "ash"),
-      moisturePct: specNum(m, "moisturePct") || specNum(m, "moisture"),
+      fcPct: r.fcPct ?? 0,
+      vmPct: r.vmPct ?? 0,
+      ashPct: r.ashPct ?? 0,
+      moisturePct: r.moisturePct ?? 0,
     });
   };
   const onPickFluxMaterial = (rowId: string, materialId: string) => {
     const m = materialMap.get(materialId);
-    updateRow(setFluxRows, rowId, { materialId, moisturePct: specNum(m, "moisturePct") || specNum(m, "moisture") });
+    const r = resolveFadItemSpecs(m, "flux");
+    updateRow(setFluxRows, rowId, { materialId, moisturePct: r.moisturePct ?? 0 });
   };
 
   // ---- Calculations (live) ----
