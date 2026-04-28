@@ -988,11 +988,17 @@ export default function PortalProductionFAD() {
                   </div>
 
                   <div className="p-4 border-t border-border space-y-2">
-                    <Button onClick={() => handleSave("draft")} variant="outline" className="w-full" disabled={saving !== null || loadingMasters}>
+                    {blockingSpecErrors && (
+                      <p className="text-xs text-destructive flex items-start gap-1">
+                        <AlertTriangle className="h-3 w-3 mt-0.5 shrink-0" />
+                        <span>{specErrors.length} row{specErrors.length > 1 ? "s" : ""} blocked by missing item specs. Fix in Master Data → Items.</span>
+                      </p>
+                    )}
+                    <Button onClick={() => handleSave("draft")} variant="outline" className="w-full" disabled={saving !== null || loadingMasters || blockingSpecErrors}>
                       {saving === "draft" ? <Loader2 className="h-4 w-4 mr-2 animate-spin" /> : <Save className="h-4 w-4 mr-2" />}
                       Save Draft
                     </Button>
-                    <Button onClick={() => handleSave("submitted")} className="w-full" disabled={saving !== null || loadingMasters}>
+                    <Button onClick={() => handleSave("submitted")} className="w-full" disabled={saving !== null || loadingMasters || blockingSpecErrors}>
                       {saving === "submitted" ? <Loader2 className="h-4 w-4 mr-2 animate-spin" /> : <CheckCircle2 className="h-4 w-4 mr-2" />}
                       Submit to Plant Head
                     </Button>
