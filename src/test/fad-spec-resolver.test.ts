@@ -109,13 +109,12 @@ describe("validateFadConsumption", () => {
     expect(errs[0].message).toMatch(/Moisture/);
   });
 
-  it("blocks reductant row missing FC/VM/Ash/Moisture", () => {
+  it("does NOT block reductant row missing chemistry (operator types from QC report)", () => {
     const errs = validateFadConsumption(
       [{ rowId: "r1", materialId: badReductant.id, quantity: 0.5, kind: "reductant" }],
       map,
     );
-    expect(errs).toHaveLength(1);
-    expect(errs[0].message).toMatch(/VM/);
+    expect(errs).toEqual([]);
   });
 
   it("blocks flux row missing Moisture", () => {

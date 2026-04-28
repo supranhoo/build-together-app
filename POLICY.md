@@ -340,12 +340,15 @@
 - Recovery % must be in [0, 100]. Item-level value overrides furnace-level recovery (furnace-level not yet implemented — tracked for Phase B).
 - Save is blocked when a matching template's required fields are missing from the item's specs.
 
-## FAD chemistry: Item Master is the single source of truth (2026-04-28)
-- On `Portal → Production → FAD`, operators MUST NOT enter Mn %, Moisture %, FC %, VM %, or Ash % manually. These fields are display-only and prefilled from `materials.specs` of the picked item.
-- Required specs per consumption kind:
+## FAD chemistry source of truth (revised 2026-04-28)
+- On `Portal → Production → FAD`, **Ore Mn %, Ore Moisture %, and Flux Moisture %** are display-only and prefilled from `materials.specs` of the picked item. Operators MUST NOT type these.
+- **Reductant FC %, VM %, Ash %, Moisture %** ARE operator-editable. Rationale: the QC Lab issues a fresh report each shift; reductant chemistry varies meaningfully batch-to-batch, and locking it forced operators to either skip heats or get an admin to re-edit the Item Master per shift.
+- Reductant cells MUST prefill from the Item Master on material pick AND retain that value as a baseline. When the entered value deviates from the baseline by more than 0.01 %, the UI MUST surface a `QC` chip with a tooltip showing the baseline so QC and audits can spot deviations.
+- Required specs per consumption kind (gates Save):
   - Ore → Mn, Moisture
-  - Reductant → FC, VM, Ash, Moisture
+  - Reductant → none (operator-entered)
   - Flux → Moisture
   - Paste → none
-- A heat with a row whose item is missing any required spec for its kind cannot be saved as draft or submitted to Plant Head. The fix path is Master Data → Items (or Item Catalogue), not the FAD entry screen.
-- Rationale: production recovery, costing, and QC have to agree. Allowing inline overrides at heat time made these three views drift. The Item Master is the only place chemistry is curated and audit-logged.
+- A heat with an Ore or Flux row whose item is missing any required spec for its kind still cannot be saved as draft or submitted to Plant Head — the fix path remains Master Data → Items (or Item Catalogue).
+- **Known gap (tracked):** the per-row reductant baseline + entered chemistry pair is currently held only in client state and shown in the UI; persisting it on `material_consumption` for retrospective audit requires a follow-up migration (new `notes`/`metadata` jsonb column). Until then, deviations are visible at entry time but not query-able after save.
+

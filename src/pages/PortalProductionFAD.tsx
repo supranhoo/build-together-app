@@ -50,6 +50,13 @@ interface ReductantRow {
   vmPct: number;
   ashPct: number;
   moisturePct: number;
+  // Item-Master baseline at the moment the material was picked. Operators may
+  // override the four chemistry fields above from the QC Lab report; the UI
+  // surfaces a `QC` badge whenever a value deviates from its baseline.
+  baselineFcPct: number | null;
+  baselineVmPct: number | null;
+  baselineAshPct: number | null;
+  baselineMoisturePct: number | null;
 }
 
 interface FluxRow {
@@ -76,6 +83,50 @@ function recoveryColor(pct: number | null, minOk: number): string {
   if (pct < minOk + 5) return "text-amber-600 font-bold";
   return "text-emerald-600 font-bold";
 }
+
+/**
+ * Editable percent input for reductant chemistry (FC / VM / Ash / Moisture).
+ * Pulls its initial value from the Item Master, but the operator overrides it
+ * from the per-shift QC Lab report. When the entered value deviates from the
+ * baseline by more than 0.01 % we show a small amber `QC` chip with a tooltip
+ * showing the baseline so QC and audits can spot deviations at a glance.
+ */
+function ReductantSpecInput({
+  value,
+  baseline,
+  disabled,
+  onChange,
+  warn,
+}: {
+  value: number;
+  baseline: number | null;
+  disabled?: boolean;
+  onChange: (v: number) => void;
+  warn?: boolean;
+}) {
+  const isOverride = baseline !== null && Math.abs(value - baseline) > 0.01;
+  return (
+    <div className="flex items-center gap-1">
+      <Input
+        type="number"
+        step="0.01"
+        value={value}
+        disabled={disabled}
+        onChange={(e) => onChange(Number(e.target.value))}
+        className={`h-8 text-center font-mono px-1 ${warn ? "text-amber-600 font-bold" : ""}`}
+      />
+      {isOverride && (
+        <span
+          title={`QC override — Item Master baseline: ${baseline!.toFixed(2)}%`}
+          className="shrink-0 text-[10px] font-bold px-1 py-0.5 rounded bg-amber-500/15 text-amber-600 border border-amber-500/30"
+        >
+          QC
+        </span>
+      )}
+    </div>
+  );
+}
+
 
 export default function PortalProductionFAD() {
   const { activeProfitCenter, activeProfitCenterId } = useWorkspace();
@@ -193,7 +244,11 @@ export default function PortalProductionFAD() {
   const addReductant = () =>
     setReductantRows((r) => [
       ...r,
-      { id: newId(), materialId: "", type: "Coke", qty: 0, unit: "Kg", fcPct: 0, vmPct: 0, ashPct: 0, moisturePct: 0 },
+      {
+        id: newId(), materialId: "", type: "Coke", qty: 0, unit: "Kg",
+        fcPct: 0, vmPct: 0, ashPct: 0, moisturePct: 0,
+        baselineFcPct: null, baselineVmPct: null, baselineAshPct: null, baselineMoisturePct: null,
+      },
     ]);
   const addFlux = () => setFluxRows((r) => [...r, { id: newId(), materialId: "", qtyMt: 0, moisturePct: 0 }]);
   const addPaste = () => setPasteRows((r) => [...r, { id: newId(), materialId: "", qtyKg: 0 }]);
@@ -216,6 +271,10 @@ export default function PortalProductionFAD() {
       moisturePct: r.moisturePct ?? 0,
     });
   };
+  // Reductants: prefill chemistry from the Item Master AND store the same
+  // values as the baseline. Operator can then overwrite any of the four
+  // chemistry fields from the QC Lab report; deviations are flagged with a
+  // `QC` badge in the table.
   const onPickReductantMaterial = (rowId: string, materialId: string) => {
     const m = materialMap.get(materialId);
     const r = resolveFadItemSpecs(m, "reductant");
@@ -225,6 +284,10 @@ export default function PortalProductionFAD() {
       vmPct: r.vmPct ?? 0,
       ashPct: r.ashPct ?? 0,
       moisturePct: r.moisturePct ?? 0,
+      baselineFcPct: r.fcPct,
+      baselineVmPct: r.vmPct,
+      baselineAshPct: r.ashPct,
+      baselineMoisturePct: r.moisturePct,
     });
   };
   const onPickFluxMaterial = (rowId: string, materialId: string) => {
@@ -678,12 +741,39 @@ export default function PortalProductionFAD() {
                                 </SelectContent>
                               </Select>
                             </TableCell>
-                            <TableCell className={`text-center font-mono ${moistureWarn(r.moisturePct) ? "text-amber-600 font-bold" : ""}`} title="From item spec">
-                              {r.materialId ? `${r.moisturePct.toFixed(2)}%` : "—"}
+                            <TableCell className="p-1">
+                              <ReductantSpecInput
+                                value={r.moisturePct}
+                                baseline={r.baselineMoisturePct}
+                                disabled={!r.materialId}
+                                onChange={(v) => updateRow(setReductantRows, r.id, { moisturePct: v })}
+                                warn={moistureWarn(r.moisturePct)}
+                              />
                             </TableCell>
-                            <TableCell className="text-center font-mono" title="From item spec">{r.materialId ? `${r.fcPct.toFixed(2)}%` : "—"}</TableCell>
-                            <TableCell className="text-center font-mono" title="From item spec">{r.materialId ? `${r.vmPct.toFixed(2)}%` : "—"}</TableCell>
-                            <TableCell className="text-center font-mono" title="From item spec">{r.materialId ? `${r.ashPct.toFixed(2)}%` : "—"}</TableCell>
+                            <TableCell className="p-1">
+                              <ReductantSpecInput
+                                value={r.fcPct}
+                                baseline={r.baselineFcPct}
+                                disabled={!r.materialId}
+                                onChange={(v) => updateRow(setReductantRows, r.id, { fcPct: v })}
+                              />
+                            </TableCell>
+                            <TableCell className="p-1">
+                              <ReductantSpecInput
+                                value={r.vmPct}
+                                baseline={r.baselineVmPct}
+                                disabled={!r.materialId}
+                                onChange={(v) => updateRow(setReductantRows, r.id, { vmPct: v })}
+                              />
+                            </TableCell>
+                            <TableCell className="p-1">
+                              <ReductantSpecInput
+                                value={r.ashPct}
+                                baseline={r.baselineAshPct}
+                                disabled={!r.materialId}
+                                onChange={(v) => updateRow(setReductantRows, r.id, { ashPct: v })}
+                              />
+                            </TableCell>
                             <TableCell className="bg-muted/40 text-center font-medium font-mono">{r.fcInput.toFixed(3)}</TableCell>
                             <TableCell>
                               <Button variant="ghost" size="icon" onClick={() => removeRow(setReductantRows, r.id)} className="text-destructive">
