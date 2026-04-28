@@ -3,17 +3,18 @@
  * Production Entry screen needs, and validates that every required spec is
  * present.
  *
- * Per policy (2026-04-28): operators MUST NOT type Mn %, Moisture %, FC %,
- * VM %, Ash % at heat-entry time. The Item Master is the single source of
- * truth. If the picked item lacks a required spec, the row is flagged and
- * heat save/submit is blocked. Admins must fix the item in Master Data →
- * Item Catalogue / Items, then the operator can save.
+ * Per policy (revised 2026-04-28): the Item Master remains the source of
+ * truth for ORE and FLUX chemistry — operators cannot edit those at heat
+ * entry. REDUCTANT chemistry (FC, VM, Ash, Moisture) IS operator-editable
+ * because the QC Lab issues a fresh report each shift; we still prefill from
+ * the Item Master and surface a "QC override" badge when the entered value
+ * deviates from the baseline.
  *
- * The required-spec contract per kind:
- *   ore       → Mn, Moisture
- *   reductant → FC, VM, Ash, Moisture
- *   flux      → Moisture
- *   paste     → none (qty only)
+ * The required-spec contract per kind (used to gate Save):
+ *   ore       → Mn, Moisture        (locked to Item Master)
+ *   reductant → none                (operator-entered; prefill only)
+ *   flux      → Moisture            (locked to Item Master)
+ *   paste     → none                (qty only)
  *
  * Lookup uses the same alias-tolerant `getSpecValue` helper that powers the
  * Item Master spec table, so legacy keys like `mn_pct`, `Mn %`, `moisture_pct`
@@ -32,7 +33,9 @@ const COL = (key: string) => {
 
 export const FAD_REQUIRED_SPECS: Record<FadKind, readonly string[]> = {
   ore: ["Mn", "Moisture"],
-  reductant: ["FC", "VM", "Ash", "Moisture"],
+  // Reductant chemistry is captured per-shift from the QC Lab report, so the
+  // Item-Master values are baseline only — they do not block Save.
+  reductant: [],
   flux: ["Moisture"],
   paste: [],
 };
