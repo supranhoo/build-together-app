@@ -303,6 +303,23 @@ export default function PortalProductionFAD() {
     return sum > 0 ? sum : null;
   }, [tappingPower, furnacePower, auxiliaryPower]);
 
+  // ---- Spec-source validation (Item Master is the single source of truth) ----
+  const specErrors = useMemo(() => {
+    const validationRows: FadConsumptionRowForValidation[] = [
+      ...oreRows.map((r) => ({ rowId: r.id, materialId: r.materialId, quantity: r.qtyWetMt, kind: "ore" as const })),
+      ...reductantRows.map((r) => ({ rowId: r.id, materialId: r.materialId, quantity: r.qty, kind: "reductant" as const })),
+      ...fluxRows.map((r) => ({ rowId: r.id, materialId: r.materialId, quantity: r.qtyMt, kind: "flux" as const })),
+      ...pasteRows.map((r) => ({ rowId: r.id, materialId: r.materialId, quantity: r.qtyKg, kind: "paste" as const })),
+    ];
+    return validateFadConsumption(validationRows, materialMap);
+  }, [oreRows, reductantRows, fluxRows, pasteRows, materialMap]);
+  const specErrorByRow = useMemo(() => {
+    const m = new Map<string, string>();
+    specErrors.forEach((e) => m.set(e.rowId, e.message));
+    return m;
+  }, [specErrors]);
+  const blockingSpecErrors = specErrors.length > 0;
+
   async function handleSave(status: "draft" | "submitted") {
     if (!activeProfitCenterId || !userId) {
       toast({ title: "Not signed in", variant: "destructive" });
