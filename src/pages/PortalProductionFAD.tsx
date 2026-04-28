@@ -1,4 +1,4 @@
-import { Fragment, useEffect, useMemo, useState } from "react";
+import { Fragment, useEffect, useMemo, useRef, useState } from "react";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
@@ -109,9 +109,9 @@ function ReductantSpecInput({
   // We commit to the parent state on every keystroke that parses to a number,
   // and re-sync the buffer if the parent value changes from outside (e.g.
   // when a new material is picked and chemistry is prefilled).
-  const [buf, setBuf] = React.useState<string>(() => String(value ?? 0));
-  const lastSyncedValueRef = React.useRef<number>(value);
-  React.useEffect(() => {
+  const [buf, setBuf] = useState<string>(() => String(value ?? 0));
+  const lastSyncedValueRef = useRef<number>(value);
+  useEffect(() => {
     if (value !== lastSyncedValueRef.current) {
       lastSyncedValueRef.current = value;
       setBuf(String(value ?? 0));
