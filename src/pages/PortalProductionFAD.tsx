@@ -24,6 +24,7 @@ import {
   type ProductionFormulaDefaults,
 } from "@/lib/production-formulas";
 import { submitFadEntry, FadEntryError } from "@/lib/production-entry-fad";
+import { resolveFadItemSpecs, validateFadConsumption, type FadConsumptionRowForValidation } from "@/lib/fad-spec-resolver";
 
 import PortalProductionHeatwise from "./PortalProductionHeatwise";
 import PortalProductionFurnaceSummary from "./PortalProductionFurnaceSummary";
