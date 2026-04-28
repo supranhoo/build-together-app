@@ -697,12 +697,39 @@ export default function PortalProductionFAD() {
                                 </SelectContent>
                               </Select>
                             </TableCell>
-                            <TableCell className={`text-center font-mono ${moistureWarn(r.moisturePct) ? "text-amber-600 font-bold" : ""}`} title="From item spec">
-                              {r.materialId ? `${r.moisturePct.toFixed(2)}%` : "—"}
+                            <TableCell className="p-1">
+                              <ReductantSpecInput
+                                value={r.moisturePct}
+                                baseline={r.baselineMoisturePct}
+                                disabled={!r.materialId}
+                                onChange={(v) => updateRow(setReductantRows, r.id, { moisturePct: v })}
+                                warn={moistureWarn(r.moisturePct)}
+                              />
                             </TableCell>
-                            <TableCell className="text-center font-mono" title="From item spec">{r.materialId ? `${r.fcPct.toFixed(2)}%` : "—"}</TableCell>
-                            <TableCell className="text-center font-mono" title="From item spec">{r.materialId ? `${r.vmPct.toFixed(2)}%` : "—"}</TableCell>
-                            <TableCell className="text-center font-mono" title="From item spec">{r.materialId ? `${r.ashPct.toFixed(2)}%` : "—"}</TableCell>
+                            <TableCell className="p-1">
+                              <ReductantSpecInput
+                                value={r.fcPct}
+                                baseline={r.baselineFcPct}
+                                disabled={!r.materialId}
+                                onChange={(v) => updateRow(setReductantRows, r.id, { fcPct: v })}
+                              />
+                            </TableCell>
+                            <TableCell className="p-1">
+                              <ReductantSpecInput
+                                value={r.vmPct}
+                                baseline={r.baselineVmPct}
+                                disabled={!r.materialId}
+                                onChange={(v) => updateRow(setReductantRows, r.id, { vmPct: v })}
+                              />
+                            </TableCell>
+                            <TableCell className="p-1">
+                              <ReductantSpecInput
+                                value={r.ashPct}
+                                baseline={r.baselineAshPct}
+                                disabled={!r.materialId}
+                                onChange={(v) => updateRow(setReductantRows, r.id, { ashPct: v })}
+                              />
+                            </TableCell>
                             <TableCell className="bg-muted/40 text-center font-medium font-mono">{r.fcInput.toFixed(3)}</TableCell>
                             <TableCell>
                               <Button variant="ghost" size="icon" onClick={() => removeRow(setReductantRows, r.id)} className="text-destructive">
