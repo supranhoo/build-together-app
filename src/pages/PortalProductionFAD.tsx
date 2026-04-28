@@ -564,7 +564,7 @@ export default function PortalProductionFAD() {
                         {calc.oreResults.map((r) => {
                           const err = specErrorByRow.get(r.id);
                           return (
-                          <>
+                          <Fragment key={r.id}>
                           <TableRow key={r.id}>
                             <TableCell>
                               <Select value={r.materialId} onValueChange={(v) => onPickOreMaterial(r.id, v)}>
@@ -601,7 +601,7 @@ export default function PortalProductionFAD() {
                               </TableCell>
                             </TableRow>
                           )}
-                          </>
+                          </Fragment>
                           );
                         })}
                         <TableRow className="bg-muted font-bold">
@@ -643,7 +643,7 @@ export default function PortalProductionFAD() {
                         {calc.reductantResults.map((r) => {
                           const err = specErrorByRow.get(r.id);
                           return (
-                          <>
+                          <Fragment key={r.id}>
                           <TableRow key={r.id}>
                             <TableCell>
                               <Select value={r.materialId} onValueChange={(v) => onPickReductantMaterial(r.id, v)}>
@@ -698,7 +698,7 @@ export default function PortalProductionFAD() {
                               </TableCell>
                             </TableRow>
                           )}
-                          </>
+                          </Fragment>
                           );
                         })}
                         <TableRow className="bg-muted font-bold">
@@ -736,7 +736,7 @@ export default function PortalProductionFAD() {
                           {calc.fluxResults.map((r) => {
                             const err = specErrorByRow.get(r.id);
                             return (
-                            <>
+                            <Fragment key={r.id}>
                             <TableRow key={r.id}>
                               <TableCell>
                                 <Select value={r.materialId} onValueChange={(v) => onPickFluxMaterial(r.id, v)}>
@@ -769,7 +769,7 @@ export default function PortalProductionFAD() {
                                 </TableCell>
                               </TableRow>
                             )}
-                            </>
+                            </Fragment>
                             );
                           })}
                           <TableRow className="bg-muted font-bold">
