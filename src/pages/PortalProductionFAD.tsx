@@ -1,4 +1,4 @@
-import { Fragment, useEffect, useMemo, useState } from "react";
+import { Fragment, useEffect, useMemo, useRef, useState } from "react";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
@@ -104,15 +104,45 @@ function ReductantSpecInput({
   onChange: (v: number) => void;
   warn?: boolean;
 }) {
+  // Buffer the raw string so the operator can delete digits, type a decimal
+  // point, etc. without the field collapsing back to "0" mid-keystroke.
+  // We commit to the parent state on every keystroke that parses to a number,
+  // and re-sync the buffer if the parent value changes from outside (e.g.
+  // when a new material is picked and chemistry is prefilled).
+  const [buf, setBuf] = useState<string>(() => String(value ?? 0));
+  const lastSyncedValueRef = useRef<number>(value);
+  useEffect(() => {
+    if (value !== lastSyncedValueRef.current) {
+      lastSyncedValueRef.current = value;
+      setBuf(String(value ?? 0));
+    }
+  }, [value]);
   const isOverride = baseline !== null && Math.abs(value - baseline) > 0.01;
   return (
     <div className="flex items-center gap-1">
       <Input
         type="number"
         step="0.01"
-        value={value}
+        inputMode="decimal"
+        value={buf}
         disabled={disabled}
-        onChange={(e) => onChange(Number(e.target.value))}
+        onChange={(e) => {
+          const next = e.target.value;
+          setBuf(next);
+          if (next === "" || next === "-" || next === ".") return;
+          const n = Number(next);
+          if (Number.isFinite(n)) {
+            lastSyncedValueRef.current = n;
+            onChange(n);
+          }
+        }}
+        onBlur={() => {
+          if (buf === "" || buf === "-" || buf === ".") {
+            setBuf("0");
+            lastSyncedValueRef.current = 0;
+            onChange(0);
+          }
+        }}
         className={`h-8 text-center font-mono px-1 ${warn ? "text-amber-600 font-bold" : ""}`}
       />
       {isOverride && (
