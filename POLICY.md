@@ -339,3 +339,13 @@
 - Metallurgical role enum is hardcoded (5 values: `mn_source`, `carbon_source`, `flux`, `product`, `waste`) per operator-supplied list. Will move to admin-managed master data in Phase B.
 - Recovery % must be in [0, 100]. Item-level value overrides furnace-level recovery (furnace-level not yet implemented — tracked for Phase B).
 - Save is blocked when a matching template's required fields are missing from the item's specs.
+
+## FAD chemistry: Item Master is the single source of truth (2026-04-28)
+- On `Portal → Production → FAD`, operators MUST NOT enter Mn %, Moisture %, FC %, VM %, or Ash % manually. These fields are display-only and prefilled from `materials.specs` of the picked item.
+- Required specs per consumption kind:
+  - Ore → Mn, Moisture
+  - Reductant → FC, VM, Ash, Moisture
+  - Flux → Moisture
+  - Paste → none
+- A heat with a row whose item is missing any required spec for its kind cannot be saved as draft or submitted to Plant Head. The fix path is Master Data → Items (or Item Catalogue), not the FAD entry screen.
+- Rationale: production recovery, costing, and QC have to agree. Allowing inline overrides at heat time made these three views drift. The Item Master is the only place chemistry is curated and audit-logged.

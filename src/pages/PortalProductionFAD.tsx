@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from "react";
+import { Fragment, useEffect, useMemo, useState } from "react";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
@@ -24,6 +24,7 @@ import {
   type ProductionFormulaDefaults,
 } from "@/lib/production-formulas";
 import { submitFadEntry, FadEntryError } from "@/lib/production-entry-fad";
+import { resolveFadItemSpecs, validateFadConsumption, type FadConsumptionRowForValidation } from "@/lib/fad-spec-resolver";
 
 import PortalProductionHeatwise from "./PortalProductionHeatwise";
 import PortalProductionFurnaceSummary from "./PortalProductionFurnaceSummary";
@@ -66,11 +67,7 @@ interface PasteRow {
 
 const newId = () => Math.random().toString(36).slice(2);
 
-function specNum(item: MasterItem | undefined, key: string): number {
-  const v = (item?.specs ?? {}) as Record<string, unknown>;
-  const n = Number(v[key]);
-  return Number.isFinite(n) ? n : 0;
-}
+const fmtPct = (v: number | null) => (v === null ? "—" : `${v.toFixed(2)}%`);
 
 function recoveryColor(pct: number | null, minOk: number): string {
   if (pct === null) return "text-muted-foreground";
@@ -206,28 +203,34 @@ export default function PortalProductionFAD() {
   const removeRow = <T extends { id: string }>(setter: React.Dispatch<React.SetStateAction<T[]>>, id: string) =>
     setter((rows) => rows.filter((r) => r.id !== id));
 
-  // When ore material picked, prefill mn% / moisture from spec
+  // When a material is picked, prefill chemistry from item-master specs
+  // (single source of truth — operators cannot type these). 0 is used as the
+  // calc-safe stand-in when a spec is missing; the row will be flagged via
+  // `specErrorsByRow` and Save is blocked until the item is fixed.
   const onPickOreMaterial = (rowId: string, materialId: string) => {
     const m = materialMap.get(materialId);
+    const r = resolveFadItemSpecs(m, "ore");
     updateRow(setOreRows, rowId, {
       materialId,
-      mnPct: specNum(m, "mnPct") || specNum(m, "mn"),
-      moisturePct: specNum(m, "moisturePct") || specNum(m, "moisture"),
+      mnPct: r.mnPct ?? 0,
+      moisturePct: r.moisturePct ?? 0,
     });
   };
   const onPickReductantMaterial = (rowId: string, materialId: string) => {
     const m = materialMap.get(materialId);
+    const r = resolveFadItemSpecs(m, "reductant");
     updateRow(setReductantRows, rowId, {
       materialId,
-      fcPct: specNum(m, "fcPct") || specNum(m, "fc"),
-      vmPct: specNum(m, "vmPct") || specNum(m, "vm"),
-      ashPct: specNum(m, "ashPct") || specNum(m, "ash"),
-      moisturePct: specNum(m, "moisturePct") || specNum(m, "moisture"),
+      fcPct: r.fcPct ?? 0,
+      vmPct: r.vmPct ?? 0,
+      ashPct: r.ashPct ?? 0,
+      moisturePct: r.moisturePct ?? 0,
     });
   };
   const onPickFluxMaterial = (rowId: string, materialId: string) => {
     const m = materialMap.get(materialId);
-    updateRow(setFluxRows, rowId, { materialId, moisturePct: specNum(m, "moisturePct") || specNum(m, "moisture") });
+    const r = resolveFadItemSpecs(m, "flux");
+    updateRow(setFluxRows, rowId, { materialId, moisturePct: r.moisturePct ?? 0 });
   };
 
   // ---- Calculations (live) ----
@@ -300,6 +303,23 @@ export default function PortalProductionFAD() {
     return sum > 0 ? sum : null;
   }, [tappingPower, furnacePower, auxiliaryPower]);
 
+  // ---- Spec-source validation (Item Master is the single source of truth) ----
+  const specErrors = useMemo(() => {
+    const validationRows: FadConsumptionRowForValidation[] = [
+      ...oreRows.map((r) => ({ rowId: r.id, materialId: r.materialId, quantity: r.qtyWetMt, kind: "ore" as const })),
+      ...reductantRows.map((r) => ({ rowId: r.id, materialId: r.materialId, quantity: r.qty, kind: "reductant" as const })),
+      ...fluxRows.map((r) => ({ rowId: r.id, materialId: r.materialId, quantity: r.qtyMt, kind: "flux" as const })),
+      ...pasteRows.map((r) => ({ rowId: r.id, materialId: r.materialId, quantity: r.qtyKg, kind: "paste" as const })),
+    ];
+    return validateFadConsumption(validationRows, materialMap);
+  }, [oreRows, reductantRows, fluxRows, pasteRows, materialMap]);
+  const specErrorByRow = useMemo(() => {
+    const m = new Map<string, string>();
+    specErrors.forEach((e) => m.set(e.rowId, e.message));
+    return m;
+  }, [specErrors]);
+  const blockingSpecErrors = specErrors.length > 0;
+
   async function handleSave(status: "draft" | "submitted") {
     if (!activeProfitCenterId || !userId) {
       toast({ title: "Not signed in", variant: "destructive" });
@@ -307,6 +327,14 @@ export default function PortalProductionFAD() {
     }
     if (!stockLocationId) {
       toast({ title: "Select a stock location", description: "Required to record consumption.", variant: "destructive" });
+      return;
+    }
+    if (blockingSpecErrors) {
+      toast({
+        title: "Item specs incomplete",
+        description: specErrors[0]?.message ?? "One or more rows reference items with missing specs.",
+        variant: "destructive",
+      });
       return;
     }
 
@@ -533,7 +561,10 @@ export default function PortalProductionFAD() {
                         </TableRow>
                       </TableHeader>
                       <TableBody>
-                        {calc.oreResults.map((r, i) => (
+                        {calc.oreResults.map((r) => {
+                          const err = specErrorByRow.get(r.id);
+                          return (
+                          <Fragment key={r.id}>
                           <TableRow key={r.id}>
                             <TableCell>
                               <Select value={r.materialId} onValueChange={(v) => onPickOreMaterial(r.id, v)}>
@@ -549,19 +580,12 @@ export default function PortalProductionFAD() {
                               <Input type="number" step="0.001" value={r.qtyWetMt}
                                 onChange={(e) => updateRow(setOreRows, r.id, { qtyWetMt: Number(e.target.value) })} />
                             </TableCell>
-                            <TableCell>
-                              <div className="relative">
-                                <Input type="number" step="0.01" value={r.moisturePct}
-                                  onChange={(e) => updateRow(setOreRows, r.id, { moisturePct: Number(e.target.value) })}
-                                  className={moistureWarn(r.moisturePct) ? "border-amber-500" : ""} />
-                                {moistureWarn(r.moisturePct) && (
-                                  <AlertTriangle className="absolute right-2 top-2 h-4 w-4 text-amber-500" />
-                                )}
-                              </div>
+                            <TableCell className={`text-center font-mono ${moistureWarn(r.moisturePct) ? "text-amber-600 font-bold" : ""}`} title="From item spec">
+                              {r.materialId ? `${r.moisturePct.toFixed(2)}%` : "—"}
+                              {moistureWarn(r.moisturePct) && <AlertTriangle className="inline h-3 w-3 ml-1 text-amber-500" />}
                             </TableCell>
-                            <TableCell>
-                              <Input type="number" step="0.01" value={r.mnPct}
-                                onChange={(e) => updateRow(setOreRows, r.id, { mnPct: Number(e.target.value) })} />
+                            <TableCell className="text-center font-mono" title="From item spec">
+                              {r.materialId ? `${r.mnPct.toFixed(2)}%` : "—"}
                             </TableCell>
                             <TableCell className="bg-muted/40 text-center font-medium font-mono">{r.mnInput.toFixed(2)}</TableCell>
                             <TableCell>
@@ -570,7 +594,16 @@ export default function PortalProductionFAD() {
                               </Button>
                             </TableCell>
                           </TableRow>
-                        ))}
+                          {err && (
+                            <TableRow key={`${r.id}-err`}>
+                              <TableCell colSpan={6} className="py-1 text-xs text-destructive bg-destructive/5">
+                                <AlertTriangle className="inline h-3 w-3 mr-1" />{err}
+                              </TableCell>
+                            </TableRow>
+                          )}
+                          </Fragment>
+                          );
+                        })}
                         <TableRow className="bg-muted font-bold">
                           <TableCell colSpan={4} className="text-right">Total Mn Input (Dry):</TableCell>
                           <TableCell className="text-center text-primary">{calc.totalMnInput.toFixed(2)} MT</TableCell>
@@ -607,7 +640,10 @@ export default function PortalProductionFAD() {
                         </TableRow>
                       </TableHeader>
                       <TableBody>
-                        {calc.reductantResults.map((r) => (
+                        {calc.reductantResults.map((r) => {
+                          const err = specErrorByRow.get(r.id);
+                          return (
+                          <Fragment key={r.id}>
                           <TableRow key={r.id}>
                             <TableCell>
                               <Select value={r.materialId} onValueChange={(v) => onPickReductantMaterial(r.id, v)}>
@@ -642,14 +678,12 @@ export default function PortalProductionFAD() {
                                 </SelectContent>
                               </Select>
                             </TableCell>
-                            <TableCell>
-                              <Input type="number" step="0.01" value={r.moisturePct}
-                                onChange={(e) => updateRow(setReductantRows, r.id, { moisturePct: Number(e.target.value) })}
-                                className={moistureWarn(r.moisturePct) ? "border-amber-500" : ""} />
+                            <TableCell className={`text-center font-mono ${moistureWarn(r.moisturePct) ? "text-amber-600 font-bold" : ""}`} title="From item spec">
+                              {r.materialId ? `${r.moisturePct.toFixed(2)}%` : "—"}
                             </TableCell>
-                            <TableCell><Input type="number" step="0.01" value={r.fcPct} onChange={(e) => updateRow(setReductantRows, r.id, { fcPct: Number(e.target.value) })} /></TableCell>
-                            <TableCell><Input type="number" step="0.01" value={r.vmPct} onChange={(e) => updateRow(setReductantRows, r.id, { vmPct: Number(e.target.value) })} /></TableCell>
-                            <TableCell><Input type="number" step="0.01" value={r.ashPct} onChange={(e) => updateRow(setReductantRows, r.id, { ashPct: Number(e.target.value) })} /></TableCell>
+                            <TableCell className="text-center font-mono" title="From item spec">{r.materialId ? `${r.fcPct.toFixed(2)}%` : "—"}</TableCell>
+                            <TableCell className="text-center font-mono" title="From item spec">{r.materialId ? `${r.vmPct.toFixed(2)}%` : "—"}</TableCell>
+                            <TableCell className="text-center font-mono" title="From item spec">{r.materialId ? `${r.ashPct.toFixed(2)}%` : "—"}</TableCell>
                             <TableCell className="bg-muted/40 text-center font-medium font-mono">{r.fcInput.toFixed(3)}</TableCell>
                             <TableCell>
                               <Button variant="ghost" size="icon" onClick={() => removeRow(setReductantRows, r.id)} className="text-destructive">
@@ -657,7 +691,16 @@ export default function PortalProductionFAD() {
                               </Button>
                             </TableCell>
                           </TableRow>
-                        ))}
+                          {err && (
+                            <TableRow key={`${r.id}-err`}>
+                              <TableCell colSpan={10} className="py-1 text-xs text-destructive bg-destructive/5">
+                                <AlertTriangle className="inline h-3 w-3 mr-1" />{err}
+                              </TableCell>
+                            </TableRow>
+                          )}
+                          </Fragment>
+                          );
+                        })}
                         <TableRow className="bg-muted font-bold">
                           <TableCell colSpan={8} className="text-right">Total FC (Dry):</TableCell>
                           <TableCell className="text-center text-primary">{calc.totalFC.toFixed(3)} MT</TableCell>
@@ -690,7 +733,10 @@ export default function PortalProductionFAD() {
                           </TableRow>
                         </TableHeader>
                         <TableBody>
-                          {calc.fluxResults.map((r) => (
+                          {calc.fluxResults.map((r) => {
+                            const err = specErrorByRow.get(r.id);
+                            return (
+                            <Fragment key={r.id}>
                             <TableRow key={r.id}>
                               <TableCell>
                                 <Select value={r.materialId} onValueChange={(v) => onPickFluxMaterial(r.id, v)}>
@@ -706,10 +752,8 @@ export default function PortalProductionFAD() {
                                 <Input type="number" step="0.01" value={r.qtyMt}
                                   onChange={(e) => updateRow(setFluxRows, r.id, { qtyMt: Number(e.target.value) })} />
                               </TableCell>
-                              <TableCell>
-                                <Input type="number" step="0.01" value={r.moisturePct}
-                                  onChange={(e) => updateRow(setFluxRows, r.id, { moisturePct: Number(e.target.value) })}
-                                  className={moistureWarn(r.moisturePct) ? "border-amber-500" : ""} />
+                              <TableCell className={`text-center font-mono ${moistureWarn(r.moisturePct) ? "text-amber-600 font-bold" : ""}`} title="From item spec">
+                                {r.materialId ? `${r.moisturePct.toFixed(2)}%` : "—"}
                               </TableCell>
                               <TableCell className="bg-muted/40 text-center font-mono">{r.dryQty.toFixed(2)}</TableCell>
                               <TableCell>
@@ -718,7 +762,16 @@ export default function PortalProductionFAD() {
                                 </Button>
                               </TableCell>
                             </TableRow>
-                          ))}
+                            {err && (
+                              <TableRow key={`${r.id}-err`}>
+                                <TableCell colSpan={5} className="py-1 text-xs text-destructive bg-destructive/5">
+                                  <AlertTriangle className="inline h-3 w-3 mr-1" />{err}
+                                </TableCell>
+                              </TableRow>
+                            )}
+                            </Fragment>
+                            );
+                          })}
                           <TableRow className="bg-muted font-bold">
                             <TableCell colSpan={3} className="text-right">Total Dry Flux:</TableCell>
                             <TableCell className="text-center">{calc.totalFluxDry.toFixed(2)} MT</TableCell>
@@ -935,11 +988,17 @@ export default function PortalProductionFAD() {
                   </div>
 
                   <div className="p-4 border-t border-border space-y-2">
-                    <Button onClick={() => handleSave("draft")} variant="outline" className="w-full" disabled={saving !== null || loadingMasters}>
+                    {blockingSpecErrors && (
+                      <p className="text-xs text-destructive flex items-start gap-1">
+                        <AlertTriangle className="h-3 w-3 mt-0.5 shrink-0" />
+                        <span>{specErrors.length} row{specErrors.length > 1 ? "s" : ""} blocked by missing item specs. Fix in Master Data → Items.</span>
+                      </p>
+                    )}
+                    <Button onClick={() => handleSave("draft")} variant="outline" className="w-full" disabled={saving !== null || loadingMasters || blockingSpecErrors}>
                       {saving === "draft" ? <Loader2 className="h-4 w-4 mr-2 animate-spin" /> : <Save className="h-4 w-4 mr-2" />}
                       Save Draft
                     </Button>
-                    <Button onClick={() => handleSave("submitted")} className="w-full" disabled={saving !== null || loadingMasters}>
+                    <Button onClick={() => handleSave("submitted")} className="w-full" disabled={saving !== null || loadingMasters || blockingSpecErrors}>
                       {saving === "submitted" ? <Loader2 className="h-4 w-4 mr-2 animate-spin" /> : <CheckCircle2 className="h-4 w-4 mr-2" />}
                       Submit to Plant Head
                     </Button>

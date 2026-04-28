@@ -1,61 +1,66 @@
+# Plan: Lock FAD spec fields to item-master values
+
+## Problem (from screenshot + code audit)
+
+On `Portal → Production → FAD`, the four consumption sections (Mn Ore, Reductant, Flux, Paste) show editable inputs for **Mn %, Moisture %, FC %, VM %, Ash %**. Two defects:
+
+1. **Manual override allowed.** Operators can type any number, breaking the rule that item specs are the single source of truth for chemistry. Mn balance & recovery then disagree with QC and costing.
+2. **Prefill is broken.** `onPickOreMaterial` reads spec keys `mnPct` / `moisturePct`, but items actually store `Mn` / `Moisture` (see `FIXED_SPEC_COLUMNS` and `getSpecValue` aliases). Result: picking SIN-001 leaves Mn=0, Moisture=0 — exactly what the screenshot shows — and the operator is forced to type values manually.
+
 ## Goal
 
-When a user picks a **Group** in Item Master, the Specs editor auto-populates with the right fields (Mn, Fe, etc. for ORE; FC, VM, Ash for Reductant; CaO for Fluxes / Paste). Field list stays Admin-controlled — no values are hardcoded in app code.
+When a material is selected in any FAD consumption row:
+- Chemistry/proximate fields (Mn %, Moisture %, FC %, VM %, Ash %) are **prefilled from the item's stored specs** using the same alias-tolerant lookup the rest of the app uses.
+- Those fields are **read-only** (display, not `<Input>`), with a small "from item spec" hint.
+- If the picked item is missing a required spec, the row shows an inline error and the heat cannot be saved/submitted (Rule #4 / #6 — block, don't silently zero).
+- Operator only enters **quantities** (and unit for reductant).
 
-## Pushback / Decisions to confirm
-
-1. **Group-only vs Type+Group+Subgroup.** The previous turn set up `spec_templates` keyed by `(Type + Group + Subgroup)` with a manual "Apply template" button. Your new spec is **Group-only + automatic**. Resolution proposed: keep the existing table shape (Type+Group+Subgroup is more flexible long-term) but treat your request as **"any template whose Group matches and whose Subgroup is blank applies automatically when Type is unset/any"**. Concretely the lookup becomes: exact (Type+Group+Subgroup) → (Type+Group, blank subgroup) → **(any Type, Group, blank subgroup)** → none. Seed rows for ORE/Reductant/Fluxes/Paste will be inserted with `type='RM'`, `subgroup=''` so they match the common case automatically. (Rule #10: still zero hardcoding — admin can edit/disable these seeded rows from the UI.)
-
-2. **Auto vs manual apply.** Switching to fully automatic means: the moment Group changes, the spec rows are **replaced** with the matching template's fields, **preserving any values the operator already typed for the same key** (case-insensitive). The "Apply template" button is removed. Risk: if the operator typed extra free-form rows, they will be **kept appended** at the end (same merge logic that already exists in `applyTemplateToRows`). No data loss.
-
-3. **Editing existing items.** When opening an existing item whose Group already has a template, we will NOT auto-overwrite on open (would surprise the user). Auto-apply fires only when the operator **changes** the Group field. On open, existing JSON loads as-is (unchanged from today's lazy migration).
+No schema changes. No new tables. Specs continue to live in `materials.specs`.
 
 ## Scope (surgical)
 
-### Data — seed only, no schema change
-Insert four rows into `spec_templates` per active profit center, using a one-off migration that runs `INSERT … ON CONFLICT DO NOTHING`:
+### `src/pages/PortalProductionFAD.tsx`
+- Replace ad-hoc `specNum(item, "mnPct")` lookups with the canonical `getSpecValue` from `@/lib/spec-columns` (handles `Mn`, `mn`, `Manganese`, `mn_pct`, `Mn %`, etc.).
+- In `onPickOreMaterial` / `onPickReductantMaterial` / `onPickFluxMaterial`: resolve specs once and store on the row; if any required spec is missing, leave it `null` (not 0) so we can flag it.
+- Render the chemistry cells as plain text (e.g. `38.0 %`) instead of `<Input>`. Keep the trash + material picker + qty `<Input>` editable.
+- Add a row-level validation: missing required spec → red badge "Spec missing — update item master" + disable Save/Submit.
+- Update the `mnInputCalc` lookup map to feed values from the resolved row (no behavior change to `ferro-alloys.ts`).
 
-| Type | Group     | Subgroup | Fields |
-|------|-----------|----------|--------|
-| RM   | ORE       | ''       | Mn, Moisture, Fe, SiO₂, CaO, Al₂O₃, MgO, P, S — all numeric, %, range 0–100, required |
-| RM   | Reductant | ''       | FC, Moisture, VM, Ash — all numeric, %, range 0–100, required |
-| RM   | Fluxes    | ''       | CaO — numeric, %, 0–100, required |
-| RM   | Paste     | ''       | CaO — numeric, %, 0–100, required |
+### `src/lib/production-entry-fad.ts`
+- Add a guard in `submitFadEntry` that rejects any consumption row whose source item is missing a required spec for its kind (`ore → Mn, Moisture`; `reductant → FC, VM, Ash, Moisture`; `flux → Moisture`). Throw `FadEntryError(..., "consumption")`. Defense-in-depth so the API can't be bypassed even if the UI guard regresses.
 
-Field metadata stays in `fields` JSONB (existing shape — no migration). Admin can edit/add/remove from `Master Data → Specifications` exactly as today.
+### Required-spec contract per kind
+| Kind | Required specs | Optional |
+|---|---|---|
+| Ore | Mn, Moisture | Fe, SiO2, CaO, Al2O3, MgO, P, S, Size |
+| Reductant | FC, VM, Ash, Moisture | S |
+| Flux | Moisture | CaO, MgO, SiO2 |
+| Paste | — (qty only) | — |
 
-### Code
+These keys match `FIXED_SPEC_COLUMNS` exactly, so any item already maintained in Item Master / Item Catalogue will just work.
 
-**`src/lib/spec-templates.ts`**
-- Extend `findTemplateForNature` with a third fallback: when `type` is empty/null, match `(group, subgroup='')` regardless of type. Keeps backward compatibility — the first two fallbacks fire first.
+### Tests (new — `src/test/production-fad-prefill.test.ts`)
+1. `resolveItemSpecs(oreItem)` returns Mn/Moisture from canonical keys.
+2. Same, with legacy alias keys (`mn_pct`, `moisture_pct`).
+3. Missing required spec → returns null + flag.
+4. `submitFadEntry` rejects ore row whose item has no Mn spec, with `step: "consumption"`.
+5. Reductant row missing FC blocks submission.
+6. Flux row missing Moisture blocks submission.
+7. Paste row with only qty is accepted (no chemistry required).
 
-**`src/pages/AdminMasterItems.tsx`**
-- Replace `<div>Group</div><Input>` with a `<Select>` populated from `groupOptions` (existing memoized list) + free-text fallback for new groups. Keeps current UX for items not yet templated.
-- On Group change: compute `matchedTemplate` (already present); if found, call `applyTemplateToRows` and replace `form.specRows`. Skip if editing an existing item on first open (guard with a `didAutoApplyRef`).
-- Remove the "Apply template" button + the "No template defined" hint banner. Replace with a small read-only line: *"Specs auto-loaded from Group template (admin can edit fields under Master Data → Specifications)."* shown only when a template matched.
+Existing 469 tests keep passing — no public API changes to `ferro-alloys.ts`, `inventory.ts`, or `heat-metallurgy.ts`.
 
-**`POLICY.md` + `DOCUMENTATION.md`** (Rule #5 — atomic update)
-- Update the spec-templates section: lookup precedence now includes "(any Type, Group, blank subgroup)"; mapping is now **automatic on Group change**, not manual; existing-item edit flow preserved.
-- Add the four seeded templates to the policy reference list with a note that admin can edit/disable.
+## Out of scope (deferred)
+- The 4-tab Item Catalogue editor (PoC already shipped) is unchanged. This task only **enforces** that FAD reads from those specs.
+- No migration of existing draft heats.
+- No change to recovery formulas; only the inputs become trustworthy.
 
-### Tests (Rule #11)
+## Documentation & Policy (Rule #5 — same response)
+- `DOCUMENTATION.md`: under "Production Entry – FAD", add subsection "Spec source of truth" describing prefill + read-only behavior + required-spec table + version-history bump.
+- `POLICY.md`: add rule "FAD consumption chemistry MUST come from Item Master specs. Operators cannot override Mn %, Moisture %, FC %, VM %, Ash % at entry. Items missing required specs block heat submission."
 
-**`src/test/spec-templates.test.ts`** — extend:
-- Lookup falls back to (any Type, Group, '') when Type is unset.
-- Lookup still prefers exact (Type, Group, Subgroup) when present.
-- `applyTemplateToRows` preserves operator values across auto-apply.
-
-**New `src/test/master-items-auto-spec.test.tsx`** — render `AdminMasterItems` form, change Group select, assert spec rows are replaced with seeded ORE fields and operator-typed values for matching keys are preserved.
-
-## Risk & Impact
-
-- **Data**: seed inserts only; idempotent via unique key `(profit_center_id, type, group_name, subgroup)`. Zero impact on `materials.specs`. No RLS change (existing policies already cover `spec_templates`).
-- **Workflow**: changing Group on an in-progress new item now resets specs → mitigated by the merge that preserves matching keys; the operator can also undo by switching back. Existing items only auto-apply when the operator actively changes Group.
-- **UI**: one Input → Select swap, one banner removed. No layout shift.
-- **Regression**: manual "Apply template" path goes away. Anyone relying on subgroup-specific templates is unaffected (those still take precedence). Admin → Specifications page is unchanged.
-
-## Out of scope
-
-- Per-tenant override of seeded values (admin edits the seeded rows directly — same UX as any other template).
-- Backfilling existing items' `materials.specs` to match the new template (still **lazy**, per the prior decision).
-- New `Specification_Master` / `Item_Specification_Map` tables — your message describes those as the conceptual model; we already realize the same model with `spec_templates` (master) + `materials.specs` JSONB (per-item map). Splitting into a separate map table would add a join with no functional gain right now and break every downstream reader. Flagging in case you want a separate table anyway — say the word and I'll plan the migration + reader rewrites separately.
+## Risk & impact
+- **Data**: none — read-only display change + a save guard. No DB migration.
+- **Workflow**: operators who today type chemistry will now be blocked when items lack specs. Mitigation: error message tells them which item + which spec is missing; admins fix it once in Item Master and the heat saves.
+- **Regression**: low. `ferro-alloys.ts` math unchanged; only the values fed to it change source (item spec vs row input). All existing FAD tests cover the math path.
+- **UI**: minor — five inputs become text labels per row.

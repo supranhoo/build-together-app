@@ -709,3 +709,30 @@ Admin can edit, add, or disable any field under Master Data → Specifications.
 
 ### Version History
 - 2026-04-27: Item Catalogue PoC added as new sub-tab. Reserved-key approach chosen over 9-table rebuild after risk review (see POLICY).
+
+## FAD Production Entry — Item-Master is the single source of truth (2026-04-28)
+On `Portal → Production → FAD`, the chemistry/proximate fields of every consumption row are **read-only display values** sourced from the picked item's `materials.specs`. Operators can no longer type Mn %, Moisture %, FC %, VM %, or Ash % at heat-entry time. Quantity (and unit, for reductant) remain the only editable fields per row.
+
+### Required-spec contract per consumption kind
+| Kind | Required specs | Optional |
+|---|---|---|
+| Ore | Mn, Moisture | Fe, SiO2, CaO, Al2O3, MgO, P, S, Size |
+| Reductant | FC, VM, Ash, Moisture | S |
+| Flux | Moisture | CaO, MgO, SiO2 |
+| Paste | — | — |
+
+Required keys match `FIXED_SPEC_COLUMNS` exactly, so any item maintained via Item Master / Item Catalogue / Specifications already satisfies the contract.
+
+### Behavior
+- Picking a material prefills the chemistry from the item's specs using the alias-tolerant `getSpecValue` helper (handles `Mn`, `mn_pct`, `Mn %`, `Moisture`, `moisture_pct`, `Fixed Carbon` → FC, etc.).
+- Missing required specs render an inline destructive-tinted error row beneath the consumption row, naming the item and the missing keys.
+- Save Draft and Submit to Plant Head are **disabled** while any blocking spec error is present. A summary line is shown above the buttons.
+- Defense-in-depth: the same validation runs in `handleSave` to short-circuit the API call before the heat log is created.
+
+### Source
+- `src/lib/fad-spec-resolver.ts` — `resolveFadItemSpecs(item, kind)`, `validateFadConsumption(rows, itemsById)`, and the `FAD_REQUIRED_SPECS` contract.
+- `src/pages/PortalProductionFAD.tsx` — read-only chemistry cells, inline error rows, button gating.
+- `src/test/fad-spec-resolver.test.ts` — 15 unit tests (canonical keys, alias keys, missing-spec flagging per kind, validator coverage, paste exemption).
+
+### Version History
+- 2026-04-28: FAD chemistry/proximate fields locked to item-master values; manual override removed; save/submit blocked when items lack required specs. No schema changes. 15 new tests; suite at 484 passing.
