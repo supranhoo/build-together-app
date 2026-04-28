@@ -84,14 +84,17 @@ describe("validateFadConsumption", () => {
   ]);
 
   it("passes when every row has a complete-spec item", () => {
+    const pasteItem = makeItem({}, { id: "paste-1", code: "PASTE-1" });
+    const m = new Map(map);
+    m.set(pasteItem.id, pasteItem);
     const errs = validateFadConsumption(
       [
         { rowId: "1", materialId: goodOre.id, quantity: 10, kind: "ore" },
         { rowId: "2", materialId: goodReductant.id, quantity: 1, kind: "reductant" },
         { rowId: "3", materialId: goodFlux.id, quantity: 0.5, kind: "flux" },
-        { rowId: "4", materialId: "p1", quantity: 100, kind: "paste" },
+        { rowId: "4", materialId: pasteItem.id, quantity: 100, kind: "paste" },
       ],
-      map,
+      m,
     );
     expect(errs).toEqual([]);
   });
