@@ -329,6 +329,14 @@ export default function PortalProductionFAD() {
       toast({ title: "Select a stock location", description: "Required to record consumption.", variant: "destructive" });
       return;
     }
+    if (blockingSpecErrors) {
+      toast({
+        title: "Item specs incomplete",
+        description: specErrors[0]?.message ?? "One or more rows reference items with missing specs.",
+        variant: "destructive",
+      });
+      return;
+    }
 
     const consumption = [
       ...oreRows.filter((r) => r.materialId && r.qtyWetMt > 0).map((r) => ({ materialId: r.materialId, stockLocationId, quantity: r.qtyWetMt * 1000 })),
