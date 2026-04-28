@@ -561,7 +561,10 @@ export default function PortalProductionFAD() {
                         </TableRow>
                       </TableHeader>
                       <TableBody>
-                        {calc.oreResults.map((r, i) => (
+                        {calc.oreResults.map((r) => {
+                          const err = specErrorByRow.get(r.id);
+                          return (
+                          <>
                           <TableRow key={r.id}>
                             <TableCell>
                               <Select value={r.materialId} onValueChange={(v) => onPickOreMaterial(r.id, v)}>
@@ -577,19 +580,12 @@ export default function PortalProductionFAD() {
                               <Input type="number" step="0.001" value={r.qtyWetMt}
                                 onChange={(e) => updateRow(setOreRows, r.id, { qtyWetMt: Number(e.target.value) })} />
                             </TableCell>
-                            <TableCell>
-                              <div className="relative">
-                                <Input type="number" step="0.01" value={r.moisturePct}
-                                  onChange={(e) => updateRow(setOreRows, r.id, { moisturePct: Number(e.target.value) })}
-                                  className={moistureWarn(r.moisturePct) ? "border-amber-500" : ""} />
-                                {moistureWarn(r.moisturePct) && (
-                                  <AlertTriangle className="absolute right-2 top-2 h-4 w-4 text-amber-500" />
-                                )}
-                              </div>
+                            <TableCell className={`text-center font-mono ${moistureWarn(r.moisturePct) ? "text-amber-600 font-bold" : ""}`} title="From item spec">
+                              {r.materialId ? `${r.moisturePct.toFixed(2)}%` : "—"}
+                              {moistureWarn(r.moisturePct) && <AlertTriangle className="inline h-3 w-3 ml-1 text-amber-500" />}
                             </TableCell>
-                            <TableCell>
-                              <Input type="number" step="0.01" value={r.mnPct}
-                                onChange={(e) => updateRow(setOreRows, r.id, { mnPct: Number(e.target.value) })} />
+                            <TableCell className="text-center font-mono" title="From item spec">
+                              {r.materialId ? `${r.mnPct.toFixed(2)}%` : "—"}
                             </TableCell>
                             <TableCell className="bg-muted/40 text-center font-medium font-mono">{r.mnInput.toFixed(2)}</TableCell>
                             <TableCell>
@@ -598,7 +594,16 @@ export default function PortalProductionFAD() {
                               </Button>
                             </TableCell>
                           </TableRow>
-                        ))}
+                          {err && (
+                            <TableRow key={`${r.id}-err`}>
+                              <TableCell colSpan={6} className="py-1 text-xs text-destructive bg-destructive/5">
+                                <AlertTriangle className="inline h-3 w-3 mr-1" />{err}
+                              </TableCell>
+                            </TableRow>
+                          )}
+                          </>
+                          );
+                        })}
                         <TableRow className="bg-muted font-bold">
                           <TableCell colSpan={4} className="text-right">Total Mn Input (Dry):</TableCell>
                           <TableCell className="text-center text-primary">{calc.totalMnInput.toFixed(2)} MT</TableCell>
