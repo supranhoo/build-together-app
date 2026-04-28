@@ -84,6 +84,50 @@ function recoveryColor(pct: number | null, minOk: number): string {
   return "text-emerald-600 font-bold";
 }
 
+/**
+ * Editable percent input for reductant chemistry (FC / VM / Ash / Moisture).
+ * Pulls its initial value from the Item Master, but the operator overrides it
+ * from the per-shift QC Lab report. When the entered value deviates from the
+ * baseline by more than 0.01 % we show a small amber `QC` chip with a tooltip
+ * showing the baseline so QC and audits can spot deviations at a glance.
+ */
+function ReductantSpecInput({
+  value,
+  baseline,
+  disabled,
+  onChange,
+  warn,
+}: {
+  value: number;
+  baseline: number | null;
+  disabled?: boolean;
+  onChange: (v: number) => void;
+  warn?: boolean;
+}) {
+  const isOverride = baseline !== null && Math.abs(value - baseline) > 0.01;
+  return (
+    <div className="flex items-center gap-1">
+      <Input
+        type="number"
+        step="0.01"
+        value={value}
+        disabled={disabled}
+        onChange={(e) => onChange(Number(e.target.value))}
+        className={`h-8 text-center font-mono px-1 ${warn ? "text-amber-600 font-bold" : ""}`}
+      />
+      {isOverride && (
+        <span
+          title={`QC override — Item Master baseline: ${baseline!.toFixed(2)}%`}
+          className="shrink-0 text-[10px] font-bold px-1 py-0.5 rounded bg-amber-500/15 text-amber-600 border border-amber-500/30"
+        >
+          QC
+        </span>
+      )}
+    </div>
+  );
+}
+
+
 export default function PortalProductionFAD() {
   const { activeProfitCenter, activeProfitCenterId } = useWorkspace();
   const { session } = useAuth();
