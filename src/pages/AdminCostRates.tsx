@@ -11,19 +11,39 @@ import { useAuth } from "@/hooks/use-auth";
 import { useToast } from "@/hooks/use-toast";
 import { createAuditLog } from "@/lib/workspace";
 import {
+  ALLOCATION_BASES,
   COST_TYPES,
   createCostRate,
   fetchCostRates,
   fetchMasterItems,
+  type AllocationBasis,
   type CostRate,
   type CostType,
   type MasterItem,
 } from "@/lib/master-data";
 import { MaterialPicker } from "@/components/MaterialPicker";
 
-interface FormState { materialId: string; rate: string; costType: CostType; effectiveFrom: string; effectiveTo: string; notes: string; }
+interface FormState {
+  materialId: string;
+  rate: string;
+  costType: CostType;
+  allocationBasis: AllocationBasis | "";
+  status: "ACTIVE" | "INACTIVE";
+  effectiveFrom: string;
+  effectiveTo: string;
+  notes: string;
+}
 const today = () => new Date().toISOString().slice(0, 10);
-const empty = (): FormState => ({ materialId: "", rate: "", costType: "variable", effectiveFrom: today(), effectiveTo: "", notes: "" });
+const empty = (): FormState => ({
+  materialId: "",
+  rate: "",
+  costType: "variable",
+  allocationBasis: "",
+  status: "ACTIVE",
+  effectiveFrom: today(),
+  effectiveTo: "",
+  notes: "",
+});
 
 export default function AdminCostRates() {
   const { activeProfitCenter } = useWorkspace();
