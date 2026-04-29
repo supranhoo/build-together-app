@@ -771,3 +771,16 @@ Material `<Select>` widgets replaced with `<MaterialPicker>` in:
 - Costing: **Cost Rates filter + form** (new), **Standard BOM material slot** (new).
 
 Screens audited and confirmed to have no material picker (no migration needed): MRP (read-only), Stock, Min/Max, Recovery Costing, Ferro Cost Sheet, Import Shipments. New permissive context defaults seeded for the four new keys: `inventory.ledger.filter`, `costing.rates.filter`, `costing.rates.form`, `costing.bom.form`.
+
+## Item Master — New Item Dialog Ergonomics (2026-04-29)
+
+**Decision** — Three frictions removed from the New Item dialog (`/portal/inventory/master-data?tab=master-data&md=items`) without touching schema, RLS, or downstream readers:
+
+1. **Auto-generated item Code** — On *new* items, Code is read-only and generated as `<TYPE>-<GROUP>-<NNNN>` (zero-padded, 4 digits) by `nextItemCode()` (`src/lib/master-items-code.ts`). Sequence is derived client-side at dialog interaction by scanning existing `materials.code` values that share the same prefix and incrementing the highest numeric tail. Edit mode keeps the existing code editable so admins can correct legacy rows. CSV bulk upload still accepts user-supplied codes (unchanged).
+2. **Group / Subgroup as native `<Select>` dropdowns** — The dialog no longer uses `<datalist>` (browser popup list); it uses shadcn `<Select>` to match Type and UOM. Options are sourced from `material_groups` (active rows only). Subgroup options cascade from the chosen Group. **Free-text fallback dropped** — operators must create new groups/subgroups under *Master Data → Group & Hierarchy* first (Rule #10 — admin-controlled master data). The `GroupSubgroupPicker` component remains in use by `AdminSpecTemplates`.
+3. **Name prefill from Subgroup** — When the operator selects a Subgroup, `nextItemName()` writes the subgroup value into the Name field if the Name is empty OR still equals the previously chosen subgroup. A name the operator has customized is preserved verbatim.
+
+**Tests** — `src/test/master-items-code.test.ts` (10 cases): code generation increments, prefix isolation, legacy/non-numeric handling, token normalization, and name prefill behavior (empty / unchanged / customized).
+
+### Version History
+- 2026-04-29 (Item Master ergonomics): auto-code, native Select for Group/Subgroup, Name prefill from Subgroup. No schema change. 10 new unit tests.
