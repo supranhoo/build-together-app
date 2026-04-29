@@ -9,10 +9,10 @@ import {
 import type { CostRate } from "@/lib/master-data";
 
 const rates: CostRate[] = [
-  { id: "1", profitCenterId: "p", materialId: "ore", rate: 100, costType: "variable", effectiveFrom: "2026-01-01", effectiveTo: null, notes: null, createdBy: "u", createdAt: "" },
-  { id: "2", profitCenterId: "p", materialId: "ore", rate: 120, costType: "variable", effectiveFrom: "2026-03-01", effectiveTo: null, notes: null, createdBy: "u", createdAt: "" },
-  { id: "3", profitCenterId: "p", materialId: "ore", rate: 110, costType: "variable", effectiveFrom: "2026-02-01", effectiveTo: "2026-02-28", notes: null, createdBy: "u", createdAt: "" },
-  { id: "4", profitCenterId: "p", materialId: "coke", rate: 50, costType: "variable", effectiveFrom: "2026-01-01", effectiveTo: null, notes: null, createdBy: "u", createdAt: "" },
+  { id: "1", profitCenterId: "p", materialId: "ore", rate: 100, costType: "variable", allocationBasis: null, status: "ACTIVE", effectiveFrom: "2026-01-01", effectiveTo: null, notes: null, createdBy: "u", createdAt: "" },
+  { id: "2", profitCenterId: "p", materialId: "ore", rate: 120, costType: "variable", allocationBasis: null, status: "ACTIVE", effectiveFrom: "2026-03-01", effectiveTo: null, notes: null, createdBy: "u", createdAt: "" },
+  { id: "3", profitCenterId: "p", materialId: "ore", rate: 110, costType: "variable", allocationBasis: null, status: "ACTIVE", effectiveFrom: "2026-02-01", effectiveTo: "2026-02-28", notes: null, createdBy: "u", createdAt: "" },
+  { id: "4", profitCenterId: "p", materialId: "coke", rate: 50, costType: "variable", allocationBasis: null, status: "ACTIVE", effectiveFrom: "2026-01-01", effectiveTo: null, notes: null, createdBy: "u", createdAt: "" },
 ];
 
 describe("latestRateOn", () => {
