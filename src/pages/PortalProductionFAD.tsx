@@ -4,6 +4,7 @@ import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { MaterialPicker } from "@/components/MaterialPicker";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { AlertTriangle, Calculator, CheckCircle2, FlaskConical, Loader2, Plus, Save, Trash2 } from "lucide-react";
@@ -660,14 +661,14 @@ export default function PortalProductionFAD() {
                           <Fragment key={r.id}>
                           <TableRow key={r.id}>
                             <TableCell>
-                              <Select value={r.materialId} onValueChange={(v) => onPickOreMaterial(r.id, v)}>
-                                <SelectTrigger><SelectValue placeholder="Pick ore" /></SelectTrigger>
-                                <SelectContent>
-                                  {materialsByKind.ore.map((m) => (
-                                    <SelectItem key={m.id} value={m.id}>{m.code} — {m.name}</SelectItem>
-                                  ))}
-                                </SelectContent>
-                              </Select>
+                              <MaterialPicker
+                                contextKey="fad.ore"
+                                profitCenterId={activeProfitCenterId ?? null}
+                                materials={materials}
+                                value={r.materialId}
+                                onChange={(v) => onPickOreMaterial(r.id, v)}
+                                placeholder="Pick ore"
+                              />
                             </TableCell>
                             <TableCell>
                               <Input type="number" step="0.001" value={r.qtyWetMt}
@@ -739,14 +740,14 @@ export default function PortalProductionFAD() {
                           <Fragment key={r.id}>
                           <TableRow key={r.id}>
                             <TableCell>
-                              <Select value={r.materialId} onValueChange={(v) => onPickReductantMaterial(r.id, v)}>
-                                <SelectTrigger><SelectValue placeholder="Pick reductant" /></SelectTrigger>
-                                <SelectContent>
-                                  {materialsByKind.reductant.map((m) => (
-                                    <SelectItem key={m.id} value={m.id}>{m.code} — {m.name}</SelectItem>
-                                  ))}
-                                </SelectContent>
-                              </Select>
+                              <MaterialPicker
+                                contextKey="fad.reductant"
+                                profitCenterId={activeProfitCenterId ?? null}
+                                materials={materials}
+                                value={r.materialId}
+                                onChange={(v) => onPickReductantMaterial(r.id, v)}
+                                placeholder="Pick reductant"
+                              />
                             </TableCell>
                             <TableCell>
                               <Select value={r.type} onValueChange={(v) => updateRow(setReductantRows, r.id, { type: v as ReductantRow["type"] })}>
@@ -859,14 +860,14 @@ export default function PortalProductionFAD() {
                             <Fragment key={r.id}>
                             <TableRow key={r.id}>
                               <TableCell>
-                                <Select value={r.materialId} onValueChange={(v) => onPickFluxMaterial(r.id, v)}>
-                                  <SelectTrigger><SelectValue placeholder="Pick flux" /></SelectTrigger>
-                                  <SelectContent>
-                                    {materialsByKind.flux.map((m) => (
-                                      <SelectItem key={m.id} value={m.id}>{m.code} — {m.name}</SelectItem>
-                                    ))}
-                                  </SelectContent>
-                                </Select>
+                                <MaterialPicker
+                                  contextKey="fad.flux"
+                                  profitCenterId={activeProfitCenterId ?? null}
+                                  materials={materials}
+                                  value={r.materialId}
+                                  onChange={(v) => onPickFluxMaterial(r.id, v)}
+                                  placeholder="Pick flux"
+                                />
                               </TableCell>
                               <TableCell>
                                 <Input type="number" step="0.01" value={r.qtyMt}
