@@ -14,6 +14,7 @@ import AdminReportDeliveries from "./AdminReportDeliveries";
 import AdminRoles from "./AdminRoles";
 import AdminAudit from "./AdminAudit";
 import AdminUsers from "./AdminUsers";
+import AdminSystemLogic from "./AdminSystemLogic";
 
 /**
  * Admin Settings tabs — single entry point that hosts every administrative
@@ -31,6 +32,7 @@ export const ADMIN_SETTINGS_TABS = [
   { key: "users", label: "Users", Component: AdminUsers },
   { key: "access", label: "Access", Component: AdminAccess },
   { key: "settings", label: "Settings", Component: AdminRawSettings },
+  { key: "system-logic", label: "System Logic", Component: AdminSystemLogic },
   { key: "furnaces", label: "Furnaces", Component: AdminFurnaces },
   { key: "shifts", label: "Shifts", Component: AdminShifts },
   { key: "materials", label: "Materials", Component: AdminMaterials },
