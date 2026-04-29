@@ -1129,6 +1129,90 @@ export type Database = {
           },
         ]
       }
+      item_group_property_map: {
+        Row: {
+          created_at: string
+          group_name: string
+          id: string
+          is_required: boolean
+          material_type: string
+          profit_center_id: string | null
+          property_key: string
+          sort_order: number
+          subgroup: string | null
+        }
+        Insert: {
+          created_at?: string
+          group_name: string
+          id?: string
+          is_required?: boolean
+          material_type: string
+          profit_center_id?: string | null
+          property_key: string
+          sort_order?: number
+          subgroup?: string | null
+        }
+        Update: {
+          created_at?: string
+          group_name?: string
+          id?: string
+          is_required?: boolean
+          material_type?: string
+          profit_center_id?: string | null
+          property_key?: string
+          sort_order?: number
+          subgroup?: string | null
+        }
+        Relationships: []
+      }
+      item_property_definitions: {
+        Row: {
+          created_at: string
+          data_type: string
+          decimals: number
+          display_name: string
+          id: string
+          is_active: boolean
+          max_value: number | null
+          min_value: number | null
+          profit_center_id: string | null
+          property_key: string
+          sort_order: number
+          unit: string
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          data_type?: string
+          decimals?: number
+          display_name: string
+          id?: string
+          is_active?: boolean
+          max_value?: number | null
+          min_value?: number | null
+          profit_center_id?: string | null
+          property_key: string
+          sort_order?: number
+          unit?: string
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          data_type?: string
+          decimals?: number
+          display_name?: string
+          id?: string
+          is_active?: boolean
+          max_value?: number | null
+          min_value?: number | null
+          profit_center_id?: string | null
+          property_key?: string
+          sort_order?: number
+          unit?: string
+          updated_at?: string
+        }
+        Relationships: []
+      }
       kpi_definitions: {
         Row: {
           created_at: string
