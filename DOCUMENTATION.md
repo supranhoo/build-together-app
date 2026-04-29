@@ -746,3 +746,18 @@ The reductant baseline + entered chemistry pair is held only in client state and
 - 2026-04-29: **Item Master redesigned** — group-driven dynamic property catalog. New tables `item_property_definitions` (13 properties seeded: Mn, Fe, SiO2, Al2O3, CaO, MgO, P, S, Moisture, FC, VM, Ash, Si) and `item_group_property_map` (per-group required fields). Form inputs change as Type/Group/Subgroup change. Compat shim: values still written to `materials.specs` JSONB so all 38+ downstream readers (FAD, Quality, Costing, Inventory, Procurement) keep working unchanged. New `lib/item-properties.ts` + 18 tests. `Si` added to fixed-spec column list.
 
 - 2026-04-29 (revised, same day): **Properties & Mapping admin screen** added under Master Data. Two cards: (1) Property Catalog — workspace-scoped CRUD over `item_property_definitions` (override globals or add new properties); (2) Group → Property Mapping — checklist UI to pick which properties show on Item Master for a given (Type, Group, Subgroup) and toggle which are mandatory. Mandatory toggle is enforced by the existing `validatePropertyValue` guard — Item Master save is blocked until required properties are filled. New `replaceGroupPropertyMap` / `upsertPropertyDefinition` helpers + 4 tests. Admins no longer need migrations to manage chemistry schema.
+
+## Picker Contexts (admin-driven material dropdowns)
+
+Every material dropdown across the app (Inventory Receipts/Issues/Transfers/GRN, FAD ore/reductant/flux, Quality Bunker/FG/Sampling, Procurement PR/PO/MRP/Shipments, Costing) is now driven by a single `<MaterialPicker contextKey="…" />` component.
+
+- `picker_contexts` table maps each `context_key` (e.g. `fad.reductant`) to a Type/Group/Subgroup filter + `allow_unmapped` flag.
+- Workspace overrides win over global defaults (seeded with the migration).
+- Items with no Type/Group/Subgroup appear under an `(Unmapped)` bucket so legacy data stays editable.
+- Admins manage overrides at **Master Data → Picker Contexts**.
+
+### Files
+- `src/lib/picker-contexts.ts` — fetch / resolve / filter / group helpers (pure, generic over `PickerMaterial`).
+- `src/components/MaterialPicker.tsx` — searchable Command dropdown grouped by Type › Group › Subgroup.
+- `src/pages/AdminPickerContexts.tsx` — admin CRUD.
+- `src/test/picker-contexts.test.ts` — 6 unit tests.

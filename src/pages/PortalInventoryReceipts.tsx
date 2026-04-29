@@ -6,6 +6,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { MaterialPicker } from "@/components/MaterialPicker";
 import { useWorkspace } from "@/hooks/use-workspace";
 import { useAuth } from "@/hooks/use-auth";
 import { useToast } from "@/hooks/use-toast";
@@ -100,14 +101,13 @@ export default function PortalInventoryReceipts() {
         <div className="grid gap-4 sm:grid-cols-2">
           <div>
             <Label>Material</Label>
-            <Select value={materialId} onValueChange={setMaterialId}>
-              <SelectTrigger><SelectValue placeholder="Choose" /></SelectTrigger>
-              <SelectContent>
-                {materials.filter((m) => m.isActive).map((m) => (
-                  <SelectItem key={m.id} value={m.id}>{m.code} — {m.name} ({m.uom})</SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
+            <MaterialPicker
+              contextKey="inventory.receipt"
+              profitCenterId={activeProfitCenter.id}
+              materials={materials}
+              value={materialId}
+              onChange={setMaterialId}
+            />
           </div>
           <div>
             <Label>Stock location</Label>

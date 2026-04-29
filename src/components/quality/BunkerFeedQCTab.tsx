@@ -12,6 +12,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { MaterialPicker } from "@/components/MaterialPicker";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Badge } from "@/components/ui/badge";
@@ -227,14 +228,13 @@ export function BunkerFeedQCTab() {
             <div className="grid grid-cols-2 gap-3">
               <div className="space-y-1">
                 <Label>Material *</Label>
-                <Select value={materialId} onValueChange={setMaterialId}>
-                  <SelectTrigger><SelectValue placeholder="Pick material" /></SelectTrigger>
-                  <SelectContent>
-                    {materials.map(m => (
-                      <SelectItem key={m.id} value={m.id}>{m.code} — {m.name}</SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
+                <MaterialPicker
+                  contextKey="quality.bunker"
+                  profitCenterId={activeProfitCenter?.id ?? null}
+                  materials={materials}
+                  value={materialId}
+                  onChange={setMaterialId}
+                />
               </div>
               <div className="space-y-1">
                 <Label>Bunker (location) *</Label>

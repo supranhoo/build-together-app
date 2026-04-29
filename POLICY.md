@@ -363,3 +363,9 @@
 - Workspace admins manage both via **Master Data → Properties & Mapping** (no migrations required). The Mapping card is authoritative: ticking a property makes it visible on the Item Master form, and the **Required** toggle blocks save until that property is filled.
 - Per-item values continue to persist in `materials.specs` JSONB (compat shim) so heat entry, costing, quality, and inventory continue to read the same shape.
 - Switching an item's group clears the prior group's managed property values from storage to prevent stale chemistry.
+
+## Material picker contexts
+
+- The list of materials a user sees in any dropdown is determined by the `picker_contexts` row for that screen (Type/Group/Subgroup filter + allow-unmapped flag).
+- Workspace admins can override the global default for their workspace; super admins manage the global defaults.
+- Unmapped (legacy) items show under an `(Unmapped)` bucket only when the context allows it; admins may turn this off to enforce hierarchy hygiene.

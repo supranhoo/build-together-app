@@ -10,6 +10,12 @@ export interface Material {
   category: string;
   uom: string;
   isActive: boolean;
+  // Hierarchy for the unified MaterialPicker (Type → Group → Subgroup).
+  // Sourced from the same `materials` row; safe to ignore on screens that
+  // still present the old flat list.
+  type: string | null;
+  groupName: string | null;
+  subgroup: string | null;
 }
 
 export interface StockLocation {
@@ -52,6 +58,9 @@ function toMaterial(row: any): Material {
     category: row.category,
     uom: row.uom,
     isActive: Boolean(row.is_active),
+    type: row.type ?? null,
+    groupName: row.group_name ?? null,
+    subgroup: row.subgroup ?? null,
   };
 }
 
@@ -86,7 +95,7 @@ function toLedger(row: any): InventoryLedgerEntry {
 export async function fetchMaterials(profitCenterId: string): Promise<Material[]> {
   const { data, error } = await client
     .from("materials")
-    .select("id, profit_center_id, code, name, category, uom, is_active")
+    .select("id, profit_center_id, code, name, category, uom, is_active, type, group_name, subgroup")
     .eq("profit_center_id", profitCenterId)
     .order("code");
   if (error) throw error;
