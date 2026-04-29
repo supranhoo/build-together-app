@@ -33,10 +33,20 @@ import {
   type PickerContext,
 } from "@/lib/picker-contexts";
 
+/**
+ * MaterialPicker accepts any object that carries the Material hierarchy
+ * fields. Both `Material` (inventory.ts) and `MasterItem` (master-data.ts)
+ * satisfy this shape, so the picker drops in unchanged on every screen.
+ */
+export type PickerMaterial = Pick<
+  Material,
+  "id" | "code" | "name" | "uom" | "isActive" | "type" | "groupName" | "subgroup"
+>;
+
 interface MaterialPickerProps {
   contextKey: string;
   profitCenterId: string | null;
-  materials: Material[];
+  materials: PickerMaterial[];
   value: string;
   onChange: (id: string) => void;
   placeholder?: string;

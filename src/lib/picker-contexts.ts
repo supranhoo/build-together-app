@@ -10,6 +10,13 @@
 import { supabase } from "@/integrations/supabase/client";
 import type { Material } from "@/lib/inventory";
 
+/** Minimal shape MaterialPicker / filter helpers need. Keeps both
+ *  `Material` (inventory.ts) and `MasterItem` (master-data.ts) compatible. */
+export type PickerMaterial = Pick<
+  Material,
+  "id" | "code" | "name" | "uom" | "isActive" | "type" | "groupName" | "subgroup"
+>;
+
 const client = supabase as unknown as { from: (t: string) => any };
 
 export interface PickerContext {
