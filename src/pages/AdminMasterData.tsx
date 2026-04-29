@@ -11,6 +11,7 @@ import AdminUomConversions from "./AdminUomConversions";
 import AdminStockLocations from "./AdminStockLocations";
 import AdminKpis from "./AdminKpis";
 import AdminItemProperties from "./AdminItemProperties";
+import AdminPickerContexts from "./AdminPickerContexts";
 
 /**
  * Master Data — single SSOT host for workspace-scoped reference data.
@@ -21,6 +22,7 @@ export const MASTER_DATA_TABS = [
   { key: "catalogue", label: "Item Catalogue", Component: AdminItemCatalogue },
   { key: "groups", label: "Group & Hierarchy", Component: AdminMaterialGroups },
   { key: "properties", label: "Properties & Mapping", Component: AdminItemProperties },
+  { key: "pickers", label: "Picker Contexts", Component: AdminPickerContexts },
   { key: "specs", label: "Specifications", Component: AdminSpecTemplates },
   { key: "furnaces", label: "Furnace / Machine", Component: AdminFurnaces },
   { key: "cost-rates", label: "Rate & Cost Pool", Component: AdminCostRates },
