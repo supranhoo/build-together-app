@@ -7,6 +7,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { Label } from "@/components/ui/label";
+import { Badge } from "@/components/ui/badge";
 import { useWorkspace } from "@/hooks/use-workspace";
 import { useAuth } from "@/hooks/use-auth";
 import { useToast } from "@/hooks/use-toast";
@@ -27,21 +28,19 @@ import {
   itemsToCsvRows,
   parseItemCsv,
 } from "@/lib/master-items-csv";
-import {
-  specRowsToObject,
-  specsObjectToRows,
-  validateSpecRows,
-  type SpecRow,
-} from "@/lib/master-item-specs";
-import { SpecsEditor } from "@/components/master-data/SpecsEditor";
 import { GroupSubgroupPicker } from "@/components/master-data/GroupSubgroupPicker";
 import { FIXED_SPEC_COLUMNS, getSpecValue } from "@/lib/spec-columns";
 import {
-  applyTemplateToRows,
-  fetchSpecTemplates,
-  findTemplateForNature,
-  type SpecTemplate,
-} from "@/lib/spec-templates";
+  fetchGroupPropertyMap,
+  fetchPropertyDefinitions,
+  mergePropertyValuesIntoSpecs,
+  resolvePropertiesForGroup,
+  specsToFormValues,
+  validatePropertyValue,
+  type GroupPropertyLink,
+  type PropertyDefinition,
+  type ResolvedGroupProperty,
+} from "@/lib/item-properties";
 
 const UOMS = ["kg", "MT", "litre", "piece", "ton"];
 
@@ -54,7 +53,18 @@ interface FormState {
   subgroup: string;
   uom: string;
   stdCost: string;
-  specRows: SpecRow[];
+  /**
+   * Property values keyed by canonical property_key (e.g. `Mn`, `FC`).
+   * Drives the dynamic property inputs and is merged back into
+   * `materials.specs` on save (compat shim — see lib/item-properties.ts).
+   */
+  propertyValues: Record<string, string>;
+  /**
+   * Pre-existing specs from the row being edited. Preserved verbatim so
+   * non-managed keys (`_role`, `_category`, supplier-specific notes) stay
+   * intact when we merge new property values back in.
+   */
+  baseSpecs: Record<string, unknown>;
   minLevel: string;
   maxLevel: string;
   reorderLevel: string;
@@ -69,7 +79,8 @@ const empty: FormState = {
   subgroup: "",
   uom: "kg",
   stdCost: "",
-  specRows: [],
+  propertyValues: {},
+  baseSpecs: {},
   minLevel: "",
   maxLevel: "",
   reorderLevel: "",
@@ -81,8 +92,9 @@ export default function AdminMasterItems() {
   const { session } = useAuth();
   const { toast } = useToast();
   const [items, setItems] = useState<MasterItem[]>([]);
-  const [templates, setTemplates] = useState<SpecTemplate[]>([]);
   const [groups, setGroups] = useState<MaterialGroup[]>([]);
+  const [propertyDefs, setPropertyDefs] = useState<PropertyDefinition[]>([]);
+  const [groupPropertyMap, setGroupPropertyMap] = useState<GroupPropertyLink[]>([]);
   const [loading, setLoading] = useState(false);
   const [open, setOpen] = useState(false);
   const [form, setForm] = useState<FormState>(empty);
@@ -98,14 +110,16 @@ export default function AdminMasterItems() {
     if (!activeProfitCenter) return;
     setLoading(true);
     try {
-      const [itemsRes, templatesRes, groupsRes] = await Promise.all([
+      const [itemsRes, groupsRes, defsRes, mapRes] = await Promise.all([
         fetchMasterItems(activeProfitCenter.id),
-        fetchSpecTemplates(activeProfitCenter.id).catch(() => [] as SpecTemplate[]),
         fetchMaterialGroups(activeProfitCenter.id).catch(() => [] as MaterialGroup[]),
+        fetchPropertyDefinitions(activeProfitCenter.id).catch(() => [] as PropertyDefinition[]),
+        fetchGroupPropertyMap(activeProfitCenter.id).catch(() => [] as GroupPropertyLink[]),
       ]);
       setItems(itemsRes);
-      setTemplates(templatesRes);
       setGroups(groupsRes);
+      setPropertyDefs(defsRes);
+      setGroupPropertyMap(mapRes);
     } finally {
       setLoading(false);
     }
@@ -113,8 +127,6 @@ export default function AdminMasterItems() {
 
   useEffect(() => { void load(); /* eslint-disable-next-line */ }, [activeProfitCenter?.id]);
 
-  // Distinct groups from items — fed as `extras` into the picker so legacy
-  // free-form values (typed before we wired material_groups) stay selectable.
   const groupOptions = useMemo(() => {
     const set = new Set<string>();
     items.forEach((i) => { if (i.groupName) set.add(i.groupName); });
@@ -129,8 +141,45 @@ export default function AdminMasterItems() {
 
   const filtered = useMemo(() => filterItems(items, search, typeFilter, groupFilter), [items, search, typeFilter, groupFilter]);
 
+  /**
+   * Resolve which properties should appear on the form for the current
+   * (type, group, subgroup). Drives the dynamic Chemical Properties section.
+   * Pure — recomputed every keystroke.
+   */
+  const resolvedProps: ResolvedGroupProperty[] = useMemo(
+    () => resolvePropertiesForGroup(
+      propertyDefs,
+      groupPropertyMap,
+      form.type === "" ? null : form.type,
+      form.groupName || null,
+      form.subgroup || null,
+    ),
+    [propertyDefs, groupPropertyMap, form.type, form.groupName, form.subgroup],
+  );
+
+  /** Per-property validation errors (key → message). Recomputed on input. */
+  const propertyErrors = useMemo(() => {
+    const errs: Record<string, string> = {};
+    for (const { property, isRequired } of resolvedProps) {
+      const msg = validatePropertyValue(property, form.propertyValues[property.propertyKey] ?? "", isRequired);
+      if (msg) errs[property.propertyKey] = msg;
+    }
+    return errs;
+  }, [resolvedProps, form.propertyValues]);
+
+  const hasPropertyErrors = Object.keys(propertyErrors).length > 0;
+
   const openNew = () => { setForm(empty); setOpen(true); };
   const openEdit = (item: MasterItem) => {
+    // Pre-fill form values from the item's existing specs so operators can
+    // edit without losing prior data. Uses alias-tolerant lookup.
+    const provisionalProps = resolvePropertiesForGroup(
+      propertyDefs,
+      groupPropertyMap,
+      item.type,
+      item.groupName,
+      item.subgroup,
+    );
     setForm({
       id: item.id,
       code: item.code,
@@ -140,7 +189,8 @@ export default function AdminMasterItems() {
       subgroup: item.subgroup ?? "",
       uom: item.uom,
       stdCost: item.stdCost?.toString() ?? "",
-      specRows: specsObjectToRows(item.specs),
+      propertyValues: specsToFormValues(item.specs, provisionalProps),
+      baseSpecs: { ...(item.specs ?? {}) },
       minLevel: item.minLevel?.toString() ?? "",
       maxLevel: item.maxLevel?.toString() ?? "",
       reorderLevel: item.reorderLevel?.toString() ?? "",
@@ -149,46 +199,45 @@ export default function AdminMasterItems() {
     setOpen(true);
   };
 
-  const specErrors = useMemo(() => validateSpecRows(form.specRows), [form.specRows]);
-
-  const matchedTemplate = useMemo(
-    () => findTemplateForNature(templates, form.type || null, form.groupName, form.subgroup),
-    [templates, form.type, form.groupName, form.subgroup],
-  );
-
-  /**
-   * Auto-apply spec template when the operator changes Group / Type / Subgroup.
-   * Uses the same merge as the old manual button: preserves any value the
-   * operator already typed for matching keys, appends extra free-form rows.
-   * Existing items keep their loaded specs untouched on open — we only fire
-   * when nature actually changes.
-   */
-  const handleGroupChange = useCallback((nextGroup: string) => {
-    setForm((prev) => {
-      if (prev.groupName === nextGroup) return prev;
-      const tpl = findTemplateForNature(templates, prev.type || null, nextGroup, prev.subgroup);
-      const specRows = tpl ? applyTemplateToRows(tpl, prev.specRows) : prev.specRows;
-      return { ...prev, groupName: nextGroup, specRows };
-    });
-  }, [templates]);
+  /** When type/group/subgroup changes, repopulate property inputs from any
+   *  values that already exist in `baseSpecs` (so operators don't lose data
+   *  when correcting a wrong group). Pure inside setForm callback. */
+  const refreshPropertyValuesForNewGroup = (
+    nextForm: FormState,
+  ): FormState => {
+    const props = resolvePropertiesForGroup(
+      propertyDefs,
+      groupPropertyMap,
+      nextForm.type === "" ? null : nextForm.type,
+      nextForm.groupName || null,
+      nextForm.subgroup || null,
+    );
+    const prefilled = specsToFormValues(nextForm.baseSpecs, props);
+    // Preserve anything the operator has already typed for keys that survive
+    // the group switch.
+    const merged: Record<string, string> = { ...prefilled };
+    for (const k of Object.keys(nextForm.propertyValues)) {
+      if (props.some((p) => p.property.propertyKey === k)) {
+        merged[k] = nextForm.propertyValues[k];
+      }
+    }
+    return { ...nextForm, propertyValues: merged };
+  };
 
   const handleTypeChange = useCallback((nextType: MaterialType) => {
-    setForm((prev) => {
-      if (prev.type === nextType) return prev;
-      const tpl = findTemplateForNature(templates, nextType, prev.groupName, prev.subgroup);
-      const specRows = tpl ? applyTemplateToRows(tpl, prev.specRows) : prev.specRows;
-      return { ...prev, type: nextType, specRows };
-    });
-  }, [templates]);
+    setForm((prev) => refreshPropertyValuesForNewGroup({ ...prev, type: nextType }));
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [propertyDefs, groupPropertyMap]);
+
+  const handleGroupChange = useCallback((nextGroup: string) => {
+    setForm((prev) => refreshPropertyValuesForNewGroup({ ...prev, groupName: nextGroup }));
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [propertyDefs, groupPropertyMap]);
 
   const handleSubgroupChange = useCallback((nextSubgroup: string) => {
-    setForm((prev) => {
-      if (prev.subgroup === nextSubgroup) return prev;
-      const tpl = findTemplateForNature(templates, prev.type || null, prev.groupName, nextSubgroup);
-      const specRows = tpl ? applyTemplateToRows(tpl, prev.specRows) : prev.specRows;
-      return { ...prev, subgroup: nextSubgroup, specRows };
-    });
-  }, [templates]);
+    setForm((prev) => refreshPropertyValuesForNewGroup({ ...prev, subgroup: nextSubgroup }));
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [propertyDefs, groupPropertyMap]);
 
   const handleSave = async () => {
     if (!activeProfitCenter || !session?.user) return;
@@ -196,15 +245,17 @@ export default function AdminMasterItems() {
       toast({ title: "Code and name are required", variant: "destructive" });
       return;
     }
-    if (specErrors.length > 0) {
+    if (hasPropertyErrors) {
       toast({
-        title: "Fix spec errors before saving",
-        description: specErrors.map((e) => e.message).join("; "),
+        title: "Fix property errors before saving",
+        description: Object.values(propertyErrors).join("; "),
         variant: "destructive",
       });
       return;
     }
-    const specs = specRowsToObject(form.specRows);
+    // Compat shim: write all property values back into materials.specs so
+    // every downstream reader (FAD, Quality, Costing, …) keeps working.
+    const specs = mergePropertyValuesIntoSpecs(form.baseSpecs, resolvedProps, form.propertyValues);
     setSaving(true);
     try {
       await upsertMasterItem({
@@ -228,7 +279,7 @@ export default function AdminMasterItems() {
         profitCenterId: activeProfitCenter.id,
         entityType: "item_master",
         action: form.id ? "item_master.updated" : "item_master.created",
-        changeSummary: { code: form.code, name: form.name, type: form.type, profit_center_id: activeProfitCenter.id },
+        changeSummary: { code: form.code, name: form.name, type: form.type, group: form.groupName, subgroup: form.subgroup, profit_center_id: activeProfitCenter.id },
       });
       toast({ title: "Item saved" });
       setOpen(false);
@@ -368,23 +419,56 @@ export default function AdminMasterItems() {
                 <div><Label>Reorder level</Label><Input type="number" step="0.001" value={form.reorderLevel} onChange={(e) => setForm({ ...form, reorderLevel: e.target.value })} /></div>
                 <div><Label>Min level</Label><Input type="number" step="0.001" value={form.minLevel} onChange={(e) => setForm({ ...form, minLevel: e.target.value })} /></div>
                 <div><Label>Max level</Label><Input type="number" step="0.001" value={form.maxLevel} onChange={(e) => setForm({ ...form, maxLevel: e.target.value })} /></div>
-                <div className="sm:col-span-2 space-y-2">
-                  {matchedTemplate ? (
+
+                {/* Dynamic Chemical Properties — driven by item_property_definitions × item_group_property_map.
+                    The set of inputs changes as the operator picks Type / Group / Subgroup. */}
+                <div className="sm:col-span-2 space-y-3">
+                  <div className="flex items-center justify-between">
+                    <Label className="text-sm font-semibold">Chemical Properties</Label>
+                    {resolvedProps.length > 0 && (
+                      <Badge variant="secondary" className="text-xs">
+                        {form.type} · {form.groupName}{form.subgroup ? ` / ${form.subgroup}` : ""} · {resolvedProps.length} field{resolvedProps.length === 1 ? "" : "s"}
+                      </Badge>
+                    )}
+                  </div>
+                  {resolvedProps.length === 0 ? (
                     <div className="rounded-md border border-dashed border-border bg-panel/50 px-3 py-2 text-xs text-muted-foreground">
-                      Specs auto-loaded from <strong className="text-foreground">{matchedTemplate.groupName}{matchedTemplate.subgroup ? ` / ${matchedTemplate.subgroup}` : ""}</strong> template ({matchedTemplate.fields.length} field{matchedTemplate.fields.length === 1 ? "" : "s"}). Admin can edit fields under <em>Master Data → Specifications</em>.
+                      {form.type && form.groupName
+                        ? <>No properties mapped for <strong className="text-foreground">{form.type} → {form.groupName}{form.subgroup ? ` → ${form.subgroup}` : ""}</strong>. Configure the mapping under <em>Master Data → Property Mapping</em> or contact your administrator.</>
+                        : "Select Type and Group to load chemical property fields."}
                     </div>
                   ) : (
-                    form.groupName && (
-                      <div className="rounded-md border border-dashed border-border bg-panel/50 px-3 py-2 text-xs text-muted-foreground">
-                        No spec template defined for "{form.groupName}". Add one under <em>Master Data → Specifications</em> to auto-load fields.
-                      </div>
-                    )
+                    <div className="grid gap-3 sm:grid-cols-2">
+                      {resolvedProps.map(({ property, isRequired }) => {
+                        const value = form.propertyValues[property.propertyKey] ?? "";
+                        const err = propertyErrors[property.propertyKey];
+                        return (
+                          <div key={property.propertyKey}>
+                            <Label className="text-xs flex items-center gap-1">
+                              <span>{property.displayName}</span>
+                              <span className="text-muted-foreground">({property.unit})</span>
+                              {isRequired && <span className="text-destructive">*</span>}
+                            </Label>
+                            <Input
+                              type={property.dataType === "decimal" ? "number" : "text"}
+                              step={property.dataType === "decimal" ? Math.pow(10, -property.decimals).toString() : undefined}
+                              value={value}
+                              onChange={(e) => setForm({
+                                ...form,
+                                propertyValues: { ...form.propertyValues, [property.propertyKey]: e.target.value },
+                              })}
+                              className={err ? "border-destructive" : ""}
+                              aria-invalid={Boolean(err)}
+                              aria-describedby={err ? `prop-err-${property.propertyKey}` : undefined}
+                            />
+                            {err && (
+                              <p id={`prop-err-${property.propertyKey}`} className="mt-1 text-xs text-destructive">{err}</p>
+                            )}
+                          </div>
+                        );
+                      })}
+                    </div>
                   )}
-                  <SpecsEditor
-                    rows={form.specRows}
-                    errors={specErrors}
-                    onChange={(specRows) => setForm({ ...form, specRows })}
-                  />
                 </div>
                 <div className="sm:col-span-2 flex items-center justify-between rounded-md border border-border bg-panel px-4 py-3">
                   <span>Active</span>
@@ -393,7 +477,7 @@ export default function AdminMasterItems() {
               </div>
               <DialogFooter>
                 <Button variant="outline" onClick={() => setOpen(false)}>Cancel</Button>
-                <Button onClick={() => void handleSave()} disabled={saving || specErrors.length > 0}>{saving ? "Saving…" : "Save"}</Button>
+                <Button onClick={() => void handleSave()} disabled={saving || hasPropertyErrors}>{saving ? "Saving…" : "Save"}</Button>
               </DialogFooter>
             </DialogContent>
           </Dialog>
