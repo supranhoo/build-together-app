@@ -396,7 +396,7 @@ export default function AdminMasterItems() {
             <SelectTrigger className="w-40"><SelectValue /></SelectTrigger>
             <SelectContent>
               <SelectItem value="all">All groups</SelectItem>
-              {groupOptions.map((g) => <SelectItem key={g} value={g}>{g}</SelectItem>)}
+              {groupSelectOptions.map((g) => <SelectItem key={g} value={g}>{g}</SelectItem>)}
             </SelectContent>
           </Select>
           <Button variant="outline" onClick={handleDownloadTemplate} title="Download a CSV template with example row">Template</Button>
@@ -419,7 +419,24 @@ export default function AdminMasterItems() {
             <DialogContent className="max-w-2xl">
               <DialogHeader><DialogTitle>{form.id ? "Edit item" : "New item"}</DialogTitle></DialogHeader>
               <div className="grid gap-3 sm:grid-cols-2 max-h-[60vh] overflow-y-auto pr-1">
-                <div><Label>Code</Label><Input value={form.code} onChange={(e) => setForm({ ...form, code: e.target.value })} /></div>
+                <div>
+                  <Label>Code</Label>
+                  {form.id ? (
+                    // Edit mode: keep editable for admin overrides on legacy rows.
+                    <Input value={form.code} onChange={(e) => setForm({ ...form, code: e.target.value })} />
+                  ) : (
+                    // New mode: auto-generated as <TYPE>-<GROUP>-<NNNN> once Type
+                    // and Group are picked. Read-only to keep coding consistent
+                    // across the org.
+                    <Input
+                      value={form.code}
+                      readOnly
+                      disabled
+                      placeholder="Auto — pick Type and Group"
+                      className="bg-muted/40"
+                    />
+                  )}
+                </div>
                 <div><Label>Name</Label><Input value={form.name} onChange={(e) => setForm({ ...form, name: e.target.value })} /></div>
                 <div>
                   <Label>Type</Label>
