@@ -28,8 +28,8 @@ import {
   itemsToCsvRows,
   parseItemCsv,
 } from "@/lib/master-items-csv";
-import { GroupSubgroupPicker } from "@/components/master-data/GroupSubgroupPicker";
 import { FIXED_SPEC_COLUMNS, getSpecValue } from "@/lib/spec-columns";
+import { nextItemCode, nextItemName } from "@/lib/master-items-code";
 import {
   fetchGroupPropertyMap,
   fetchPropertyDefinitions,
