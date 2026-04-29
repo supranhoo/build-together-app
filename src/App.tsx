@@ -51,6 +51,7 @@ import PortalInventoryReports from "./pages/PortalInventoryReports";
 import PortalInventoryLedger from "./pages/PortalInventoryLedger";
 import PortalInventoryMasterData from "./pages/PortalInventoryMasterData";
 import PortalCosting from "./pages/PortalCosting";
+import PortalCostSheet from "./pages/PortalCostSheet";
 import PortalReports from "./pages/PortalReports";
 import NotFound from "./pages/NotFound";
 
@@ -90,6 +91,7 @@ const App = () => (
                       <Route path="master-data" element={<PortalInventoryMasterData />} />
                     </Route>
                     <Route path="costing" element={<PortalCosting />} />
+                    <Route path="cost-sheet" element={<PortalCostSheet />} />
                     <Route path="reports" element={<PortalReports />} />
                     {/* Procurement & Quality are rendered inside the Portal
                         shell so the plant module sidebar stays visible. The
