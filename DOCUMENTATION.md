@@ -798,3 +798,38 @@ Screens audited and confirmed to have no material picker (no migration needed): 
 
 ### Version History
 - 2026-04-29 (Phase 10): Test Data Management feature. Added `is_test_data` / `test_batch_id` columns across operational tables, 2 new tables, 5 RPCs, 1 admin page, 3 unit tests.
+
+## Phase 11 — Extended Costing Engine + System Logic
+
+Adds richer cost-sheet calculation alongside the existing `buildCostBreakdown`, plus an admin-controlled global toggle surface.
+
+### Schema
+- `cost_rates.cost_type` enum extended: `variable | fixed | utility | credit`.
+- `cost_rates.allocation_basis text` ∈ `per_mt | per_kwh | per_nm3 | per_day | lumpsum` (nullable; required only for utility/fixed allocations).
+- `cost_rates.status text NOT NULL DEFAULT 'ACTIVE'` ∈ `ACTIVE | INACTIVE` — INACTIVE rows are ignored by the engine even when the date matches.
+- `system_settings(key PK, config jsonb, …)` — single-row JSON config keyed by `key`. Read by all signed-in users; write restricted to admin/super_admin.
+- `module_mappings(profit_center_id, module_id, is_enabled, …)` — per-workspace toggle. Read by workspace members; write by workspace admins.
+
+### Engine — `src/lib/costing.ts → calculateCostSheet()`
+Returns `{ variable, fixed, utility, credit, total, costPerMt }`:
+- `variable` = Σ(qty × inventoryRates[materialId])
+- `fixed`    = Σ rate × allocationFactor over ACTIVE FIXED rates
+- `utility`  = Σ rate × allocationFactor over ACTIVE UTILITY rates
+- `credit`   = slagQty × Σ ACTIVE CREDIT rates
+- `total`    = variable + fixed + utility − credit
+
+Allocation factor by basis: `per_mt → qtyMt`, `per_kwh → powerKwh`, `per_nm3 → oxygenNm3`, `per_day → days`, `lumpsum → 1`.
+
+### Service — `src/lib/system-settings.ts`
+- `getSystemLogic()` / `saveSystemLogic(config, userId)` — JSON config (`enableSlagCredit`, `enableUtilityAllocation`, `defaultAllocationBasis`, `costRoundingDp`).
+- `getModuleMappings(pcId)` / `setModuleMapping(pcId, moduleId, isEnabled, userId)` / `isModuleEnabled(mappings, moduleId)` — per-workspace overrides for the global module catalog. Default is `true` when no row exists.
+
+### UI
+- `Admin Settings → System Logic` (`?tab=system-logic`) — admin-only form to edit `SystemLogicConfig`. Each save is audited.
+- `Admin Settings → Cost Rates` (existing) — extended with `Allocation basis` (shown for utility/fixed) and `Status` selectors. Listing now shows both columns.
+
+### Tests — `src/test/costing-extended.test.ts` (9 cases)
+Variable-only cost, per_kwh + per_nm3 utility allocation, slag credit subtraction, INACTIVE skip, out-of-window skip, zero-production cost/MT, and `isModuleEnabled` default/override behaviour.
+
+### Version History
+- 2026-04-29 (Phase 11): Extended cost engine with utility/credit buckets and allocation basis. Added `system_settings` and `module_mappings` tables. New `Admin Settings → System Logic` tab. 9 new unit tests.

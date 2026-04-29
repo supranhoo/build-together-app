@@ -383,3 +383,11 @@
 - **Purge requires typed confirmation** of the exact phrase `PURGE-TEST-DATA`. The dry-run preview always shows row counts before deletion.
 - **Go-Live lockdown.** When the workspace goes live an admin disables the feature; all seed/upload/purge RPCs then return `feature_locked`. Re-enabling requires a `super_admin` and a written reason.
 - **Auditability.** Every seed, upload, purge, lock, and unlock writes an immutable row to `audit_logs`.
+
+## Costing Policy — Extended Engine (2026-04-29)
+- **Cost taxonomy is fixed and admin-controlled.** Rates are categorized as `variable | fixed | utility | credit`. New types may not be introduced from code; they require a schema migration.
+- **Allocation basis is mandatory for utility (and recommended for fixed) rates** — `per_mt | per_kwh | per_nm3 | per_day | lumpsum`. The engine multiplies the rate by the matching production-entry field; misconfigured rows produce zero contribution rather than silently using a default.
+- **INACTIVE rates are excluded from cost calculations** even when the effective date window matches. Use status to retire a rate without deleting history.
+- **Slag credit is a `cost_type='credit'` row.** It is subtracted (not added) from the total. The feature can be globally disabled via `System Logic → Enable slag credit`.
+- **System Logic changes are admin-only and audited.** Every save writes an `audit_logs` row with `entity_type='system_settings'`.
+- **Per-workspace module toggles override the global catalog.** A missing row means the module is enabled. Disabling a module from `module_mappings` hides it for that workspace only.
