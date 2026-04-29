@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -6,7 +6,8 @@ import { Label } from "@/components/ui/label";
 import { Switch } from "@/components/ui/switch";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
-import { ShieldAlert, Sliders } from "lucide-react";
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
+import { ShieldAlert, Sliders, LayoutGrid } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { useAuth } from "@/hooks/use-auth";
 import { useWorkspace } from "@/hooks/use-workspace";
@@ -15,18 +16,35 @@ import {
   DEFAULT_SYSTEM_LOGIC,
   getSystemLogic,
   saveSystemLogic,
+  getModuleMappings,
+  setModuleMapping,
   type AllocationBasis,
   type SystemLogicConfig,
+  type ModuleMapping,
 } from "@/lib/system-settings";
 import { ALLOCATION_BASES } from "@/lib/master-data";
 
 export default function AdminSystemLogic() {
-  const { isAdmin } = useWorkspace();
+  const { isAdmin, allProfitCenters, appModules } = useWorkspace();
   const { session } = useAuth();
   const { toast } = useToast();
   const [config, setConfig] = useState<SystemLogicConfig>(DEFAULT_SYSTEM_LOGIC);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
+
+  // Per-PC module mapping state: pcId -> moduleId -> enabled
+  const [mappings, setMappings] = useState<Record<string, Record<string, boolean>>>({});
+  const [mappingsLoading, setMappingsLoading] = useState(true);
+  const [savingCell, setSavingCell] = useState<string | null>(null);
+
+  const activePCs = useMemo(
+    () => allProfitCenters.filter((pc) => pc.isActive).sort((a, b) => a.name.localeCompare(b.name)),
+    [allProfitCenters],
+  );
+  const sortedModules = useMemo(
+    () => [...appModules].sort((a, b) => a.sortOrder - b.sortOrder),
+    [appModules],
+  );
 
   useEffect(() => {
     let mounted = true;
@@ -36,6 +54,28 @@ export default function AdminSystemLogic() {
       .finally(() => mounted && setLoading(false));
     return () => { mounted = false; };
   }, [toast]);
+
+  useEffect(() => {
+    if (!isAdmin || activePCs.length === 0) {
+      setMappingsLoading(false);
+      return;
+    }
+    let mounted = true;
+    setMappingsLoading(true);
+    Promise.all(activePCs.map((pc) => getModuleMappings(pc.id).then((rows): [string, ModuleMapping[]] => [pc.id, rows])))
+      .then((results) => {
+        if (!mounted) return;
+        const next: Record<string, Record<string, boolean>> = {};
+        for (const [pcId, rows] of results) {
+          next[pcId] = {};
+          for (const r of rows) next[pcId][r.moduleId] = r.isEnabled;
+        }
+        setMappings(next);
+      })
+      .catch((e) => toast({ title: "Failed to load module mappings", description: (e as Error).message, variant: "destructive" }))
+      .finally(() => { if (mounted) setMappingsLoading(false); });
+    return () => { mounted = false; };
+  }, [isAdmin, activePCs, toast]);
 
   if (!isAdmin) {
     return (
@@ -67,52 +107,145 @@ export default function AdminSystemLogic() {
     }
   };
 
+  const isEnabled = (pcId: string, moduleId: string): boolean => {
+    const row = mappings[pcId];
+    if (!row || !(moduleId in row)) return true; // default-enabled when unmapped
+    return row[moduleId];
+  };
+
+  const handleToggle = async (pcId: string, moduleId: string, next: boolean) => {
+    if (!session?.user) return;
+    const cellKey = `${pcId}:${moduleId}`;
+    const previous = isEnabled(pcId, moduleId);
+    // Optimistic
+    setMappings((current) => ({
+      ...current,
+      [pcId]: { ...(current[pcId] ?? {}), [moduleId]: next },
+    }));
+    setSavingCell(cellKey);
+    try {
+      await setModuleMapping(pcId, moduleId, next, session.user.id);
+      await createAuditLog({
+        actorUserId: session.user.id,
+        profitCenterId: pcId,
+        entityType: "module_mapping",
+        action: next ? "module.enabled" : "module.disabled",
+        changeSummary: { moduleId, isEnabled: next },
+      });
+    } catch (e) {
+      // Revert
+      setMappings((current) => ({
+        ...current,
+        [pcId]: { ...(current[pcId] ?? {}), [moduleId]: previous },
+      }));
+      toast({ title: "Mapping save failed", description: (e as Error).message, variant: "destructive" });
+    } finally {
+      setSavingCell(null);
+    }
+  };
+
   return (
-    <Card>
-      <CardHeader>
-        <CardTitle className="flex items-center gap-2"><Sliders className="h-4 w-4" /> System Logic</CardTitle>
-        <CardDescription>Global toggles that govern the cost-sheet engine. Changes are audited.</CardDescription>
-      </CardHeader>
-      <CardContent className="space-y-5 max-w-2xl">
-        {loading ? <p className="text-sm text-muted-foreground">Loading…</p> : (
-          <>
-            <div className="flex items-center justify-between gap-4">
-              <div>
-                <Label>Enable slag credit</Label>
-                <p className="text-xs text-muted-foreground">Subtracts slag-quantity × CREDIT rate from total cost.</p>
+    <div className="space-y-6">
+      <Card>
+        <CardHeader>
+          <CardTitle className="flex items-center gap-2"><Sliders className="h-4 w-4" /> System Logic</CardTitle>
+          <CardDescription>Global toggles that govern the cost-sheet engine. Changes are audited.</CardDescription>
+        </CardHeader>
+        <CardContent className="space-y-5 max-w-2xl">
+          {loading ? <p className="text-sm text-muted-foreground">Loading…</p> : (
+            <>
+              <div className="flex items-center justify-between gap-4">
+                <div>
+                  <Label>Enable slag credit</Label>
+                  <p className="text-xs text-muted-foreground">Subtracts slag-quantity × CREDIT rate from total cost.</p>
+                </div>
+                <Switch checked={config.enableSlagCredit} onCheckedChange={(v) => setConfig({ ...config, enableSlagCredit: v })} />
               </div>
-              <Switch checked={config.enableSlagCredit} onCheckedChange={(v) => setConfig({ ...config, enableSlagCredit: v })} />
-            </div>
-            <div className="flex items-center justify-between gap-4">
-              <div>
-                <Label>Enable utility allocation</Label>
-                <p className="text-xs text-muted-foreground">Allocates utility rates by basis (per kWh, per Nm³, …).</p>
+              <div className="flex items-center justify-between gap-4">
+                <div>
+                  <Label>Enable utility allocation</Label>
+                  <p className="text-xs text-muted-foreground">Allocates utility rates by basis (per kWh, per Nm³, …).</p>
+                </div>
+                <Switch checked={config.enableUtilityAllocation} onCheckedChange={(v) => setConfig({ ...config, enableUtilityAllocation: v })} />
               </div>
-              <Switch checked={config.enableUtilityAllocation} onCheckedChange={(v) => setConfig({ ...config, enableUtilityAllocation: v })} />
+              <div>
+                <Label>Default allocation basis</Label>
+                <Select value={config.defaultAllocationBasis} onValueChange={(v) => setConfig({ ...config, defaultAllocationBasis: v as AllocationBasis })}>
+                  <SelectTrigger><SelectValue /></SelectTrigger>
+                  <SelectContent>
+                    {ALLOCATION_BASES.map((b) => <SelectItem key={b} value={b}>{b}</SelectItem>)}
+                  </SelectContent>
+                </Select>
+              </div>
+              <div>
+                <Label>Cost rounding (decimal places)</Label>
+                <Input
+                  type="number"
+                  min={0}
+                  max={6}
+                  value={config.costRoundingDp}
+                  onChange={(e) => setConfig({ ...config, costRoundingDp: Math.max(0, Math.min(6, Number(e.target.value) || 0)) })}
+                />
+              </div>
+              <Button onClick={handleSave} disabled={saving}>{saving ? "Saving…" : "Save system logic"}</Button>
+            </>
+          )}
+        </CardContent>
+      </Card>
+
+      <Card>
+        <CardHeader>
+          <CardTitle className="flex items-center gap-2"><LayoutGrid className="h-4 w-4" /> Module mappings per Profit Center</CardTitle>
+          <CardDescription>
+            Enable or disable application modules for each Profit Center. Unmapped cells default to enabled.
+            Each toggle saves immediately and is audited.
+          </CardDescription>
+        </CardHeader>
+        <CardContent>
+          {mappingsLoading ? (
+            <p className="text-sm text-muted-foreground">Loading mappings…</p>
+          ) : activePCs.length === 0 ? (
+            <p className="text-sm text-muted-foreground">No active profit centers.</p>
+          ) : sortedModules.length === 0 ? (
+            <p className="text-sm text-muted-foreground">No app modules registered.</p>
+          ) : (
+            <div className="overflow-x-auto">
+              <Table>
+                <TableHeader>
+                  <TableRow>
+                    <TableHead className="sticky left-0 bg-background min-w-[200px]">Profit Center</TableHead>
+                    {sortedModules.map((m) => (
+                      <TableHead key={m.id} className="text-center min-w-[120px]">
+                        <div className="font-medium">{m.defaultLabel}</div>
+                        <div className="text-xs text-muted-foreground font-normal">{m.moduleKey}</div>
+                      </TableHead>
+                    ))}
+                  </TableRow>
+                </TableHeader>
+                <TableBody>
+                  {activePCs.map((pc) => (
+                    <TableRow key={pc.id}>
+                      <TableCell className="sticky left-0 bg-background font-medium">{pc.name}</TableCell>
+                      {sortedModules.map((m) => {
+                        const cellKey = `${pc.id}:${m.id}`;
+                        return (
+                          <TableCell key={m.id} className="text-center">
+                            <Switch
+                              checked={isEnabled(pc.id, m.id)}
+                              disabled={savingCell === cellKey}
+                              onCheckedChange={(v) => void handleToggle(pc.id, m.id, v)}
+                            />
+                          </TableCell>
+                        );
+                      })}
+                    </TableRow>
+                  ))}
+                </TableBody>
+              </Table>
             </div>
-            <div>
-              <Label>Default allocation basis</Label>
-              <Select value={config.defaultAllocationBasis} onValueChange={(v) => setConfig({ ...config, defaultAllocationBasis: v as AllocationBasis })}>
-                <SelectTrigger><SelectValue /></SelectTrigger>
-                <SelectContent>
-                  {ALLOCATION_BASES.map((b) => <SelectItem key={b} value={b}>{b}</SelectItem>)}
-                </SelectContent>
-              </Select>
-            </div>
-            <div>
-              <Label>Cost rounding (decimal places)</Label>
-              <Input
-                type="number"
-                min={0}
-                max={6}
-                value={config.costRoundingDp}
-                onChange={(e) => setConfig({ ...config, costRoundingDp: Math.max(0, Math.min(6, Number(e.target.value) || 0)) })}
-              />
-            </div>
-            <Button onClick={handleSave} disabled={saving}>{saving ? "Saving…" : "Save system logic"}</Button>
-          </>
-        )}
-      </CardContent>
-    </Card>
+          )}
+        </CardContent>
+      </Card>
+    </div>
   );
 }
