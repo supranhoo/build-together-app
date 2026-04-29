@@ -97,6 +97,8 @@ export default function AdminCostRates() {
         materialId: form.materialId,
         rate,
         costType: form.costType,
+        allocationBasis: form.allocationBasis || null,
+        status: form.status,
         effectiveFrom: form.effectiveFrom,
         effectiveTo: form.effectiveTo || null,
         notes: form.notes.trim() || null,
@@ -107,7 +109,14 @@ export default function AdminCostRates() {
         profitCenterId: activeProfitCenter.id,
         entityType: "cost_rate",
         action: "cost_rate.created",
-        changeSummary: { material_id: form.materialId, rate, cost_type: form.costType, effective_from: form.effectiveFrom },
+        changeSummary: {
+          material_id: form.materialId,
+          rate,
+          cost_type: form.costType,
+          allocation_basis: form.allocationBasis || null,
+          status: form.status,
+          effective_from: form.effectiveFrom,
+        },
       });
       toast({ title: "Rate posted" });
       setOpen(false);
@@ -156,10 +165,31 @@ export default function AdminCostRates() {
                 <div><Label>Rate</Label><Input type="number" step="0.0001" value={form.rate} onChange={(e) => setForm({ ...form, rate: e.target.value })} /></div>
                 <div>
                   <Label>Cost type</Label>
-                  <Select value={form.costType} onValueChange={(v) => setForm({ ...form, costType: v as CostType })}>
+                  <Select value={form.costType} onValueChange={(v) => setForm({ ...form, costType: v as CostType, allocationBasis: v === "utility" ? (form.allocationBasis || "per_kwh") : "" })}>
                     <SelectTrigger><SelectValue /></SelectTrigger>
                     <SelectContent>
                       {COST_TYPES.map((c) => <SelectItem key={c} value={c}>{c}</SelectItem>)}
+                    </SelectContent>
+                  </Select>
+                </div>
+                {(form.costType === "utility" || form.costType === "fixed") && (
+                  <div>
+                    <Label>Allocation basis</Label>
+                    <Select value={form.allocationBasis || "per_mt"} onValueChange={(v) => setForm({ ...form, allocationBasis: v as AllocationBasis })}>
+                      <SelectTrigger><SelectValue /></SelectTrigger>
+                      <SelectContent>
+                        {ALLOCATION_BASES.map((b) => <SelectItem key={b} value={b}>{b}</SelectItem>)}
+                      </SelectContent>
+                    </Select>
+                  </div>
+                )}
+                <div>
+                  <Label>Status</Label>
+                  <Select value={form.status} onValueChange={(v) => setForm({ ...form, status: v as "ACTIVE" | "INACTIVE" })}>
+                    <SelectTrigger><SelectValue /></SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="ACTIVE">ACTIVE</SelectItem>
+                      <SelectItem value="INACTIVE">INACTIVE</SelectItem>
                     </SelectContent>
                   </Select>
                 </div>
@@ -178,10 +208,10 @@ export default function AdminCostRates() {
       <CardContent>
         <Table>
           <TableHeader>
-            <TableRow><TableHead>Material</TableHead><TableHead>Rate</TableHead><TableHead>Type</TableHead><TableHead>Effective from</TableHead><TableHead>Effective to</TableHead><TableHead>Notes</TableHead></TableRow>
+            <TableRow><TableHead>Material</TableHead><TableHead>Rate</TableHead><TableHead>Type</TableHead><TableHead>Basis</TableHead><TableHead>Status</TableHead><TableHead>Effective from</TableHead><TableHead>Effective to</TableHead><TableHead>Notes</TableHead></TableRow>
           </TableHeader>
           <TableBody>
-            {loading && <TableRow><TableCell colSpan={6} className="text-muted-foreground">Loading…</TableCell></TableRow>}
+            {loading && <TableRow><TableCell colSpan={8} className="text-muted-foreground">Loading…</TableCell></TableRow>}
             {!loading && filtered.map((r) => {
               const m = itemMap.get(r.materialId);
               return (
@@ -189,13 +219,15 @@ export default function AdminCostRates() {
                   <TableCell className="font-medium">{m ? `${m.code} — ${m.name}` : r.materialId}</TableCell>
                   <TableCell>{r.rate}</TableCell>
                   <TableCell>{r.costType}</TableCell>
+                  <TableCell>{r.allocationBasis ?? "—"}</TableCell>
+                  <TableCell>{r.status}</TableCell>
                   <TableCell>{r.effectiveFrom}</TableCell>
                   <TableCell>{r.effectiveTo ?? "—"}</TableCell>
                   <TableCell>{r.notes ?? "—"}</TableCell>
                 </TableRow>
               );
             })}
-            {!loading && filtered.length === 0 && <TableRow><TableCell colSpan={6} className="text-muted-foreground">No rates posted yet.</TableCell></TableRow>}
+            {!loading && filtered.length === 0 && <TableRow><TableCell colSpan={8} className="text-muted-foreground">No rates posted yet.</TableCell></TableRow>}
           </TableBody>
         </Table>
       </CardContent>
