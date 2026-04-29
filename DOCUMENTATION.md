@@ -784,3 +784,17 @@ Screens audited and confirmed to have no material picker (no migration needed): 
 
 ### Version History
 - 2026-04-29 (Item Master ergonomics): auto-code, native Select for Group/Subgroup, Name prefill from Subgroup. No schema change. 10 new unit tests.
+
+## Phase 10 — Test Data Management (Pre Go-Live)
+- New admin-only sub-tab `Master Data → Test Data` (key `test-data`), hidden for non-admins.
+- All operational tables carry `is_test_data boolean default false` and `test_batch_id uuid` columns. Existing rows default to `false` and are mathematically unreachable by the purge.
+- New tables: `test_data_batches` (one row per seed/upload) and `test_data_settings` (per-workspace enable/lock state). Both RLS-restricted to admin/super_admin.
+- New RPCs (all role-gated, `SECURITY DEFINER`, `EXECUTE` granted to `authenticated` only):
+  - `seed_test_data(_pc, _label)` — seeds curated demo rows (suppliers, customers, materials).
+  - `test_data_counts(_pc)` — dry-run preview of test rows per table.
+  - `purge_test_data(_pc, _confirm, _batch_id?)` — deletes rows `WHERE is_test_data = true [AND test_batch_id = ?]` in FK-safe order. Requires `_confirm = 'PURGE-TEST-DATA'`.
+  - `set_test_data_lock(_pc, _enabled, _reason)` — Go-Live lockdown. Re-enabling requires `super_admin`.
+- Every action (`seed | purge | lock | unlock`) writes to `audit_logs` with `entity_type='test_data'`.
+
+### Version History
+- 2026-04-29 (Phase 10): Test Data Management feature. Added `is_test_data` / `test_batch_id` columns across operational tables, 2 new tables, 5 RPCs, 1 admin page, 3 unit tests.

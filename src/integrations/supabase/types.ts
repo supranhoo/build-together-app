@@ -111,6 +111,7 @@ export type Database = {
           extra_specs: Json
           fc_pct: number | null
           id: string
+          is_test_data: boolean
           material_id: string
           mn_pct: number | null
           moisture_pct: number | null
@@ -119,6 +120,7 @@ export type Database = {
           result: Database["public"]["Enums"]["bunker_test_result"]
           size_range: string | null
           stock_location_id: string
+          test_batch_id: string | null
           tested_at: string
           valid_until: string | null
         }
@@ -129,6 +131,7 @@ export type Database = {
           extra_specs?: Json
           fc_pct?: number | null
           id?: string
+          is_test_data?: boolean
           material_id: string
           mn_pct?: number | null
           moisture_pct?: number | null
@@ -137,6 +140,7 @@ export type Database = {
           result?: Database["public"]["Enums"]["bunker_test_result"]
           size_range?: string | null
           stock_location_id: string
+          test_batch_id?: string | null
           tested_at?: string
           valid_until?: string | null
         }
@@ -147,6 +151,7 @@ export type Database = {
           extra_specs?: Json
           fc_pct?: number | null
           id?: string
+          is_test_data?: boolean
           material_id?: string
           mn_pct?: number | null
           moisture_pct?: number | null
@@ -155,10 +160,19 @@ export type Database = {
           result?: Database["public"]["Enums"]["bunker_test_result"]
           size_range?: string | null
           stock_location_id?: string
+          test_batch_id?: string | null
           tested_at?: string
           valid_until?: string | null
         }
-        Relationships: []
+        Relationships: [
+          {
+            foreignKeyName: "bunker_feed_tests_test_batch_id_fkey"
+            columns: ["test_batch_id"]
+            isOneToOne: false
+            referencedRelation: "test_data_batches"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       byproduct_credits: {
         Row: {
@@ -169,9 +183,11 @@ export type Database = {
           effective_to: string | null
           id: string
           is_active: boolean
+          is_test_data: boolean
           notes: string | null
           profit_center_id: string
           rate: number
+          test_batch_id: string | null
           uom: string
           updated_at: string
         }
@@ -183,9 +199,11 @@ export type Database = {
           effective_to?: string | null
           id?: string
           is_active?: boolean
+          is_test_data?: boolean
           notes?: string | null
           profit_center_id: string
           rate: number
+          test_batch_id?: string | null
           uom?: string
           updated_at?: string
         }
@@ -197,13 +215,23 @@ export type Database = {
           effective_to?: string | null
           id?: string
           is_active?: boolean
+          is_test_data?: boolean
           notes?: string | null
           profit_center_id?: string
           rate?: number
+          test_batch_id?: string | null
           uom?: string
           updated_at?: string
         }
-        Relationships: []
+        Relationships: [
+          {
+            foreignKeyName: "byproduct_credits_test_batch_id_fkey"
+            columns: ["test_batch_id"]
+            isOneToOne: false
+            referencedRelation: "test_data_batches"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       compliance_records: {
         Row: {
@@ -214,12 +242,14 @@ export type Database = {
           expires_at: string | null
           id: string
           is_active: boolean
+          is_test_data: boolean
           issued_at: string | null
           notes: string | null
           profit_center_id: string
           record_type: string
           reference_no: string
           responsible_user_id: string | null
+          test_batch_id: string | null
           updated_at: string
         }
         Insert: {
@@ -230,12 +260,14 @@ export type Database = {
           expires_at?: string | null
           id?: string
           is_active?: boolean
+          is_test_data?: boolean
           issued_at?: string | null
           notes?: string | null
           profit_center_id: string
           record_type: string
           reference_no: string
           responsible_user_id?: string | null
+          test_batch_id?: string | null
           updated_at?: string
         }
         Update: {
@@ -246,15 +278,25 @@ export type Database = {
           expires_at?: string | null
           id?: string
           is_active?: boolean
+          is_test_data?: boolean
           issued_at?: string | null
           notes?: string | null
           profit_center_id?: string
           record_type?: string
           reference_no?: string
           responsible_user_id?: string | null
+          test_batch_id?: string | null
           updated_at?: string
         }
-        Relationships: []
+        Relationships: [
+          {
+            foreignKeyName: "compliance_records_test_batch_id_fkey"
+            columns: ["test_batch_id"]
+            isOneToOne: false
+            referencedRelation: "test_data_batches"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       cost_alert_rules: {
         Row: {
@@ -338,6 +380,7 @@ export type Database = {
         Row: {
           created_at: string
           id: string
+          is_test_data: boolean
           locked_at: string
           locked_by: string
           notes: string | null
@@ -345,10 +388,12 @@ export type Database = {
           period_end: string
           period_start: string
           profit_center_id: string
+          test_batch_id: string | null
         }
         Insert: {
           created_at?: string
           id?: string
+          is_test_data?: boolean
           locked_at?: string
           locked_by: string
           notes?: string | null
@@ -356,10 +401,12 @@ export type Database = {
           period_end: string
           period_start: string
           profit_center_id: string
+          test_batch_id?: string | null
         }
         Update: {
           created_at?: string
           id?: string
+          is_test_data?: boolean
           locked_at?: string
           locked_by?: string
           notes?: string | null
@@ -367,8 +414,17 @@ export type Database = {
           period_end?: string
           period_start?: string
           profit_center_id?: string
+          test_batch_id?: string | null
         }
-        Relationships: []
+        Relationships: [
+          {
+            foreignKeyName: "cost_period_snapshots_test_batch_id_fkey"
+            columns: ["test_batch_id"]
+            isOneToOne: false
+            referencedRelation: "test_data_batches"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       cost_rates: {
         Row: {
@@ -378,10 +434,12 @@ export type Database = {
           effective_from: string
           effective_to: string | null
           id: string
+          is_test_data: boolean
           material_id: string
           notes: string | null
           profit_center_id: string
           rate: number
+          test_batch_id: string | null
         }
         Insert: {
           cost_type?: Database["public"]["Enums"]["cost_type"]
@@ -390,10 +448,12 @@ export type Database = {
           effective_from: string
           effective_to?: string | null
           id?: string
+          is_test_data?: boolean
           material_id: string
           notes?: string | null
           profit_center_id: string
           rate: number
+          test_batch_id?: string | null
         }
         Update: {
           cost_type?: Database["public"]["Enums"]["cost_type"]
@@ -402,12 +462,22 @@ export type Database = {
           effective_from?: string
           effective_to?: string | null
           id?: string
+          is_test_data?: boolean
           material_id?: string
           notes?: string | null
           profit_center_id?: string
           rate?: number
+          test_batch_id?: string | null
         }
-        Relationships: []
+        Relationships: [
+          {
+            foreignKeyName: "cost_rates_test_batch_id_fkey"
+            columns: ["test_batch_id"]
+            isOneToOne: false
+            referencedRelation: "test_data_batches"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       currencies: {
         Row: {
@@ -450,9 +520,11 @@ export type Database = {
           fg_inspection_id: string | null
           hold_reason: string | null
           id: string
+          is_test_data: boolean
           notes: string | null
           profit_center_id: string
           status: Database["public"]["Enums"]["dispatch_status"]
+          test_batch_id: string | null
           updated_at: string
           vehicle_no: string | null
         }
@@ -466,9 +538,11 @@ export type Database = {
           fg_inspection_id?: string | null
           hold_reason?: string | null
           id?: string
+          is_test_data?: boolean
           notes?: string | null
           profit_center_id: string
           status?: Database["public"]["Enums"]["dispatch_status"]
+          test_batch_id?: string | null
           updated_at?: string
           vehicle_no?: string | null
         }
@@ -482,13 +556,23 @@ export type Database = {
           fg_inspection_id?: string | null
           hold_reason?: string | null
           id?: string
+          is_test_data?: boolean
           notes?: string | null
           profit_center_id?: string
           status?: Database["public"]["Enums"]["dispatch_status"]
+          test_batch_id?: string | null
           updated_at?: string
           vehicle_no?: string | null
         }
-        Relationships: []
+        Relationships: [
+          {
+            foreignKeyName: "dispatch_clearances_test_batch_id_fkey"
+            columns: ["test_batch_id"]
+            isOneToOne: false
+            referencedRelation: "test_data_batches"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       ferro_cost_sheets: {
         Row: {
@@ -499,6 +583,7 @@ export type Database = {
           gross_cost: number
           heat_log_id: string
           id: string
+          is_test_data: boolean
           net_cost: number
           net_cost_per_mt: number | null
           notes: string | null
@@ -507,6 +592,7 @@ export type Database = {
           production_mt: number
           profit_center_id: string
           sheet_date: string
+          test_batch_id: string | null
         }
         Insert: {
           byproduct_credit?: number
@@ -516,6 +602,7 @@ export type Database = {
           gross_cost: number
           heat_log_id: string
           id?: string
+          is_test_data?: boolean
           net_cost: number
           net_cost_per_mt?: number | null
           notes?: string | null
@@ -524,6 +611,7 @@ export type Database = {
           production_mt: number
           profit_center_id: string
           sheet_date: string
+          test_batch_id?: string | null
         }
         Update: {
           byproduct_credit?: number
@@ -533,6 +621,7 @@ export type Database = {
           gross_cost?: number
           heat_log_id?: string
           id?: string
+          is_test_data?: boolean
           net_cost?: number
           net_cost_per_mt?: number | null
           notes?: string | null
@@ -541,8 +630,17 @@ export type Database = {
           production_mt?: number
           profit_center_id?: string
           sheet_date?: string
+          test_batch_id?: string | null
         }
-        Relationships: []
+        Relationships: [
+          {
+            foreignKeyName: "ferro_cost_sheets_test_batch_id_fkey"
+            columns: ["test_batch_id"]
+            isOneToOne: false
+            referencedRelation: "test_data_batches"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       fg_inspections: {
         Row: {
@@ -560,11 +658,13 @@ export type Database = {
           id: string
           inspected_at: string
           inspection_no: string
+          is_test_data: boolean
           notes: string | null
           product: string | null
           profit_center_id: string
           result: Database["public"]["Enums"]["inspection_result"]
           size_range: string | null
+          test_batch_id: string | null
           updated_at: string
         }
         Insert: {
@@ -582,11 +682,13 @@ export type Database = {
           id?: string
           inspected_at?: string
           inspection_no: string
+          is_test_data?: boolean
           notes?: string | null
           product?: string | null
           profit_center_id: string
           result?: Database["public"]["Enums"]["inspection_result"]
           size_range?: string | null
+          test_batch_id?: string | null
           updated_at?: string
         }
         Update: {
@@ -604,14 +706,24 @@ export type Database = {
           id?: string
           inspected_at?: string
           inspection_no?: string
+          is_test_data?: boolean
           notes?: string | null
           product?: string | null
           profit_center_id?: string
           result?: Database["public"]["Enums"]["inspection_result"]
           size_range?: string | null
+          test_batch_id?: string | null
           updated_at?: string
         }
-        Relationships: []
+        Relationships: [
+          {
+            foreignKeyName: "fg_inspections_test_batch_id_fkey"
+            columns: ["test_batch_id"]
+            isOneToOne: false
+            referencedRelation: "test_data_batches"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       furnaces: {
         Row: {
@@ -620,10 +732,12 @@ export type Database = {
           created_at: string
           id: string
           is_active: boolean
+          is_test_data: boolean
           machine_type: Database["public"]["Enums"]["machine_type"] | null
           name: string
           power_rating_kw: number | null
           profit_center_id: string
+          test_batch_id: string | null
           updated_at: string
         }
         Insert: {
@@ -632,10 +746,12 @@ export type Database = {
           created_at?: string
           id?: string
           is_active?: boolean
+          is_test_data?: boolean
           machine_type?: Database["public"]["Enums"]["machine_type"] | null
           name: string
           power_rating_kw?: number | null
           profit_center_id: string
+          test_batch_id?: string | null
           updated_at?: string
         }
         Update: {
@@ -644,10 +760,12 @@ export type Database = {
           created_at?: string
           id?: string
           is_active?: boolean
+          is_test_data?: boolean
           machine_type?: Database["public"]["Enums"]["machine_type"] | null
           name?: string
           power_rating_kw?: number | null
           profit_center_id?: string
+          test_batch_id?: string | null
           updated_at?: string
         }
         Relationships: [
@@ -656,6 +774,13 @@ export type Database = {
             columns: ["profit_center_id"]
             isOneToOne: false
             referencedRelation: "profit_centers"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "furnaces_test_batch_id_fkey"
+            columns: ["test_batch_id"]
+            isOneToOne: false
+            referencedRelation: "test_data_batches"
             referencedColumns: ["id"]
           },
         ]
@@ -712,10 +837,12 @@ export type Database = {
           id: string
           inventory_ledger_id: string
           invoice_no: string | null
+          is_test_data: boolean
           mn_pct: number | null
           moisture_pct: number | null
           notes: string | null
           profit_center_id: string
+          test_batch_id: string | null
           vendor: string | null
         }
         Insert: {
@@ -725,10 +852,12 @@ export type Database = {
           id?: string
           inventory_ledger_id: string
           invoice_no?: string | null
+          is_test_data?: boolean
           mn_pct?: number | null
           moisture_pct?: number | null
           notes?: string | null
           profit_center_id: string
+          test_batch_id?: string | null
           vendor?: string | null
         }
         Update: {
@@ -738,13 +867,23 @@ export type Database = {
           id?: string
           inventory_ledger_id?: string
           invoice_no?: string | null
+          is_test_data?: boolean
           mn_pct?: number | null
           moisture_pct?: number | null
           notes?: string | null
           profit_center_id?: string
+          test_batch_id?: string | null
           vendor?: string | null
         }
-        Relationships: []
+        Relationships: [
+          {
+            foreignKeyName: "grn_logs_test_batch_id_fkey"
+            columns: ["test_batch_id"]
+            isOneToOne: false
+            referencedRelation: "test_data_batches"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       heat_log_approvals: {
         Row: {
@@ -753,11 +892,13 @@ export type Database = {
           decided_by: string | null
           heat_log_id: string
           id: string
+          is_test_data: boolean
           notes: string | null
           profit_center_id: string
           status: Database["public"]["Enums"]["heat_approval_status"]
           submitted_at: string
           submitted_by: string
+          test_batch_id: string | null
           updated_at: string
         }
         Insert: {
@@ -766,11 +907,13 @@ export type Database = {
           decided_by?: string | null
           heat_log_id: string
           id?: string
+          is_test_data?: boolean
           notes?: string | null
           profit_center_id: string
           status?: Database["public"]["Enums"]["heat_approval_status"]
           submitted_at?: string
           submitted_by: string
+          test_batch_id?: string | null
           updated_at?: string
         }
         Update: {
@@ -779,14 +922,24 @@ export type Database = {
           decided_by?: string | null
           heat_log_id?: string
           id?: string
+          is_test_data?: boolean
           notes?: string | null
           profit_center_id?: string
           status?: Database["public"]["Enums"]["heat_approval_status"]
           submitted_at?: string
           submitted_by?: string
+          test_batch_id?: string | null
           updated_at?: string
         }
-        Relationships: []
+        Relationships: [
+          {
+            foreignKeyName: "heat_log_approvals_test_batch_id_fkey"
+            columns: ["test_batch_id"]
+            isOneToOne: false
+            referencedRelation: "test_data_batches"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       heat_log_events: {
         Row: {
@@ -840,12 +993,14 @@ export type Database = {
           furnace_id: string
           heat_number: string
           id: string
+          is_test_data: boolean
           is_voided: boolean
           notes: string | null
           power_mwh: number | null
           profit_center_id: string
           shift_id: string
           tap_time: string
+          test_batch_id: string | null
           updated_at: string
           void_reason: string | null
           voided_at: string | null
@@ -858,12 +1013,14 @@ export type Database = {
           furnace_id: string
           heat_number: string
           id?: string
+          is_test_data?: boolean
           is_voided?: boolean
           notes?: string | null
           power_mwh?: number | null
           profit_center_id: string
           shift_id: string
           tap_time: string
+          test_batch_id?: string | null
           updated_at?: string
           void_reason?: string | null
           voided_at?: string | null
@@ -876,12 +1033,14 @@ export type Database = {
           furnace_id?: string
           heat_number?: string
           id?: string
+          is_test_data?: boolean
           is_voided?: boolean
           notes?: string | null
           power_mwh?: number | null
           profit_center_id?: string
           shift_id?: string
           tap_time?: string
+          test_batch_id?: string | null
           updated_at?: string
           void_reason?: string | null
           voided_at?: string | null
@@ -910,6 +1069,13 @@ export type Database = {
             referencedRelation: "shifts"
             referencedColumns: ["id"]
           },
+          {
+            foreignKeyName: "heat_logs_test_batch_id_fkey"
+            columns: ["test_batch_id"]
+            isOneToOne: false
+            referencedRelation: "test_data_batches"
+            referencedColumns: ["id"]
+          },
         ]
       }
       heat_metallurgy: {
@@ -926,6 +1092,7 @@ export type Database = {
           grade: string | null
           heat_log_id: string
           id: string
+          is_test_data: boolean
           notes: string | null
           product: string | null
           profit_center_id: string
@@ -934,6 +1101,7 @@ export type Database = {
           status: Database["public"]["Enums"]["heat_metallurgy_status"]
           tapping_no: string | null
           tapping_power_mwh: number | null
+          test_batch_id: string | null
           updated_at: string
         }
         Insert: {
@@ -949,6 +1117,7 @@ export type Database = {
           grade?: string | null
           heat_log_id: string
           id?: string
+          is_test_data?: boolean
           notes?: string | null
           product?: string | null
           profit_center_id: string
@@ -957,6 +1126,7 @@ export type Database = {
           status?: Database["public"]["Enums"]["heat_metallurgy_status"]
           tapping_no?: string | null
           tapping_power_mwh?: number | null
+          test_batch_id?: string | null
           updated_at?: string
         }
         Update: {
@@ -972,6 +1142,7 @@ export type Database = {
           grade?: string | null
           heat_log_id?: string
           id?: string
+          is_test_data?: boolean
           notes?: string | null
           product?: string | null
           profit_center_id?: string
@@ -980,9 +1151,18 @@ export type Database = {
           status?: Database["public"]["Enums"]["heat_metallurgy_status"]
           tapping_no?: string | null
           tapping_power_mwh?: number | null
+          test_batch_id?: string | null
           updated_at?: string
         }
-        Relationships: []
+        Relationships: [
+          {
+            foreignKeyName: "heat_metallurgy_test_batch_id_fkey"
+            columns: ["test_batch_id"]
+            isOneToOne: false
+            referencedRelation: "test_data_batches"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       import_shipments: {
         Row: {
@@ -996,12 +1176,14 @@ export type Database = {
           etd: string | null
           freight_cost: number | null
           id: string
+          is_test_data: boolean
           notes: string | null
           origin_country: string | null
           po_id: string | null
           profit_center_id: string
           shipment_no: string
           status: Database["public"]["Enums"]["shipment_status"]
+          test_batch_id: string | null
           updated_at: string
           vessel: string | null
         }
@@ -1016,12 +1198,14 @@ export type Database = {
           etd?: string | null
           freight_cost?: number | null
           id?: string
+          is_test_data?: boolean
           notes?: string | null
           origin_country?: string | null
           po_id?: string | null
           profit_center_id: string
           shipment_no: string
           status?: Database["public"]["Enums"]["shipment_status"]
+          test_batch_id?: string | null
           updated_at?: string
           vessel?: string | null
         }
@@ -1036,12 +1220,14 @@ export type Database = {
           etd?: string | null
           freight_cost?: number | null
           id?: string
+          is_test_data?: boolean
           notes?: string | null
           origin_country?: string | null
           po_id?: string | null
           profit_center_id?: string
           shipment_no?: string
           status?: Database["public"]["Enums"]["shipment_status"]
+          test_batch_id?: string | null
           updated_at?: string
           vessel?: string | null
         }
@@ -1060,6 +1246,13 @@ export type Database = {
             referencedRelation: "profit_centers"
             referencedColumns: ["id"]
           },
+          {
+            foreignKeyName: "import_shipments_test_batch_id_fkey"
+            columns: ["test_batch_id"]
+            isOneToOne: false
+            referencedRelation: "test_data_batches"
+            referencedColumns: ["id"]
+          },
         ]
       }
       inventory_ledger: {
@@ -1067,6 +1260,7 @@ export type Database = {
           created_at: string
           created_by: string
           id: string
+          is_test_data: boolean
           material_id: string
           movement_type: string
           notes: string | null
@@ -1075,12 +1269,14 @@ export type Database = {
           reference_id: string | null
           reference_type: string | null
           stock_location_id: string
+          test_batch_id: string | null
           unit_cost: number | null
         }
         Insert: {
           created_at?: string
           created_by: string
           id?: string
+          is_test_data?: boolean
           material_id: string
           movement_type: string
           notes?: string | null
@@ -1089,12 +1285,14 @@ export type Database = {
           reference_id?: string | null
           reference_type?: string | null
           stock_location_id: string
+          test_batch_id?: string | null
           unit_cost?: number | null
         }
         Update: {
           created_at?: string
           created_by?: string
           id?: string
+          is_test_data?: boolean
           material_id?: string
           movement_type?: string
           notes?: string | null
@@ -1103,6 +1301,7 @@ export type Database = {
           reference_id?: string | null
           reference_type?: string | null
           stock_location_id?: string
+          test_batch_id?: string | null
           unit_cost?: number | null
         }
         Relationships: [
@@ -1127,6 +1326,13 @@ export type Database = {
             referencedRelation: "stock_locations"
             referencedColumns: ["id"]
           },
+          {
+            foreignKeyName: "inventory_ledger_test_batch_id_fkey"
+            columns: ["test_batch_id"]
+            isOneToOne: false
+            referencedRelation: "test_data_batches"
+            referencedColumns: ["id"]
+          },
         ]
       }
       item_group_property_map: {
@@ -1135,35 +1341,49 @@ export type Database = {
           group_name: string
           id: string
           is_required: boolean
+          is_test_data: boolean
           material_type: string
           profit_center_id: string | null
           property_key: string
           sort_order: number
           subgroup: string | null
+          test_batch_id: string | null
         }
         Insert: {
           created_at?: string
           group_name: string
           id?: string
           is_required?: boolean
+          is_test_data?: boolean
           material_type: string
           profit_center_id?: string | null
           property_key: string
           sort_order?: number
           subgroup?: string | null
+          test_batch_id?: string | null
         }
         Update: {
           created_at?: string
           group_name?: string
           id?: string
           is_required?: boolean
+          is_test_data?: boolean
           material_type?: string
           profit_center_id?: string | null
           property_key?: string
           sort_order?: number
           subgroup?: string | null
+          test_batch_id?: string | null
         }
-        Relationships: []
+        Relationships: [
+          {
+            foreignKeyName: "item_group_property_map_test_batch_id_fkey"
+            columns: ["test_batch_id"]
+            isOneToOne: false
+            referencedRelation: "test_data_batches"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       item_property_definitions: {
         Row: {
@@ -1173,11 +1393,13 @@ export type Database = {
           display_name: string
           id: string
           is_active: boolean
+          is_test_data: boolean
           max_value: number | null
           min_value: number | null
           profit_center_id: string | null
           property_key: string
           sort_order: number
+          test_batch_id: string | null
           unit: string
           updated_at: string
         }
@@ -1188,11 +1410,13 @@ export type Database = {
           display_name: string
           id?: string
           is_active?: boolean
+          is_test_data?: boolean
           max_value?: number | null
           min_value?: number | null
           profit_center_id?: string | null
           property_key: string
           sort_order?: number
+          test_batch_id?: string | null
           unit?: string
           updated_at?: string
         }
@@ -1203,15 +1427,25 @@ export type Database = {
           display_name?: string
           id?: string
           is_active?: boolean
+          is_test_data?: boolean
           max_value?: number | null
           min_value?: number | null
           profit_center_id?: string | null
           property_key?: string
           sort_order?: number
+          test_batch_id?: string | null
           unit?: string
           updated_at?: string
         }
-        Relationships: []
+        Relationships: [
+          {
+            foreignKeyName: "item_property_definitions_test_batch_id_fkey"
+            columns: ["test_batch_id"]
+            isOneToOne: false
+            referencedRelation: "test_data_batches"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       kpi_definitions: {
         Row: {
@@ -1353,6 +1587,7 @@ export type Database = {
           downtime_minutes: number | null
           equipment_id: string
           id: string
+          is_test_data: boolean
           notes: string | null
           occurred_at: string
           profit_center_id: string
@@ -1361,6 +1596,7 @@ export type Database = {
           root_cause: string | null
           severity: Database["public"]["Enums"]["maintenance_breakdown_severity"]
           symptom: string
+          test_batch_id: string | null
           updated_at: string
           work_order_id: string | null
         }
@@ -1372,6 +1608,7 @@ export type Database = {
           downtime_minutes?: number | null
           equipment_id: string
           id?: string
+          is_test_data?: boolean
           notes?: string | null
           occurred_at?: string
           profit_center_id: string
@@ -1380,6 +1617,7 @@ export type Database = {
           root_cause?: string | null
           severity?: Database["public"]["Enums"]["maintenance_breakdown_severity"]
           symptom: string
+          test_batch_id?: string | null
           updated_at?: string
           work_order_id?: string | null
         }
@@ -1391,6 +1629,7 @@ export type Database = {
           downtime_minutes?: number | null
           equipment_id?: string
           id?: string
+          is_test_data?: boolean
           notes?: string | null
           occurred_at?: string
           profit_center_id?: string
@@ -1399,10 +1638,19 @@ export type Database = {
           root_cause?: string | null
           severity?: Database["public"]["Enums"]["maintenance_breakdown_severity"]
           symptom?: string
+          test_batch_id?: string | null
           updated_at?: string
           work_order_id?: string | null
         }
-        Relationships: []
+        Relationships: [
+          {
+            foreignKeyName: "maintenance_breakdowns_test_batch_id_fkey"
+            columns: ["test_batch_id"]
+            isOneToOne: false
+            referencedRelation: "test_data_batches"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       maintenance_condition_readings: {
         Row: {
@@ -1410,6 +1658,7 @@ export type Database = {
           created_by: string
           equipment_id: string
           id: string
+          is_test_data: boolean
           notes: string | null
           parameter: string
           profit_center_id: string
@@ -1417,6 +1666,7 @@ export type Database = {
           reading_value: number
           recorded_by: string | null
           status: Database["public"]["Enums"]["maintenance_condition_status"]
+          test_batch_id: string | null
           threshold_critical: number | null
           threshold_warning: number | null
           unit: string | null
@@ -1426,6 +1676,7 @@ export type Database = {
           created_by: string
           equipment_id: string
           id?: string
+          is_test_data?: boolean
           notes?: string | null
           parameter: string
           profit_center_id: string
@@ -1433,6 +1684,7 @@ export type Database = {
           reading_value: number
           recorded_by?: string | null
           status?: Database["public"]["Enums"]["maintenance_condition_status"]
+          test_batch_id?: string | null
           threshold_critical?: number | null
           threshold_warning?: number | null
           unit?: string | null
@@ -1442,6 +1694,7 @@ export type Database = {
           created_by?: string
           equipment_id?: string
           id?: string
+          is_test_data?: boolean
           notes?: string | null
           parameter?: string
           profit_center_id?: string
@@ -1449,11 +1702,20 @@ export type Database = {
           reading_value?: number
           recorded_by?: string | null
           status?: Database["public"]["Enums"]["maintenance_condition_status"]
+          test_batch_id?: string | null
           threshold_critical?: number | null
           threshold_warning?: number | null
           unit?: string | null
         }
-        Relationships: []
+        Relationships: [
+          {
+            foreignKeyName: "maintenance_condition_readings_test_batch_id_fkey"
+            columns: ["test_batch_id"]
+            isOneToOne: false
+            referencedRelation: "test_data_batches"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       maintenance_costs: {
         Row: {
@@ -1466,8 +1728,10 @@ export type Database = {
           equipment_id: string | null
           id: string
           invoice_no: string | null
+          is_test_data: boolean
           notes: string | null
           profit_center_id: string
+          test_batch_id: string | null
           updated_at: string
           vendor: string | null
           work_order_id: string | null
@@ -1482,8 +1746,10 @@ export type Database = {
           equipment_id?: string | null
           id?: string
           invoice_no?: string | null
+          is_test_data?: boolean
           notes?: string | null
           profit_center_id: string
+          test_batch_id?: string | null
           updated_at?: string
           vendor?: string | null
           work_order_id?: string | null
@@ -1498,13 +1764,23 @@ export type Database = {
           equipment_id?: string | null
           id?: string
           invoice_no?: string | null
+          is_test_data?: boolean
           notes?: string | null
           profit_center_id?: string
+          test_batch_id?: string | null
           updated_at?: string
           vendor?: string | null
           work_order_id?: string | null
         }
-        Relationships: []
+        Relationships: [
+          {
+            foreignKeyName: "maintenance_costs_test_batch_id_fkey"
+            columns: ["test_batch_id"]
+            isOneToOne: false
+            referencedRelation: "test_data_batches"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       maintenance_downtime: {
         Row: {
@@ -1516,12 +1792,14 @@ export type Database = {
           equipment_id: string
           id: string
           is_planned: boolean
+          is_test_data: boolean
           notes: string | null
           production_loss_mt: number | null
           profit_center_id: string
           reason_category: string
           reason_detail: string | null
           start_time: string
+          test_batch_id: string | null
           updated_at: string
         }
         Insert: {
@@ -1533,12 +1811,14 @@ export type Database = {
           equipment_id: string
           id?: string
           is_planned?: boolean
+          is_test_data?: boolean
           notes?: string | null
           production_loss_mt?: number | null
           profit_center_id: string
           reason_category: string
           reason_detail?: string | null
           start_time: string
+          test_batch_id?: string | null
           updated_at?: string
         }
         Update: {
@@ -1550,15 +1830,25 @@ export type Database = {
           equipment_id?: string
           id?: string
           is_planned?: boolean
+          is_test_data?: boolean
           notes?: string | null
           production_loss_mt?: number | null
           profit_center_id?: string
           reason_category?: string
           reason_detail?: string | null
           start_time?: string
+          test_batch_id?: string | null
           updated_at?: string
         }
-        Relationships: []
+        Relationships: [
+          {
+            foreignKeyName: "maintenance_downtime_test_batch_id_fkey"
+            columns: ["test_batch_id"]
+            isOneToOne: false
+            referencedRelation: "test_data_batches"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       maintenance_equipment: {
         Row: {
@@ -1572,6 +1862,7 @@ export type Database = {
           id: string
           install_date: string | null
           is_active: boolean
+          is_test_data: boolean
           location: string | null
           manufacturer: string | null
           model_no: string | null
@@ -1579,6 +1870,7 @@ export type Database = {
           notes: string | null
           profit_center_id: string
           status: Database["public"]["Enums"]["maintenance_equipment_status"]
+          test_batch_id: string | null
           updated_at: string
         }
         Insert: {
@@ -1592,6 +1884,7 @@ export type Database = {
           id?: string
           install_date?: string | null
           is_active?: boolean
+          is_test_data?: boolean
           location?: string | null
           manufacturer?: string | null
           model_no?: string | null
@@ -1599,6 +1892,7 @@ export type Database = {
           notes?: string | null
           profit_center_id: string
           status?: Database["public"]["Enums"]["maintenance_equipment_status"]
+          test_batch_id?: string | null
           updated_at?: string
         }
         Update: {
@@ -1612,6 +1906,7 @@ export type Database = {
           id?: string
           install_date?: string | null
           is_active?: boolean
+          is_test_data?: boolean
           location?: string | null
           manufacturer?: string | null
           model_no?: string | null
@@ -1619,9 +1914,18 @@ export type Database = {
           notes?: string | null
           profit_center_id?: string
           status?: Database["public"]["Enums"]["maintenance_equipment_status"]
+          test_batch_id?: string | null
           updated_at?: string
         }
-        Relationships: []
+        Relationships: [
+          {
+            foreignKeyName: "maintenance_equipment_test_batch_id_fkey"
+            columns: ["test_batch_id"]
+            isOneToOne: false
+            referencedRelation: "test_data_batches"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       maintenance_pm_schedules: {
         Row: {
@@ -1633,11 +1937,13 @@ export type Database = {
           frequency: Database["public"]["Enums"]["maintenance_pm_frequency"]
           id: string
           is_active: boolean
+          is_test_data: boolean
           last_done: string | null
           next_due: string
           notes: string | null
           profit_center_id: string
           task_name: string
+          test_batch_id: string | null
           updated_at: string
         }
         Insert: {
@@ -1649,11 +1955,13 @@ export type Database = {
           frequency: Database["public"]["Enums"]["maintenance_pm_frequency"]
           id?: string
           is_active?: boolean
+          is_test_data?: boolean
           last_done?: string | null
           next_due: string
           notes?: string | null
           profit_center_id: string
           task_name: string
+          test_batch_id?: string | null
           updated_at?: string
         }
         Update: {
@@ -1665,14 +1973,24 @@ export type Database = {
           frequency?: Database["public"]["Enums"]["maintenance_pm_frequency"]
           id?: string
           is_active?: boolean
+          is_test_data?: boolean
           last_done?: string | null
           next_due?: string
           notes?: string | null
           profit_center_id?: string
           task_name?: string
+          test_batch_id?: string | null
           updated_at?: string
         }
-        Relationships: []
+        Relationships: [
+          {
+            foreignKeyName: "maintenance_pm_schedules_test_batch_id_fkey"
+            columns: ["test_batch_id"]
+            isOneToOne: false
+            referencedRelation: "test_data_batches"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       maintenance_sops: {
         Row: {
@@ -1685,9 +2003,11 @@ export type Database = {
           file_url: string | null
           id: string
           is_active: boolean
+          is_test_data: boolean
           profit_center_id: string
           review_date: string | null
           sop_number: string
+          test_batch_id: string | null
           title: string
           updated_at: string
           version: string
@@ -1702,9 +2022,11 @@ export type Database = {
           file_url?: string | null
           id?: string
           is_active?: boolean
+          is_test_data?: boolean
           profit_center_id: string
           review_date?: string | null
           sop_number: string
+          test_batch_id?: string | null
           title: string
           updated_at?: string
           version?: string
@@ -1719,14 +2041,24 @@ export type Database = {
           file_url?: string | null
           id?: string
           is_active?: boolean
+          is_test_data?: boolean
           profit_center_id?: string
           review_date?: string | null
           sop_number?: string
+          test_batch_id?: string | null
           title?: string
           updated_at?: string
           version?: string
         }
-        Relationships: []
+        Relationships: [
+          {
+            foreignKeyName: "maintenance_sops_test_batch_id_fkey"
+            columns: ["test_batch_id"]
+            isOneToOne: false
+            referencedRelation: "test_data_batches"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       maintenance_spares: {
         Row: {
@@ -1737,12 +2069,14 @@ export type Database = {
           current_stock: number
           id: string
           is_active: boolean
+          is_test_data: boolean
           location: string | null
           min_stock: number
           name: string
           notes: string | null
           profit_center_id: string
           supplier: string | null
+          test_batch_id: string | null
           unit_cost: number | null
           uom: string
           updated_at: string
@@ -1755,12 +2089,14 @@ export type Database = {
           current_stock?: number
           id?: string
           is_active?: boolean
+          is_test_data?: boolean
           location?: string | null
           min_stock?: number
           name: string
           notes?: string | null
           profit_center_id: string
           supplier?: string | null
+          test_batch_id?: string | null
           unit_cost?: number | null
           uom?: string
           updated_at?: string
@@ -1773,17 +2109,27 @@ export type Database = {
           current_stock?: number
           id?: string
           is_active?: boolean
+          is_test_data?: boolean
           location?: string | null
           min_stock?: number
           name?: string
           notes?: string | null
           profit_center_id?: string
           supplier?: string | null
+          test_batch_id?: string | null
           unit_cost?: number | null
           uom?: string
           updated_at?: string
         }
-        Relationships: []
+        Relationships: [
+          {
+            foreignKeyName: "maintenance_spares_test_batch_id_fkey"
+            columns: ["test_batch_id"]
+            isOneToOne: false
+            referencedRelation: "test_data_batches"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       maintenance_work_orders: {
         Row: {
@@ -1796,12 +2142,14 @@ export type Database = {
           equipment_id: string | null
           estimated_cost: number | null
           id: string
+          is_test_data: boolean
           notes: string | null
           priority: Database["public"]["Enums"]["maintenance_priority"]
           profit_center_id: string
           scheduled_date: string | null
           started_at: string | null
           status: Database["public"]["Enums"]["maintenance_wo_status"]
+          test_batch_id: string | null
           title: string
           updated_at: string
           wo_number: string
@@ -1817,12 +2165,14 @@ export type Database = {
           equipment_id?: string | null
           estimated_cost?: number | null
           id?: string
+          is_test_data?: boolean
           notes?: string | null
           priority?: Database["public"]["Enums"]["maintenance_priority"]
           profit_center_id: string
           scheduled_date?: string | null
           started_at?: string | null
           status?: Database["public"]["Enums"]["maintenance_wo_status"]
+          test_batch_id?: string | null
           title: string
           updated_at?: string
           wo_number: string
@@ -1838,18 +2188,28 @@ export type Database = {
           equipment_id?: string | null
           estimated_cost?: number | null
           id?: string
+          is_test_data?: boolean
           notes?: string | null
           priority?: Database["public"]["Enums"]["maintenance_priority"]
           profit_center_id?: string
           scheduled_date?: string | null
           started_at?: string | null
           status?: Database["public"]["Enums"]["maintenance_wo_status"]
+          test_batch_id?: string | null
           title?: string
           updated_at?: string
           wo_number?: string
           wo_type?: Database["public"]["Enums"]["maintenance_wo_type"]
         }
-        Relationships: []
+        Relationships: [
+          {
+            foreignKeyName: "maintenance_work_orders_test_batch_id_fkey"
+            columns: ["test_batch_id"]
+            isOneToOne: false
+            referencedRelation: "test_data_batches"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       material_consumption: {
         Row: {
@@ -1858,10 +2218,12 @@ export type Database = {
           heat_log_id: string
           id: string
           inventory_ledger_id: string | null
+          is_test_data: boolean
           material_id: string
           profit_center_id: string
           quantity: number
           stock_location_id: string
+          test_batch_id: string | null
         }
         Insert: {
           created_at?: string
@@ -1869,10 +2231,12 @@ export type Database = {
           heat_log_id: string
           id?: string
           inventory_ledger_id?: string | null
+          is_test_data?: boolean
           material_id: string
           profit_center_id: string
           quantity: number
           stock_location_id: string
+          test_batch_id?: string | null
         }
         Update: {
           created_at?: string
@@ -1880,10 +2244,12 @@ export type Database = {
           heat_log_id?: string
           id?: string
           inventory_ledger_id?: string | null
+          is_test_data?: boolean
           material_id?: string
           profit_center_id?: string
           quantity?: number
           stock_location_id?: string
+          test_batch_id?: string | null
         }
         Relationships: [
           {
@@ -1921,6 +2287,13 @@ export type Database = {
             referencedRelation: "stock_locations"
             referencedColumns: ["id"]
           },
+          {
+            foreignKeyName: "material_consumption_test_batch_id_fkey"
+            columns: ["test_batch_id"]
+            isOneToOne: false
+            referencedRelation: "test_data_batches"
+            referencedColumns: ["id"]
+          },
         ]
       }
       material_groups: {
@@ -1929,9 +2302,11 @@ export type Database = {
           description: string | null
           id: string
           is_active: boolean
+          is_test_data: boolean
           parent_group: string
           profit_center_id: string
           subgroup: string | null
+          test_batch_id: string | null
           updated_at: string
         }
         Insert: {
@@ -1939,9 +2314,11 @@ export type Database = {
           description?: string | null
           id?: string
           is_active?: boolean
+          is_test_data?: boolean
           parent_group: string
           profit_center_id: string
           subgroup?: string | null
+          test_batch_id?: string | null
           updated_at?: string
         }
         Update: {
@@ -1949,12 +2326,22 @@ export type Database = {
           description?: string | null
           id?: string
           is_active?: boolean
+          is_test_data?: boolean
           parent_group?: string
           profit_center_id?: string
           subgroup?: string | null
+          test_batch_id?: string | null
           updated_at?: string
         }
-        Relationships: []
+        Relationships: [
+          {
+            foreignKeyName: "material_groups_test_batch_id_fkey"
+            columns: ["test_batch_id"]
+            isOneToOne: false
+            referencedRelation: "test_data_batches"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       materials: {
         Row: {
@@ -1964,6 +2351,7 @@ export type Database = {
           group_name: string | null
           id: string
           is_active: boolean
+          is_test_data: boolean
           max_level: number | null
           min_level: number | null
           name: string
@@ -1972,6 +2360,7 @@ export type Database = {
           specs: Json
           std_cost: number | null
           subgroup: string | null
+          test_batch_id: string | null
           type: Database["public"]["Enums"]["material_type"] | null
           uom: string
           updated_at: string
@@ -1983,6 +2372,7 @@ export type Database = {
           group_name?: string | null
           id?: string
           is_active?: boolean
+          is_test_data?: boolean
           max_level?: number | null
           min_level?: number | null
           name: string
@@ -1991,6 +2381,7 @@ export type Database = {
           specs?: Json
           std_cost?: number | null
           subgroup?: string | null
+          test_batch_id?: string | null
           type?: Database["public"]["Enums"]["material_type"] | null
           uom?: string
           updated_at?: string
@@ -2002,6 +2393,7 @@ export type Database = {
           group_name?: string | null
           id?: string
           is_active?: boolean
+          is_test_data?: boolean
           max_level?: number | null
           min_level?: number | null
           name?: string
@@ -2010,6 +2402,7 @@ export type Database = {
           specs?: Json
           std_cost?: number | null
           subgroup?: string | null
+          test_batch_id?: string | null
           type?: Database["public"]["Enums"]["material_type"] | null
           uom?: string
           updated_at?: string
@@ -2020,6 +2413,13 @@ export type Database = {
             columns: ["profit_center_id"]
             isOneToOne: false
             referencedRelation: "profit_centers"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "materials_test_batch_id_fkey"
+            columns: ["test_batch_id"]
+            isOneToOne: false
+            referencedRelation: "test_data_batches"
             referencedColumns: ["id"]
           },
         ]
@@ -2065,11 +2465,13 @@ export type Database = {
           group_name: string | null
           id: string
           is_active: boolean
+          is_test_data: boolean
           material_type: string | null
           notes: string | null
           profit_center_id: string | null
           screen_label: string
           subgroup: string | null
+          test_batch_id: string | null
           updated_at: string
         }
         Insert: {
@@ -2079,11 +2481,13 @@ export type Database = {
           group_name?: string | null
           id?: string
           is_active?: boolean
+          is_test_data?: boolean
           material_type?: string | null
           notes?: string | null
           profit_center_id?: string | null
           screen_label: string
           subgroup?: string | null
+          test_batch_id?: string | null
           updated_at?: string
         }
         Update: {
@@ -2093,14 +2497,24 @@ export type Database = {
           group_name?: string | null
           id?: string
           is_active?: boolean
+          is_test_data?: boolean
           material_type?: string | null
           notes?: string | null
           profit_center_id?: string | null
           screen_label?: string
           subgroup?: string | null
+          test_batch_id?: string | null
           updated_at?: string
         }
-        Relationships: []
+        Relationships: [
+          {
+            foreignKeyName: "picker_contexts_test_batch_id_fkey"
+            columns: ["test_batch_id"]
+            isOneToOne: false
+            referencedRelation: "test_data_batches"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       power_tariff_slabs: {
         Row: {
@@ -2111,12 +2525,14 @@ export type Database = {
           end_hour: number
           id: string
           is_active: boolean
+          is_test_data: boolean
           notes: string | null
           profit_center_id: string
           rate_per_mwh: number
           season: string | null
           slab_name: string
           start_hour: number
+          test_batch_id: string | null
           updated_at: string
         }
         Insert: {
@@ -2127,12 +2543,14 @@ export type Database = {
           end_hour: number
           id?: string
           is_active?: boolean
+          is_test_data?: boolean
           notes?: string | null
           profit_center_id: string
           rate_per_mwh: number
           season?: string | null
           slab_name: string
           start_hour: number
+          test_batch_id?: string | null
           updated_at?: string
         }
         Update: {
@@ -2143,15 +2561,25 @@ export type Database = {
           end_hour?: number
           id?: string
           is_active?: boolean
+          is_test_data?: boolean
           notes?: string | null
           profit_center_id?: string
           rate_per_mwh?: number
           season?: string | null
           slab_name?: string
           start_hour?: number
+          test_batch_id?: string | null
           updated_at?: string
         }
-        Relationships: []
+        Relationships: [
+          {
+            foreignKeyName: "power_tariff_slabs_test_batch_id_fkey"
+            columns: ["test_batch_id"]
+            isOneToOne: false
+            referencedRelation: "test_data_batches"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       profiles: {
         Row: {
@@ -2325,6 +2753,7 @@ export type Database = {
           created_at: string
           currency_code: string
           id: string
+          is_test_data: boolean
           material_id: string
           notes: string | null
           po_id: string
@@ -2332,6 +2761,7 @@ export type Database = {
           qty_ordered: number
           qty_received: number
           source_pr_line_id: string | null
+          test_batch_id: string | null
           unit_cost: number
           uom: string
         }
@@ -2339,6 +2769,7 @@ export type Database = {
           created_at?: string
           currency_code?: string
           id?: string
+          is_test_data?: boolean
           material_id: string
           notes?: string | null
           po_id: string
@@ -2346,6 +2777,7 @@ export type Database = {
           qty_ordered: number
           qty_received?: number
           source_pr_line_id?: string | null
+          test_batch_id?: string | null
           unit_cost: number
           uom: string
         }
@@ -2353,6 +2785,7 @@ export type Database = {
           created_at?: string
           currency_code?: string
           id?: string
+          is_test_data?: boolean
           material_id?: string
           notes?: string | null
           po_id?: string
@@ -2360,6 +2793,7 @@ export type Database = {
           qty_ordered?: number
           qty_received?: number
           source_pr_line_id?: string | null
+          test_batch_id?: string | null
           unit_cost?: number
           uom?: string
         }
@@ -2392,6 +2826,13 @@ export type Database = {
             referencedRelation: "purchase_requisition_lines"
             referencedColumns: ["id"]
           },
+          {
+            foreignKeyName: "purchase_order_lines_test_batch_id_fkey"
+            columns: ["test_batch_id"]
+            isOneToOne: false
+            referencedRelation: "test_data_batches"
+            referencedColumns: ["id"]
+          },
         ]
       }
       purchase_orders: {
@@ -2405,6 +2846,7 @@ export type Database = {
           currency_code: string
           expected_delivery_date: string | null
           id: string
+          is_test_data: boolean
           notes: string | null
           payment_terms: string | null
           po_number: string
@@ -2412,6 +2854,7 @@ export type Database = {
           source_pr_id: string | null
           status: Database["public"]["Enums"]["po_status"]
           supplier_id: string
+          test_batch_id: string | null
           total_amount: number
           updated_at: string
         }
@@ -2425,6 +2868,7 @@ export type Database = {
           currency_code?: string
           expected_delivery_date?: string | null
           id?: string
+          is_test_data?: boolean
           notes?: string | null
           payment_terms?: string | null
           po_number: string
@@ -2432,6 +2876,7 @@ export type Database = {
           source_pr_id?: string | null
           status?: Database["public"]["Enums"]["po_status"]
           supplier_id: string
+          test_batch_id?: string | null
           total_amount?: number
           updated_at?: string
         }
@@ -2445,6 +2890,7 @@ export type Database = {
           currency_code?: string
           expected_delivery_date?: string | null
           id?: string
+          is_test_data?: boolean
           notes?: string | null
           payment_terms?: string | null
           po_number?: string
@@ -2452,6 +2898,7 @@ export type Database = {
           source_pr_id?: string | null
           status?: Database["public"]["Enums"]["po_status"]
           supplier_id?: string
+          test_batch_id?: string | null
           total_amount?: number
           updated_at?: string
         }
@@ -2477,6 +2924,13 @@ export type Database = {
             referencedRelation: "suppliers"
             referencedColumns: ["id"]
           },
+          {
+            foreignKeyName: "purchase_orders_test_batch_id_fkey"
+            columns: ["test_batch_id"]
+            isOneToOne: false
+            referencedRelation: "test_data_batches"
+            referencedColumns: ["id"]
+          },
         ]
       }
       purchase_requisition_lines: {
@@ -2485,11 +2939,13 @@ export type Database = {
           currency_code: string
           est_unit_cost: number | null
           id: string
+          is_test_data: boolean
           material_id: string
           notes: string | null
           pr_id: string
           profit_center_id: string
           quantity: number
+          test_batch_id: string | null
           uom: string
         }
         Insert: {
@@ -2497,11 +2953,13 @@ export type Database = {
           currency_code?: string
           est_unit_cost?: number | null
           id?: string
+          is_test_data?: boolean
           material_id: string
           notes?: string | null
           pr_id: string
           profit_center_id: string
           quantity: number
+          test_batch_id?: string | null
           uom: string
         }
         Update: {
@@ -2509,11 +2967,13 @@ export type Database = {
           currency_code?: string
           est_unit_cost?: number | null
           id?: string
+          is_test_data?: boolean
           material_id?: string
           notes?: string | null
           pr_id?: string
           profit_center_id?: string
           quantity?: number
+          test_batch_id?: string | null
           uom?: string
         }
         Relationships: [
@@ -2538,6 +2998,13 @@ export type Database = {
             referencedRelation: "profit_centers"
             referencedColumns: ["id"]
           },
+          {
+            foreignKeyName: "purchase_requisition_lines_test_batch_id_fkey"
+            columns: ["test_batch_id"]
+            isOneToOne: false
+            referencedRelation: "test_data_batches"
+            referencedColumns: ["id"]
+          },
         ]
       }
       purchase_requisitions: {
@@ -2546,6 +3013,7 @@ export type Database = {
           approved_by: string | null
           created_at: string
           id: string
+          is_test_data: boolean
           notes: string | null
           pr_number: string
           priority: string | null
@@ -2554,6 +3022,7 @@ export type Database = {
           requested_by: string
           requested_for_date: string | null
           status: Database["public"]["Enums"]["pr_status"]
+          test_batch_id: string | null
           updated_at: string
         }
         Insert: {
@@ -2561,6 +3030,7 @@ export type Database = {
           approved_by?: string | null
           created_at?: string
           id?: string
+          is_test_data?: boolean
           notes?: string | null
           pr_number: string
           priority?: string | null
@@ -2569,6 +3039,7 @@ export type Database = {
           requested_by: string
           requested_for_date?: string | null
           status?: Database["public"]["Enums"]["pr_status"]
+          test_batch_id?: string | null
           updated_at?: string
         }
         Update: {
@@ -2576,6 +3047,7 @@ export type Database = {
           approved_by?: string | null
           created_at?: string
           id?: string
+          is_test_data?: boolean
           notes?: string | null
           pr_number?: string
           priority?: string | null
@@ -2584,6 +3056,7 @@ export type Database = {
           requested_by?: string
           requested_for_date?: string | null
           status?: Database["public"]["Enums"]["pr_status"]
+          test_batch_id?: string | null
           updated_at?: string
         }
         Relationships: [
@@ -2592,6 +3065,13 @@ export type Database = {
             columns: ["profit_center_id"]
             isOneToOne: false
             referencedRelation: "profit_centers"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "purchase_requisitions_test_batch_id_fkey"
+            columns: ["test_batch_id"]
+            isOneToOne: false
+            referencedRelation: "test_data_batches"
             referencedColumns: ["id"]
           },
         ]
@@ -2608,11 +3088,13 @@ export type Database = {
           customer: string | null
           description: string
           id: string
+          is_test_data: boolean
           product: string | null
           profit_center_id: string
           reported_at: string
           root_cause: string | null
           status: Database["public"]["Enums"]["complaint_status"]
+          test_batch_id: string | null
           updated_at: string
         }
         Insert: {
@@ -2626,11 +3108,13 @@ export type Database = {
           customer?: string | null
           description: string
           id?: string
+          is_test_data?: boolean
           product?: string | null
           profit_center_id: string
           reported_at?: string
           root_cause?: string | null
           status?: Database["public"]["Enums"]["complaint_status"]
+          test_batch_id?: string | null
           updated_at?: string
         }
         Update: {
@@ -2644,14 +3128,24 @@ export type Database = {
           customer?: string | null
           description?: string
           id?: string
+          is_test_data?: boolean
           product?: string | null
           profit_center_id?: string
           reported_at?: string
           root_cause?: string | null
           status?: Database["public"]["Enums"]["complaint_status"]
+          test_batch_id?: string | null
           updated_at?: string
         }
-        Relationships: []
+        Relationships: [
+          {
+            foreignKeyName: "quality_complaints_test_batch_id_fkey"
+            columns: ["test_batch_id"]
+            isOneToOne: false
+            referencedRelation: "test_data_batches"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       quality_samples: {
         Row: {
@@ -2659,6 +3153,7 @@ export type Database = {
           created_at: string
           created_by: string
           id: string
+          is_test_data: boolean
           lot_reference: string | null
           material_id: string | null
           notes: string | null
@@ -2667,6 +3162,7 @@ export type Database = {
           sample_no: string
           status: Database["public"]["Enums"]["sample_status"]
           stock_location_id: string | null
+          test_batch_id: string | null
           test_results: Json
           tested_at: string | null
           updated_at: string
@@ -2676,6 +3172,7 @@ export type Database = {
           created_at?: string
           created_by: string
           id?: string
+          is_test_data?: boolean
           lot_reference?: string | null
           material_id?: string | null
           notes?: string | null
@@ -2684,6 +3181,7 @@ export type Database = {
           sample_no: string
           status?: Database["public"]["Enums"]["sample_status"]
           stock_location_id?: string | null
+          test_batch_id?: string | null
           test_results?: Json
           tested_at?: string | null
           updated_at?: string
@@ -2693,6 +3191,7 @@ export type Database = {
           created_at?: string
           created_by?: string
           id?: string
+          is_test_data?: boolean
           lot_reference?: string | null
           material_id?: string | null
           notes?: string | null
@@ -2701,11 +3200,20 @@ export type Database = {
           sample_no?: string
           status?: Database["public"]["Enums"]["sample_status"]
           stock_location_id?: string | null
+          test_batch_id?: string | null
           test_results?: Json
           tested_at?: string | null
           updated_at?: string
         }
-        Relationships: []
+        Relationships: [
+          {
+            foreignKeyName: "quality_samples_test_batch_id_fkey"
+            columns: ["test_batch_id"]
+            isOneToOne: false
+            referencedRelation: "test_data_batches"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       report_deliveries: {
         Row: {
@@ -2764,6 +3272,7 @@ export type Database = {
           created_by: string
           description: string
           id: string
+          is_test_data: boolean
           mitigation_plan: string | null
           occurred_at: string
           profit_center_id: string
@@ -2772,6 +3281,7 @@ export type Database = {
           severity: Database["public"]["Enums"]["risk_severity"]
           status: Database["public"]["Enums"]["risk_status"]
           supplier_id: string | null
+          test_batch_id: string | null
           updated_at: string
         }
         Insert: {
@@ -2779,6 +3289,7 @@ export type Database = {
           created_by: string
           description: string
           id?: string
+          is_test_data?: boolean
           mitigation_plan?: string | null
           occurred_at?: string
           profit_center_id: string
@@ -2787,6 +3298,7 @@ export type Database = {
           severity?: Database["public"]["Enums"]["risk_severity"]
           status?: Database["public"]["Enums"]["risk_status"]
           supplier_id?: string | null
+          test_batch_id?: string | null
           updated_at?: string
         }
         Update: {
@@ -2794,6 +3306,7 @@ export type Database = {
           created_by?: string
           description?: string
           id?: string
+          is_test_data?: boolean
           mitigation_plan?: string | null
           occurred_at?: string
           profit_center_id?: string
@@ -2802,6 +3315,7 @@ export type Database = {
           severity?: Database["public"]["Enums"]["risk_severity"]
           status?: Database["public"]["Enums"]["risk_status"]
           supplier_id?: string | null
+          test_batch_id?: string | null
           updated_at?: string
         }
         Relationships: [
@@ -2817,6 +3331,13 @@ export type Database = {
             columns: ["supplier_id"]
             isOneToOne: false
             referencedRelation: "suppliers"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "risk_events_test_batch_id_fkey"
+            columns: ["test_batch_id"]
+            isOneToOne: false
+            referencedRelation: "test_data_batches"
             referencedColumns: ["id"]
           },
         ]
@@ -2836,11 +3357,13 @@ export type Database = {
           id: string
           is_active: boolean
           is_export: boolean
+          is_test_data: boolean
           name: string
           notes: string | null
           payment_terms_days: number
           profit_center_id: string
           region: string | null
+          test_batch_id: string | null
           updated_at: string
         }
         Insert: {
@@ -2857,11 +3380,13 @@ export type Database = {
           id?: string
           is_active?: boolean
           is_export?: boolean
+          is_test_data?: boolean
           name: string
           notes?: string | null
           payment_terms_days?: number
           profit_center_id: string
           region?: string | null
+          test_batch_id?: string | null
           updated_at?: string
         }
         Update: {
@@ -2878,14 +3403,24 @@ export type Database = {
           id?: string
           is_active?: boolean
           is_export?: boolean
+          is_test_data?: boolean
           name?: string
           notes?: string | null
           payment_terms_days?: number
           profit_center_id?: string
           region?: string | null
+          test_batch_id?: string | null
           updated_at?: string
         }
-        Relationships: []
+        Relationships: [
+          {
+            foreignKeyName: "sales_customers_test_batch_id_fkey"
+            columns: ["test_batch_id"]
+            isOneToOne: false
+            referencedRelation: "test_data_batches"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       sales_inquiries: {
         Row: {
@@ -2900,12 +3435,14 @@ export type Database = {
           inquiry_date: string
           inquiry_no: string
           is_export: boolean
+          is_test_data: boolean
           notes: string | null
           port: string | null
           product: string
           profit_center_id: string
           qty_mt: number
           status: Database["public"]["Enums"]["sales_inquiry_status"]
+          test_batch_id: string | null
           updated_at: string
         }
         Insert: {
@@ -2920,12 +3457,14 @@ export type Database = {
           inquiry_date?: string
           inquiry_no: string
           is_export?: boolean
+          is_test_data?: boolean
           notes?: string | null
           port?: string | null
           product: string
           profit_center_id: string
           qty_mt: number
           status?: Database["public"]["Enums"]["sales_inquiry_status"]
+          test_batch_id?: string | null
           updated_at?: string
         }
         Update: {
@@ -2940,12 +3479,14 @@ export type Database = {
           inquiry_date?: string
           inquiry_no?: string
           is_export?: boolean
+          is_test_data?: boolean
           notes?: string | null
           port?: string | null
           product?: string
           profit_center_id?: string
           qty_mt?: number
           status?: Database["public"]["Enums"]["sales_inquiry_status"]
+          test_batch_id?: string | null
           updated_at?: string
         }
         Relationships: [
@@ -2954,6 +3495,13 @@ export type Database = {
             columns: ["customer_id"]
             isOneToOne: false
             referencedRelation: "sales_customers"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "sales_inquiries_test_batch_id_fkey"
+            columns: ["test_batch_id"]
+            isOneToOne: false
+            referencedRelation: "test_data_batches"
             referencedColumns: ["id"]
           },
         ]
@@ -2970,6 +3518,7 @@ export type Database = {
           incoterms: string | null
           inquiry_id: string | null
           is_export: boolean
+          is_test_data: boolean
           notes: string | null
           order_date: string
           port_of_discharge: string | null
@@ -2980,6 +3529,7 @@ export type Database = {
           qty_mt: number
           so_number: string
           status: Database["public"]["Enums"]["sales_order_status"]
+          test_batch_id: string | null
           total_value: number | null
           updated_at: string
         }
@@ -2994,6 +3544,7 @@ export type Database = {
           incoterms?: string | null
           inquiry_id?: string | null
           is_export?: boolean
+          is_test_data?: boolean
           notes?: string | null
           order_date?: string
           port_of_discharge?: string | null
@@ -3004,6 +3555,7 @@ export type Database = {
           qty_mt: number
           so_number: string
           status?: Database["public"]["Enums"]["sales_order_status"]
+          test_batch_id?: string | null
           total_value?: number | null
           updated_at?: string
         }
@@ -3018,6 +3570,7 @@ export type Database = {
           incoterms?: string | null
           inquiry_id?: string | null
           is_export?: boolean
+          is_test_data?: boolean
           notes?: string | null
           order_date?: string
           port_of_discharge?: string | null
@@ -3028,6 +3581,7 @@ export type Database = {
           qty_mt?: number
           so_number?: string
           status?: Database["public"]["Enums"]["sales_order_status"]
+          test_batch_id?: string | null
           total_value?: number | null
           updated_at?: string
         }
@@ -3046,6 +3600,13 @@ export type Database = {
             referencedRelation: "sales_inquiries"
             referencedColumns: ["id"]
           },
+          {
+            foreignKeyName: "sales_orders_test_batch_id_fkey"
+            columns: ["test_batch_id"]
+            isOneToOne: false
+            referencedRelation: "test_data_batches"
+            referencedColumns: ["id"]
+          },
         ]
       }
       selling_prices: {
@@ -3058,10 +3619,12 @@ export type Database = {
           grade: string
           id: string
           is_active: boolean
+          is_test_data: boolean
           notes: string | null
           price_per_mt: number
           product: string | null
           profit_center_id: string
+          test_batch_id: string | null
           updated_at: string
         }
         Insert: {
@@ -3073,10 +3636,12 @@ export type Database = {
           grade: string
           id?: string
           is_active?: boolean
+          is_test_data?: boolean
           notes?: string | null
           price_per_mt: number
           product?: string | null
           profit_center_id: string
+          test_batch_id?: string | null
           updated_at?: string
         }
         Update: {
@@ -3088,13 +3653,23 @@ export type Database = {
           grade?: string
           id?: string
           is_active?: boolean
+          is_test_data?: boolean
           notes?: string | null
           price_per_mt?: number
           product?: string | null
           profit_center_id?: string
+          test_batch_id?: string | null
           updated_at?: string
         }
-        Relationships: []
+        Relationships: [
+          {
+            foreignKeyName: "selling_prices_test_batch_id_fkey"
+            columns: ["test_batch_id"]
+            isOneToOne: false
+            referencedRelation: "test_data_batches"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       shifts: {
         Row: {
@@ -3103,10 +3678,12 @@ export type Database = {
           end_time: string
           id: string
           is_active: boolean
+          is_test_data: boolean
           name: string
           profit_center_id: string
           sort_order: number
           start_time: string
+          test_batch_id: string | null
           updated_at: string
         }
         Insert: {
@@ -3115,10 +3692,12 @@ export type Database = {
           end_time: string
           id?: string
           is_active?: boolean
+          is_test_data?: boolean
           name: string
           profit_center_id: string
           sort_order?: number
           start_time: string
+          test_batch_id?: string | null
           updated_at?: string
         }
         Update: {
@@ -3127,10 +3706,12 @@ export type Database = {
           end_time?: string
           id?: string
           is_active?: boolean
+          is_test_data?: boolean
           name?: string
           profit_center_id?: string
           sort_order?: number
           start_time?: string
+          test_batch_id?: string | null
           updated_at?: string
         }
         Relationships: [
@@ -3139,6 +3720,13 @@ export type Database = {
             columns: ["profit_center_id"]
             isOneToOne: false
             referencedRelation: "profit_centers"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "shifts_test_batch_id_fkey"
+            columns: ["test_batch_id"]
+            isOneToOne: false
+            referencedRelation: "test_data_batches"
             referencedColumns: ["id"]
           },
         ]
@@ -3151,9 +3739,11 @@ export type Database = {
           group_name: string
           id: string
           is_active: boolean
+          is_test_data: boolean
           notes: string | null
           profit_center_id: string
           subgroup: string
+          test_batch_id: string | null
           type: string
           updated_at: string
         }
@@ -3164,9 +3754,11 @@ export type Database = {
           group_name: string
           id?: string
           is_active?: boolean
+          is_test_data?: boolean
           notes?: string | null
           profit_center_id: string
           subgroup?: string
+          test_batch_id?: string | null
           type: string
           updated_at?: string
         }
@@ -3177,13 +3769,23 @@ export type Database = {
           group_name?: string
           id?: string
           is_active?: boolean
+          is_test_data?: boolean
           notes?: string | null
           profit_center_id?: string
           subgroup?: string
+          test_batch_id?: string | null
           type?: string
           updated_at?: string
         }
-        Relationships: []
+        Relationships: [
+          {
+            foreignKeyName: "spec_templates_test_batch_id_fkey"
+            columns: ["test_batch_id"]
+            isOneToOne: false
+            referencedRelation: "test_data_batches"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       standard_cost_bom: {
         Row: {
@@ -3194,12 +3796,14 @@ export type Database = {
           grade: string
           id: string
           is_active: boolean
+          is_test_data: boolean
           material_id: string
           notes: string | null
           product: string | null
           profit_center_id: string
           std_qty_per_mt: number
           std_rate: number | null
+          test_batch_id: string | null
           uom: string
           updated_at: string
         }
@@ -3211,12 +3815,14 @@ export type Database = {
           grade: string
           id?: string
           is_active?: boolean
+          is_test_data?: boolean
           material_id: string
           notes?: string | null
           product?: string | null
           profit_center_id: string
           std_qty_per_mt: number
           std_rate?: number | null
+          test_batch_id?: string | null
           uom?: string
           updated_at?: string
         }
@@ -3228,16 +3834,26 @@ export type Database = {
           grade?: string
           id?: string
           is_active?: boolean
+          is_test_data?: boolean
           material_id?: string
           notes?: string | null
           product?: string | null
           profit_center_id?: string
           std_qty_per_mt?: number
           std_rate?: number | null
+          test_batch_id?: string | null
           uom?: string
           updated_at?: string
         }
-        Relationships: []
+        Relationships: [
+          {
+            foreignKeyName: "standard_cost_bom_test_batch_id_fkey"
+            columns: ["test_batch_id"]
+            isOneToOne: false
+            referencedRelation: "test_data_batches"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       stock_locations: {
         Row: {
@@ -3245,8 +3861,10 @@ export type Database = {
           created_at: string
           id: string
           is_active: boolean
+          is_test_data: boolean
           name: string
           profit_center_id: string
+          test_batch_id: string | null
           updated_at: string
         }
         Insert: {
@@ -3254,8 +3872,10 @@ export type Database = {
           created_at?: string
           id?: string
           is_active?: boolean
+          is_test_data?: boolean
           name: string
           profit_center_id: string
+          test_batch_id?: string | null
           updated_at?: string
         }
         Update: {
@@ -3263,8 +3883,10 @@ export type Database = {
           created_at?: string
           id?: string
           is_active?: boolean
+          is_test_data?: boolean
           name?: string
           profit_center_id?: string
+          test_batch_id?: string | null
           updated_at?: string
         }
         Relationships: [
@@ -3275,6 +3897,13 @@ export type Database = {
             referencedRelation: "profit_centers"
             referencedColumns: ["id"]
           },
+          {
+            foreignKeyName: "stock_locations_test_batch_id_fkey"
+            columns: ["test_batch_id"]
+            isOneToOne: false
+            referencedRelation: "test_data_batches"
+            referencedColumns: ["id"]
+          },
         ]
       }
       supplier_evaluations: {
@@ -3282,6 +3911,7 @@ export type Database = {
           created_at: string
           created_by: string
           id: string
+          is_test_data: boolean
           notes: string | null
           on_time_pct: number | null
           overall_score: number | null
@@ -3291,11 +3921,13 @@ export type Database = {
           profit_center_id: string
           quality_pct: number | null
           supplier_id: string
+          test_batch_id: string | null
         }
         Insert: {
           created_at?: string
           created_by: string
           id?: string
+          is_test_data?: boolean
           notes?: string | null
           on_time_pct?: number | null
           overall_score?: number | null
@@ -3305,11 +3937,13 @@ export type Database = {
           profit_center_id: string
           quality_pct?: number | null
           supplier_id: string
+          test_batch_id?: string | null
         }
         Update: {
           created_at?: string
           created_by?: string
           id?: string
+          is_test_data?: boolean
           notes?: string | null
           on_time_pct?: number | null
           overall_score?: number | null
@@ -3319,6 +3953,7 @@ export type Database = {
           profit_center_id?: string
           quality_pct?: number | null
           supplier_id?: string
+          test_batch_id?: string | null
         }
         Relationships: [
           {
@@ -3333,6 +3968,13 @@ export type Database = {
             columns: ["supplier_id"]
             isOneToOne: false
             referencedRelation: "suppliers"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "supplier_evaluations_test_batch_id_fkey"
+            columns: ["test_batch_id"]
+            isOneToOne: false
+            referencedRelation: "test_data_batches"
             referencedColumns: ["id"]
           },
         ]
@@ -3350,12 +3992,14 @@ export type Database = {
           id: string
           is_active: boolean
           is_preferred: boolean
+          is_test_data: boolean
           lead_time_days: number | null
           name: string
           notes: string | null
           payment_terms: string | null
           phone: string | null
           profit_center_id: string
+          test_batch_id: string | null
           updated_at: string
         }
         Insert: {
@@ -3370,12 +4014,14 @@ export type Database = {
           id?: string
           is_active?: boolean
           is_preferred?: boolean
+          is_test_data?: boolean
           lead_time_days?: number | null
           name: string
           notes?: string | null
           payment_terms?: string | null
           phone?: string | null
           profit_center_id: string
+          test_batch_id?: string | null
           updated_at?: string
         }
         Update: {
@@ -3390,12 +4036,14 @@ export type Database = {
           id?: string
           is_active?: boolean
           is_preferred?: boolean
+          is_test_data?: boolean
           lead_time_days?: number | null
           name?: string
           notes?: string | null
           payment_terms?: string | null
           phone?: string | null
           profit_center_id?: string
+          test_batch_id?: string | null
           updated_at?: string
         }
         Relationships: [
@@ -3403,6 +4051,92 @@ export type Database = {
             foreignKeyName: "suppliers_profit_center_id_fkey"
             columns: ["profit_center_id"]
             isOneToOne: false
+            referencedRelation: "profit_centers"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "suppliers_test_batch_id_fkey"
+            columns: ["test_batch_id"]
+            isOneToOne: false
+            referencedRelation: "test_data_batches"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      test_data_batches: {
+        Row: {
+          created_at: string
+          created_by: string | null
+          id: string
+          label: string
+          profit_center_id: string
+          purged_at: string | null
+          purged_by: string | null
+          row_counts: Json
+          source: string
+        }
+        Insert: {
+          created_at?: string
+          created_by?: string | null
+          id?: string
+          label: string
+          profit_center_id: string
+          purged_at?: string | null
+          purged_by?: string | null
+          row_counts?: Json
+          source: string
+        }
+        Update: {
+          created_at?: string
+          created_by?: string | null
+          id?: string
+          label?: string
+          profit_center_id?: string
+          purged_at?: string | null
+          purged_by?: string | null
+          row_counts?: Json
+          source?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "test_data_batches_profit_center_id_fkey"
+            columns: ["profit_center_id"]
+            isOneToOne: false
+            referencedRelation: "profit_centers"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      test_data_settings: {
+        Row: {
+          is_enabled: boolean
+          lock_reason: string | null
+          locked_at: string | null
+          locked_by: string | null
+          profit_center_id: string
+          updated_at: string
+        }
+        Insert: {
+          is_enabled?: boolean
+          lock_reason?: string | null
+          locked_at?: string | null
+          locked_by?: string | null
+          profit_center_id: string
+          updated_at?: string
+        }
+        Update: {
+          is_enabled?: boolean
+          lock_reason?: string | null
+          locked_at?: string | null
+          locked_by?: string | null
+          profit_center_id?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "test_data_settings_profit_center_id_fkey"
+            columns: ["profit_center_id"]
+            isOneToOne: true
             referencedRelation: "profit_centers"
             referencedColumns: ["id"]
           },
@@ -3415,8 +4149,10 @@ export type Database = {
           from_uom: string
           id: string
           is_active: boolean
+          is_test_data: boolean
           notes: string | null
           profit_center_id: string
+          test_batch_id: string | null
           to_uom: string
           updated_at: string
         }
@@ -3426,8 +4162,10 @@ export type Database = {
           from_uom: string
           id?: string
           is_active?: boolean
+          is_test_data?: boolean
           notes?: string | null
           profit_center_id: string
+          test_batch_id?: string | null
           to_uom: string
           updated_at?: string
         }
@@ -3437,12 +4175,22 @@ export type Database = {
           from_uom?: string
           id?: string
           is_active?: boolean
+          is_test_data?: boolean
           notes?: string | null
           profit_center_id?: string
+          test_batch_id?: string | null
           to_uom?: string
           updated_at?: string
         }
-        Relationships: []
+        Relationships: [
+          {
+            foreignKeyName: "uom_conversions_test_batch_id_fkey"
+            columns: ["test_batch_id"]
+            isOneToOne: false
+            referencedRelation: "test_data_batches"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       user_profit_centers: {
         Row: {
@@ -3602,6 +4350,7 @@ export type Database = {
         }
         Returns: boolean
       }
+      is_test_data_enabled: { Args: { _pc: string }; Returns: boolean }
       permission_allows: {
         Args: {
           _action: string
@@ -3610,10 +4359,20 @@ export type Database = {
         }
         Returns: boolean
       }
+      purge_test_data: {
+        Args: { _batch_id?: string; _confirm: string; _pc: string }
+        Returns: Json
+      }
       reverse_inventory_ledger: {
         Args: { _ledger_id: string; _reason: string }
         Returns: Json
       }
+      seed_test_data: { Args: { _label: string; _pc: string }; Returns: Json }
+      set_test_data_lock: {
+        Args: { _enabled: boolean; _pc: string; _reason: string }
+        Returns: Json
+      }
+      test_data_counts: { Args: { _pc: string }; Returns: Json }
       user_can_act: {
         Args: { _action: string; _resource: string; _user_id: string }
         Returns: boolean
