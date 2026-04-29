@@ -370,3 +370,9 @@
 - Workspace admins can override the global default for their workspace; super admins manage the global defaults.
 - Unmapped (legacy) items show under an `(Unmapped)` bucket only when the context allows it; admins may turn this off to enforce hierarchy hygiene.
 - Costing screens (Cost Rates, Standard BOM) and Inventory Ledger filter use permissive defaults so any active item can be selected; admins narrow per workspace as the hierarchy stabilises.
+
+## Item Master Code & Naming Conventions (2026-04-29)
+
+- **Item codes are auto-generated** on creation as `<TYPE>-<GROUP>-<NNNN>` (e.g. `RM-ORE-0001`), zero-padded to 4 digits. Operators cannot type the code on new items. Admins MAY override the code when editing an existing item (legacy correction path). CSV bulk upload retains its own code column.
+- **Group and Subgroup must exist in Master Data → Group & Hierarchy before they can be used on an item.** The New Item dialog no longer accepts free-text groups/subgroups; the dropdowns are populated strictly from active rows in `material_groups`. This enforces Rule #10 (Zero-Hardcoding / admin-controlled master data).
+- **Item Name is prefilled with the Subgroup value** as a convenience. Operators are expected to extend it (e.g. "Mn-Ore" → "Mn-Ore HG Lump 30-50mm"). The prefill never overwrites a name the operator has customized.
