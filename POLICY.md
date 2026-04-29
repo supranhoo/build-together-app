@@ -352,3 +352,13 @@
 - A heat with an Ore or Flux row whose item is missing any required spec for its kind still cannot be saved as draft or submitted to Plant Head — the fix path remains Master Data → Items (or Item Catalogue).
 - **Known gap (tracked):** the per-row reductant baseline + entered chemistry pair is currently held only in client state and shown in the UI; persisting it on `material_consumption` for retrospective audit requires a follow-up migration (new `notes`/`metadata` jsonb column). Until then, deviations are visible at entry time but not query-able after save.
 
+
+### Item Master — Dynamic Property Mapping (effective 2026-04-29)
+- The Item Master form renders chemistry inputs **driven by the item's group**, not a fixed list. Mapping per operator spec:
+  - **ORE** → Mn*, Fe, SiO2, Al2O3, CaO, MgO, P, S, Moisture*  (* = required)
+  - **REDUCTANT** → FC, VM, Ash, Moisture, Si
+  - **FLUXES** → SiO2, CaO, MgO, Moisture*, Si
+  - **PASTE** → FC, Ash, VM, Moisture
+- Property catalog and group→property map live in `item_property_definitions` and `item_group_property_map`. Super admins manage global defaults; workspace admins can override per profit center.
+- Per-item values continue to persist in `materials.specs` JSONB (compat shim) so heat entry, costing, quality, and inventory continue to read the same shape.
+- Switching an item's group clears the prior group's managed property values from storage to prevent stale chemistry.
