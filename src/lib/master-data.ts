@@ -5,11 +5,13 @@ const client = supabase as unknown as { from: (t: string) => any };
 // ---------- Types ----------
 export type MaterialType = "RM" | "FG" | "WIP" | "Consumable";
 export type MachineType = "FAD" | "CLU" | "DRI";
-export type CostType = "fixed" | "variable";
+export type CostType = "fixed" | "variable" | "utility" | "credit";
+export type AllocationBasis = "per_mt" | "per_kwh" | "per_nm3" | "per_day" | "lumpsum";
 
 export const MATERIAL_TYPES: MaterialType[] = ["RM", "FG", "WIP", "Consumable"];
 export const MACHINE_TYPES: MachineType[] = ["FAD", "CLU", "DRI"];
-export const COST_TYPES: CostType[] = ["fixed", "variable"];
+export const COST_TYPES: CostType[] = ["fixed", "variable", "utility", "credit"];
+export const ALLOCATION_BASES: AllocationBasis[] = ["per_mt", "per_kwh", "per_nm3", "per_day", "lumpsum"];
 
 export interface MasterItem {
   id: string;
@@ -53,6 +55,8 @@ export interface CostRate {
   materialId: string;
   rate: number;
   costType: CostType;
+  allocationBasis: AllocationBasis | null;
+  status: "ACTIVE" | "INACTIVE";
   effectiveFrom: string;
   effectiveTo: string | null;
   notes: string | null;
@@ -110,6 +114,8 @@ function toRate(row: any): CostRate {
     materialId: row.material_id,
     rate: Number(row.rate),
     costType: row.cost_type as CostType,
+    allocationBasis: (row.allocation_basis as AllocationBasis | null) ?? null,
+    status: (row.status as "ACTIVE" | "INACTIVE") ?? "ACTIVE",
     effectiveFrom: row.effective_from,
     effectiveTo: row.effective_to ?? null,
     notes: row.notes ?? null,
@@ -251,7 +257,7 @@ export async function upsertUomConversion(input: {
 export async function fetchCostRates(profitCenterId: string, materialId?: string): Promise<CostRate[]> {
   let q = client
     .from("cost_rates")
-    .select("id, profit_center_id, material_id, rate, cost_type, effective_from, effective_to, notes, created_by, created_at")
+    .select("id, profit_center_id, material_id, rate, cost_type, allocation_basis, status, effective_from, effective_to, notes, created_by, created_at")
     .eq("profit_center_id", profitCenterId)
     .order("effective_from", { ascending: false });
   if (materialId) q = q.eq("material_id", materialId);
@@ -265,6 +271,8 @@ export async function createCostRate(input: {
   materialId: string;
   rate: number;
   costType: CostType;
+  allocationBasis?: AllocationBasis | null;
+  status?: "ACTIVE" | "INACTIVE";
   effectiveFrom: string;
   effectiveTo: string | null;
   notes: string | null;
@@ -279,6 +287,8 @@ export async function createCostRate(input: {
     material_id: input.materialId,
     rate: input.rate,
     cost_type: input.costType,
+    allocation_basis: input.allocationBasis ?? null,
+    status: input.status ?? "ACTIVE",
     effective_from: input.effectiveFrom,
     effective_to: input.effectiveTo,
     notes: input.notes,

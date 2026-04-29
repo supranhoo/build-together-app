@@ -114,3 +114,109 @@ export function daysBetween(fromDate: string, toDate: string): number {
   const diff = Math.round((b - a) / (1000 * 60 * 60 * 24)) + 1;
   return Math.max(1, diff);
 }
+
+// ============================================================================
+// Extended cost-sheet engine (variable + fixed + utility + credit).
+// Adds a richer breakdown alongside the simpler `buildCostBreakdown` above.
+// Existing callers are unaffected — this is additive.
+// ============================================================================
+
+export type AllocationBasis = "per_mt" | "per_kwh" | "per_nm3" | "per_day" | "lumpsum";
+
+/** Raw rate row used by the extended sheet. Mirrors the DB shape after enum extension. */
+export interface SheetRate {
+  materialId: string;
+  rate: number;
+  /** "variable" | "fixed" | "utility" | "credit" — passed through unchanged. */
+  costType: string;
+  allocationBasis: AllocationBasis | null;
+  status: "ACTIVE" | "INACTIVE";
+  effectiveFrom: string;
+  effectiveTo: string | null;
+}
+
+export interface ProductionEntry {
+  date: string;            // YYYY-MM-DD
+  qtyMt: number;           // metal produced (MT)
+  slagQty: number;         // by-product MT (for credit)
+  powerKwh: number;        // for per_kwh utility allocation
+  oxygenNm3: number;       // for per_nm3 utility allocation
+  days: number;            // for per_day fixed/utility allocation
+}
+
+export interface CostSheetResult {
+  variable: number;
+  fixed: number;
+  utility: number;
+  credit: number;
+  total: number;
+  costPerMt: number | null;
+}
+
+/** True when `date` falls inside [effectiveFrom, effectiveTo] (inclusive). */
+function isActiveOn(rate: SheetRate, date: string): boolean {
+  if (rate.status !== "ACTIVE") return false;
+  if (date < rate.effectiveFrom) return false;
+  if (rate.effectiveTo && date > rate.effectiveTo) return false;
+  return true;
+}
+
+/**
+ * Compute a 4-bucket cost sheet.
+ *
+ * - variable : Σ(qty × inventoryRate[materialId])
+ * - fixed    : Σ rate.rate × allocationFactor   (basis applied; per_mt × qtyMt etc.)
+ * - utility  : Σ rate.rate × allocationFactor   (basis-driven, see below)
+ * - credit   : slagQty × Σ active CREDIT rates
+ *
+ * Allocation basis maps to entry fields:
+ *   per_mt    → qtyMt
+ *   per_kwh   → powerKwh
+ *   per_nm3   → oxygenNm3
+ *   per_day   → days
+ *   lumpsum   → 1
+ */
+export function calculateCostSheet(
+  entry: ProductionEntry,
+  consumption: ConsumptionLine[],
+  rates: SheetRate[],
+  inventoryRates: Record<string, number>,
+): CostSheetResult {
+  const active = rates.filter((r) => isActiveOn(r, entry.date));
+
+  const variable = consumption.reduce(
+    (sum, line) => sum + line.quantity * (inventoryRates[line.materialId] ?? 0),
+    0,
+  );
+
+  const factorFor = (basis: AllocationBasis | null): number => {
+    switch (basis) {
+      case "per_mt":  return entry.qtyMt;
+      case "per_kwh": return entry.powerKwh;
+      case "per_nm3": return entry.oxygenNm3;
+      case "per_day": return entry.days;
+      case "lumpsum":
+      case null:
+      default:        return 1;
+    }
+  };
+
+  const fixed = active
+    .filter((r) => r.costType === "fixed")
+    .reduce((sum, r) => sum + r.rate * factorFor(r.allocationBasis), 0);
+
+  const utility = active
+    .filter((r) => r.costType === "utility")
+    .reduce((sum, r) => sum + r.rate * factorFor(r.allocationBasis), 0);
+
+  const creditRate = active
+    .filter((r) => r.costType === "credit")
+    .reduce((sum, r) => sum + r.rate, 0);
+  const credit = entry.slagQty * creditRate;
+
+  const total = variable + fixed + utility - credit;
+  const costPerMt = entry.qtyMt > 0 ? total / entry.qtyMt : null;
+
+  return { variable, fixed, utility, credit, total, costPerMt };
+}
+

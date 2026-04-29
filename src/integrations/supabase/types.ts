@@ -428,6 +428,7 @@ export type Database = {
       }
       cost_rates: {
         Row: {
+          allocation_basis: string | null
           cost_type: Database["public"]["Enums"]["cost_type"]
           created_at: string
           created_by: string
@@ -439,9 +440,11 @@ export type Database = {
           notes: string | null
           profit_center_id: string
           rate: number
+          status: string
           test_batch_id: string | null
         }
         Insert: {
+          allocation_basis?: string | null
           cost_type?: Database["public"]["Enums"]["cost_type"]
           created_at?: string
           created_by: string
@@ -453,9 +456,11 @@ export type Database = {
           notes?: string | null
           profit_center_id: string
           rate: number
+          status?: string
           test_batch_id?: string | null
         }
         Update: {
+          allocation_basis?: string | null
           cost_type?: Database["public"]["Enums"]["cost_type"]
           created_at?: string
           created_by?: string
@@ -467,6 +472,7 @@ export type Database = {
           notes?: string | null
           profit_center_id?: string
           rate?: number
+          status?: string
           test_batch_id?: string | null
         }
         Relationships: [
@@ -2424,6 +2430,38 @@ export type Database = {
           },
         ]
       }
+      module_mappings: {
+        Row: {
+          is_enabled: boolean
+          module_id: string
+          profit_center_id: string
+          updated_at: string
+          updated_by: string | null
+        }
+        Insert: {
+          is_enabled?: boolean
+          module_id: string
+          profit_center_id: string
+          updated_at?: string
+          updated_by?: string | null
+        }
+        Update: {
+          is_enabled?: boolean
+          module_id?: string
+          profit_center_id?: string
+          updated_at?: string
+          updated_by?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "module_mappings_profit_center_id_fkey"
+            columns: ["profit_center_id"]
+            isOneToOne: false
+            referencedRelation: "profit_centers"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       permission_grants: {
         Row: {
           action: string
@@ -4063,6 +4101,27 @@ export type Database = {
           },
         ]
       }
+      system_settings: {
+        Row: {
+          config: Json
+          key: string
+          updated_at: string
+          updated_by: string | null
+        }
+        Insert: {
+          config?: Json
+          key: string
+          updated_at?: string
+          updated_by?: string | null
+        }
+        Update: {
+          config?: Json
+          key?: string
+          updated_at?: string
+          updated_by?: string | null
+        }
+        Relationships: []
+      }
       test_data_batches: {
         Row: {
           created_at: string
@@ -4396,7 +4455,7 @@ export type Database = {
         | "investigating"
         | "corrective_action"
         | "closed"
-      cost_type: "fixed" | "variable"
+      cost_type: "fixed" | "variable" | "utility" | "credit"
       dispatch_status: "pending" | "cleared" | "held" | "rejected"
       heat_approval_status: "pending" | "approved" | "rejected"
       heat_metallurgy_status: "draft" | "submitted"
@@ -4627,7 +4686,7 @@ export const Constants = {
         "corrective_action",
         "closed",
       ],
-      cost_type: ["fixed", "variable"],
+      cost_type: ["fixed", "variable", "utility", "credit"],
       dispatch_status: ["pending", "cleared", "held", "rejected"],
       heat_approval_status: ["pending", "approved", "rejected"],
       heat_metallurgy_status: ["draft", "submitted"],
