@@ -761,3 +761,13 @@ Every material dropdown across the app (Inventory Receipts/Issues/Transfers/GRN,
 - `src/components/MaterialPicker.tsx` — searchable Command dropdown grouped by Type › Group › Subgroup.
 - `src/pages/AdminPickerContexts.tsx` — admin CRUD.
 - `src/test/picker-contexts.test.ts` — 6 unit tests.
+
+### Rollout coverage (2026-04-29, completion pass)
+Material `<Select>` widgets replaced with `<MaterialPicker>` in:
+- Inventory: Receipts, Issues, Transfers, GRN, **Ledger filter** (new).
+- Production: FAD Ore / Reductant / Flux slots.
+- Quality: Bunker Feed QC, Sampling.
+- Procurement: PR, PO.
+- Costing: **Cost Rates filter + form** (new), **Standard BOM material slot** (new).
+
+Screens audited and confirmed to have no material picker (no migration needed): MRP (read-only), Stock, Min/Max, Recovery Costing, Ferro Cost Sheet, Import Shipments. New permissive context defaults seeded for the four new keys: `inventory.ledger.filter`, `costing.rates.filter`, `costing.rates.form`, `costing.bom.form`.
