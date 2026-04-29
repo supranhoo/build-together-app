@@ -123,6 +123,94 @@ export async function fetchGroupPropertyMap(profitCenterId: string): Promise<Gro
   return (data ?? []).map(toLink);
 }
 
+// ---------- Admin write helpers (workspace-scoped) ----------
+
+/**
+ * Upsert a workspace-scoped property definition. Globals (profit_center_id
+ * NULL) are intentionally read-only from the UI; the admin form creates a
+ * workspace override row instead, which the resolver then prefers.
+ */
+export interface PropertyDefinitionInput {
+  id?: string;
+  profitCenterId: string;
+  propertyKey: string;
+  displayName: string;
+  unit: string;
+  dataType: "decimal" | "text";
+  decimals: number;
+  minValue: number | null;
+  maxValue: number | null;
+  sortOrder: number;
+  isActive: boolean;
+}
+
+export async function upsertPropertyDefinition(input: PropertyDefinitionInput): Promise<void> {
+  const row = {
+    id: input.id,
+    profit_center_id: input.profitCenterId,
+    property_key: input.propertyKey.trim(),
+    display_name: input.displayName.trim(),
+    unit: input.unit.trim() || "%",
+    data_type: input.dataType,
+    decimals: input.decimals,
+    min_value: input.minValue,
+    max_value: input.maxValue,
+    sort_order: input.sortOrder,
+    is_active: input.isActive,
+  };
+  const { error } = await client
+    .from("item_property_definitions")
+    .upsert(row, { onConflict: "profit_center_id,property_key" });
+  if (error) throw error;
+}
+
+/**
+ * Replace the entire workspace-scoped mapping for a given (type, group,
+ * subgroup) with the supplied list. Subgroup-NULL is the "group default".
+ *
+ * Implementation: delete the existing workspace rows for that exact slot,
+ * then insert the new ones in a single batch. Globals are never touched.
+ * This keeps the admin UX simple — the operator manages a checklist per
+ * group, and we mirror it 1:1.
+ */
+export interface GroupMappingEntry {
+  propertyKey: string;
+  isRequired: boolean;
+  sortOrder: number;
+}
+
+export async function replaceGroupPropertyMap(
+  profitCenterId: string,
+  materialType: string,
+  groupName: string,
+  subgroup: string | null,
+  entries: GroupMappingEntry[],
+): Promise<void> {
+  // Delete existing workspace rows for this exact slot.
+  let del = client
+    .from("item_group_property_map")
+    .delete()
+    .eq("profit_center_id", profitCenterId)
+    .eq("material_type", materialType)
+    .eq("group_name", groupName);
+  del = subgroup === null ? del.is("subgroup", null) : del.eq("subgroup", subgroup);
+  const { error: delErr } = await del;
+  if (delErr) throw delErr;
+
+  if (entries.length === 0) return;
+  const rows = entries.map((e) => ({
+    profit_center_id: profitCenterId,
+    material_type: materialType,
+    group_name: groupName,
+    subgroup,
+    property_key: e.propertyKey,
+    is_required: e.isRequired,
+    sort_order: e.sortOrder,
+  }));
+  const { error: insErr } = await client.from("item_group_property_map").insert(rows);
+  if (insErr) throw insErr;
+}
+
 /**
  * Resolve the ordered list of properties that should appear on the Item
  * Master form for a given (type, group, subgroup) combination.
