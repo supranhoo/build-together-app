@@ -36,6 +36,7 @@ import {
   reverseInventoryLedger,
   userCanAct,
 } from "@/lib/reporting";
+import { MaterialPicker } from "@/components/MaterialPicker";
 
 const MOVEMENTS: Array<{ value: MovementType | "all"; label: string }> = [
   { value: "all", label: "All movements" },
@@ -169,13 +170,14 @@ export default function PortalInventoryLedger() {
       </CardHeader>
       <CardContent className="space-y-4">
         <div className="grid gap-3 sm:grid-cols-3">
-          <Select value={filterMaterial} onValueChange={setFilterMaterial}>
-            <SelectTrigger><SelectValue /></SelectTrigger>
-            <SelectContent>
-              <SelectItem value="all">All materials</SelectItem>
-              {materials.map((m) => <SelectItem key={m.id} value={m.id}>{m.code}</SelectItem>)}
-            </SelectContent>
-          </Select>
+          <MaterialPicker
+            contextKey="inventory.ledger.filter"
+            profitCenterId={activeProfitCenter.id}
+            materials={materials}
+            value={filterMaterial === "all" ? "" : filterMaterial}
+            onChange={(v) => setFilterMaterial(v || "all")}
+            placeholder="All materials"
+          />
           <Select value={filterMovement} onValueChange={(v) => setFilterMovement(v as MovementType | "all")}>
             <SelectTrigger><SelectValue /></SelectTrigger>
             <SelectContent>

@@ -19,6 +19,7 @@ import {
   type CostType,
   type MasterItem,
 } from "@/lib/master-data";
+import { MaterialPicker } from "@/components/MaterialPicker";
 
 interface FormState { materialId: string; rate: string; costType: CostType; effectiveFrom: string; effectiveTo: string; notes: string; }
 const today = () => new Date().toISOString().slice(0, 10);
@@ -107,13 +108,16 @@ export default function AdminCostRates() {
       <CardHeader className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
         <CardTitle>Rate & Cost Pool — {activeProfitCenter.name}</CardTitle>
         <div className="flex gap-2">
-          <Select value={materialFilter} onValueChange={setMaterialFilter}>
-            <SelectTrigger className="w-56"><SelectValue /></SelectTrigger>
-            <SelectContent>
-              <SelectItem value="all">All materials</SelectItem>
-              {items.map((i) => <SelectItem key={i.id} value={i.id}>{i.code} — {i.name}</SelectItem>)}
-            </SelectContent>
-          </Select>
+          <div className="w-56">
+            <MaterialPicker
+              contextKey="costing.rates.filter"
+              profitCenterId={activeProfitCenter.id}
+              materials={items}
+              value={materialFilter === "all" ? "" : materialFilter}
+              onChange={(v) => setMaterialFilter(v || "all")}
+              placeholder="All materials"
+            />
+          </div>
           <Dialog open={open} onOpenChange={setOpen}>
             <DialogTrigger asChild><Button onClick={openNew} disabled={items.length === 0}>New rate</Button></DialogTrigger>
             <DialogContent>
@@ -121,12 +125,13 @@ export default function AdminCostRates() {
               <div className="grid grid-cols-2 gap-3">
                 <div className="col-span-2">
                   <Label>Material</Label>
-                  <Select value={form.materialId} onValueChange={(v) => setForm({ ...form, materialId: v })}>
-                    <SelectTrigger><SelectValue placeholder="Select material" /></SelectTrigger>
-                    <SelectContent>
-                      {items.map((i) => <SelectItem key={i.id} value={i.id}>{i.code} — {i.name}</SelectItem>)}
-                    </SelectContent>
-                  </Select>
+                  <MaterialPicker
+                    contextKey="costing.rates.form"
+                    profitCenterId={activeProfitCenter.id}
+                    materials={items}
+                    value={form.materialId}
+                    onChange={(v) => setForm({ ...form, materialId: v })}
+                  />
                 </div>
                 <div><Label>Rate</Label><Input type="number" step="0.0001" value={form.rate} onChange={(e) => setForm({ ...form, rate: e.target.value })} /></div>
                 <div>

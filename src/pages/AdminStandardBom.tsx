@@ -21,6 +21,7 @@ import { useAuth } from "@/hooks/use-auth";
 import { useToast } from "@/hooks/use-toast";
 import { createAuditLog } from "@/lib/workspace";
 import { fetchMasterItems, type MasterItem } from "@/lib/master-data";
+import { MaterialPicker } from "@/components/MaterialPicker";
 import {
   createBomEntry,
   deactivateBomEntry,
@@ -261,20 +262,16 @@ export default function AdminStandardBom() {
                 </div>
                 <div className="col-span-2">
                   <Label>Material</Label>
-                  <Select
+                  <MaterialPicker
+                    contextKey="costing.bom.form"
+                    profitCenterId={activeProfitCenter?.id ?? null}
+                    materials={items}
                     value={form.materialId}
-                    onValueChange={(v) => {
+                    onChange={(v) => {
                       const m = items.find((i) => i.id === v);
                       setForm({ ...form, materialId: v, uom: m?.uom ?? form.uom });
                     }}
-                  >
-                    <SelectTrigger><SelectValue placeholder="Select material" /></SelectTrigger>
-                    <SelectContent>
-                      {items.map((i) => (
-                        <SelectItem key={i.id} value={i.id}>{i.code} — {i.name}</SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
+                  />
                 </div>
                 <div>
                   <Label>Std qty per MT</Label>

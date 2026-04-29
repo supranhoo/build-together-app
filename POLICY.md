@@ -369,3 +369,4 @@
 - The list of materials a user sees in any dropdown is determined by the `picker_contexts` row for that screen (Type/Group/Subgroup filter + allow-unmapped flag).
 - Workspace admins can override the global default for their workspace; super admins manage the global defaults.
 - Unmapped (legacy) items show under an `(Unmapped)` bucket only when the context allows it; admins may turn this off to enforce hierarchy hygiene.
+- Costing screens (Cost Rates, Standard BOM) and Inventory Ledger filter use permissive defaults so any active item can be selected; admins narrow per workspace as the hierarchy stabilises.
