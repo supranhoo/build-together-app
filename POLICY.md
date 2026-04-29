@@ -360,5 +360,6 @@
   - **FLUXES** → SiO2, CaO, MgO, Moisture*, Si
   - **PASTE** → FC, Ash, VM, Moisture
 - Property catalog and group→property map live in `item_property_definitions` and `item_group_property_map`. Super admins manage global defaults; workspace admins can override per profit center.
+- Workspace admins manage both via **Master Data → Properties & Mapping** (no migrations required). The Mapping card is authoritative: ticking a property makes it visible on the Item Master form, and the **Required** toggle blocks save until that property is filled.
 - Per-item values continue to persist in `materials.specs` JSONB (compat shim) so heat entry, costing, quality, and inventory continue to read the same shape.
 - Switching an item's group clears the prior group's managed property values from storage to prevent stale chemistry.
