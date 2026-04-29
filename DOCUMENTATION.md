@@ -835,3 +835,24 @@ Variable-only cost, per_kwh + per_nm3 utility allocation, slag credit subtractio
 ### Version History
 - 2026-04-29 (Phase 11): Extended cost engine with utility/credit buckets and allocation basis. Added `system_settings` and `module_mappings` tables. New `Admin Settings → System Logic` tab. 9 new unit tests.
 - 2026-04-29 (Phase 11): Added `/portal/cost-sheet` operational page exposing the 4-bucket engine to end users. 3 new unit tests.
+
+## System Control — Unified Admin Console (`/admin/system-control`)
+Single landing page that mirrors the legacy 7-tab Admin layout for users coming from the uploaded reference design. **It does not duplicate logic** — every tab embeds the existing admin component so RLS, audit, and master-data SSOT are preserved.
+
+| Tab | URL | Reuses |
+|---|---|---|
+| Users | `?tab=users` | `AdminUsers` |
+| RBAC/ABAC | `?tab=rbac` | `AdminRoles` |
+| PC Dashboard | `?tab=profit-centers` | `AdminWorkspaces` |
+| PC Settings | `?tab=pc-settings` | `AdminSystemLogic` (system logic + per-PC module mappings) |
+| Workflows | `?tab=workflows` | `AdminWorkflows` (preview-only; backed schema pending) |
+| Audit Logs | `?tab=audit` | `AdminAudit` |
+| Policies | `?tab=security` | `AdminPolicies` (read-only posture) |
+
+`Admin Settings` (`/admin/settings`) remains the canonical configuration surface. `System Control` is a curated subset for admins who want the consolidated 7-tab view.
+
+### Tests — `src/test/admin-system-control.test.ts` (4 cases)
+Tab resolution defaults, invalid-input fallback, valid round-trip, and the canonical 7-tab order.
+
+### Version History
+- 2026-04-29 (Phase 11): Added unified `/admin/system-control` page (7 tabs reusing existing components) plus placeholder `Workflows` and `Policies` screens. Sidebar gains a `System Control` entry. 4 new unit tests.

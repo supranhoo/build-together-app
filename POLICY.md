@@ -396,3 +396,8 @@
 - **Read-only calculator.** `/portal/cost-sheet` performs no DB writes. It reads `cost_rates` and `materials.std_cost` for the active profit center and displays the engine output. Persistence belongs to the period-close workflow, not this page.
 - **Single source of truth.** All math is delegated to `calculateCostSheet` in `src/lib/costing.ts`. The page must never re-implement a bucket calculation locally; if a number on screen disagrees with the engine, the page is wrong.
 - **Inventory rate proxy.** Variable cost uses `materials.std_cost` as the per-UOM rate. Replacing this with a moving-average or last-purchase rate requires a documented policy change here and matching engine update.
+
+## System Control Page (2026-04-29)
+- **No duplicated logic.** `/admin/system-control` is a UX wrapper. Every action it triggers must flow through the same component used by `/admin/settings` so RLS, audit logging, and master-data validation behave identically.
+- **Workflows and Policies tabs are read-only previews.** Maker-Checker rules require a backed `approval_workflows` schema (not yet migrated) and platform auth policies are managed by Lovable Cloud — neither may be hardcoded in the client.
+- **Sidebar exposure.** The `System Control` link is admin-only by virtue of the parent `/admin` route guard (`RequireAdmin`); no extra role check should be added in the link itself.
