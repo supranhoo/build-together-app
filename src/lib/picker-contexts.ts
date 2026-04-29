@@ -121,8 +121,8 @@ export interface MaterialGroupNode<T extends PickerMaterial = PickerMaterial> {
 
 /** Group materials into Type › Group › Subgroup buckets for the dropdown. */
 export function groupMaterialsForPicker<T extends PickerMaterial>(materials: T[]): MaterialGroupNode<T>[] {
-  const buckets = new Map<string, MaterialGroupNode>();
-  const unmapped: Material[] = [];
+  const buckets = new Map<string, MaterialGroupNode<T>>();
+  const unmapped: T[] = [];
   for (const m of materials) {
     const t = (m.type ?? "").trim();
     const g = (m.groupName ?? "").trim();
