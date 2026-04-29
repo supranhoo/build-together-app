@@ -2057,6 +2057,51 @@ export type Database = {
         }
         Relationships: []
       }
+      picker_contexts: {
+        Row: {
+          allow_unmapped: boolean
+          context_key: string
+          created_at: string
+          group_name: string | null
+          id: string
+          is_active: boolean
+          material_type: string | null
+          notes: string | null
+          profit_center_id: string | null
+          screen_label: string
+          subgroup: string | null
+          updated_at: string
+        }
+        Insert: {
+          allow_unmapped?: boolean
+          context_key: string
+          created_at?: string
+          group_name?: string | null
+          id?: string
+          is_active?: boolean
+          material_type?: string | null
+          notes?: string | null
+          profit_center_id?: string | null
+          screen_label: string
+          subgroup?: string | null
+          updated_at?: string
+        }
+        Update: {
+          allow_unmapped?: boolean
+          context_key?: string
+          created_at?: string
+          group_name?: string | null
+          id?: string
+          is_active?: boolean
+          material_type?: string | null
+          notes?: string | null
+          profit_center_id?: string | null
+          screen_label?: string
+          subgroup?: string | null
+          updated_at?: string
+        }
+        Relationships: []
+      }
       power_tariff_slabs: {
         Row: {
           created_at: string
