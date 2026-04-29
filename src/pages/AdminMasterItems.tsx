@@ -127,17 +127,29 @@ export default function AdminMasterItems() {
 
   useEffect(() => { void load(); /* eslint-disable-next-line */ }, [activeProfitCenter?.id]);
 
-  const groupOptions = useMemo(() => {
+  /**
+   * Group/Subgroup dropdown options sourced from `material_groups` (admin-
+   * managed master). Per Zero-Hardcoding rule (§10), operators select from
+   * the curated hierarchy rather than typing freehand. New groups must be
+   * added under Master Data → Group & Hierarchy first.
+   */
+  const groupSelectOptions = useMemo(() => {
     const set = new Set<string>();
-    items.forEach((i) => { if (i.groupName) set.add(i.groupName); });
+    groups.forEach((g) => { if (g.isActive && g.parentGroup) set.add(g.parentGroup); });
     return Array.from(set).sort();
-  }, [items]);
-  const subgroupExtras = useMemo(
-    () => items
-      .filter((i) => (i.groupName ?? "").trim().toLowerCase() === form.groupName.trim().toLowerCase())
-      .map((i) => i.subgroup),
-    [items, form.groupName],
-  );
+  }, [groups]);
+
+  const subgroupSelectOptions = useMemo(() => {
+    const target = form.groupName.trim().toLowerCase();
+    if (!target) return [] as string[];
+    const set = new Set<string>();
+    groups.forEach((g) => {
+      if (!g.isActive) return;
+      if ((g.parentGroup ?? "").trim().toLowerCase() !== target) return;
+      if (g.subgroup) set.add(g.subgroup);
+    });
+    return Array.from(set).sort();
+  }, [groups, form.groupName]);
 
   const filtered = useMemo(() => filterItems(items, search, typeFilter, groupFilter), [items, search, typeFilter, groupFilter]);
 
