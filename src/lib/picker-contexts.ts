@@ -113,14 +113,14 @@ function matchField(itemValue: string | null, ctxValue: string | null, allowUnma
   return v.toLowerCase() === ctxValue.trim().toLowerCase();
 }
 
-export interface MaterialGroupNode {
+export interface MaterialGroupNode<T extends PickerMaterial = PickerMaterial> {
   label: string;       // "RAW MATERIAL › ORE › SINTER" or "(Unmapped)"
   isUnmapped: boolean;
-  items: Material[];
+  items: T[];
 }
 
 /** Group materials into Type › Group › Subgroup buckets for the dropdown. */
-export function groupMaterialsForPicker(materials: Material[]): MaterialGroupNode[] {
+export function groupMaterialsForPicker<T extends PickerMaterial>(materials: T[]): MaterialGroupNode<T>[] {
   const buckets = new Map<string, MaterialGroupNode>();
   const unmapped: Material[] = [];
   for (const m of materials) {
