@@ -225,19 +225,42 @@ export default function AdminMasterItems() {
   };
 
   const handleTypeChange = useCallback((nextType: MaterialType) => {
-    setForm((prev) => refreshPropertyValuesForNewGroup({ ...prev, type: nextType }));
+    setForm((prev) => {
+      const next = refreshPropertyValuesForNewGroup({ ...prev, type: nextType });
+      // Auto-suggest code on type change (only for new items, never overwrite
+      // an existing material's code).
+      if (!prev.id) next.code = nextItemCode(items, nextType, next.groupName);
+      return next;
+    });
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [propertyDefs, groupPropertyMap]);
+  }, [propertyDefs, groupPropertyMap, items]);
 
   const handleGroupChange = useCallback((nextGroup: string) => {
-    setForm((prev) => refreshPropertyValuesForNewGroup({ ...prev, groupName: nextGroup }));
+    setForm((prev) => {
+      // Group switch invalidates the prior subgroup — clear it so the
+      // operator picks a valid one from the cascading dropdown.
+      const next = refreshPropertyValuesForNewGroup({
+        ...prev,
+        groupName: nextGroup,
+        subgroup: "",
+      });
+      if (!prev.id) next.code = nextItemCode(items, prev.type, nextGroup);
+      return next;
+    });
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [propertyDefs, groupPropertyMap]);
+  }, [propertyDefs, groupPropertyMap, items]);
 
   const handleSubgroupChange = useCallback((nextSubgroup: string) => {
-    setForm((prev) => refreshPropertyValuesForNewGroup({ ...prev, subgroup: nextSubgroup }));
+    setForm((prev) => {
+      const next = refreshPropertyValuesForNewGroup({ ...prev, subgroup: nextSubgroup });
+      // Prefill the Name field with the subgroup so the operator only has
+      // to append the distinguishing tail (e.g. "Mn-Ore" → "Mn-Ore HG Lump").
+      // Preserves any name the operator has already customized.
+      if (!prev.id) next.name = nextItemName(prev.name, prev.subgroup, nextSubgroup);
+      return next;
+    });
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [propertyDefs, groupPropertyMap]);
+  }, [propertyDefs, groupPropertyMap, items]);
 
   const handleSave = async () => {
     if (!activeProfitCenter || !session?.user) return;
