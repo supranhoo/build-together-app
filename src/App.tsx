@@ -22,6 +22,7 @@ import AdminWorkspaces from "./pages/AdminWorkspaces";
 import AdminModules from "./pages/AdminModules";
 import AdminAccess from "./pages/AdminAccess";
 import AdminSettings from "./pages/AdminSettings";
+import AdminSystemControl from "./pages/AdminSystemControl";
 import AdminAudit from "./pages/AdminAudit";
 import AdminFurnaces from "./pages/AdminFurnaces";
 import AdminShifts from "./pages/AdminShifts";
@@ -109,6 +110,7 @@ const App = () => (
                   <Route path="/admin" element={<AdminShell />}>
                     <Route index element={<AdminOverview />} />
                     <Route path="settings" element={<AdminSettings />} />
+                    <Route path="system-control" element={<AdminSystemControl />} />
                     <Route path="procurement" element={<AdminProcurement />} />
                     <Route path="quality" element={<AdminQuality />} />
                     <Route path="finance" element={<AdminFinance />} />
