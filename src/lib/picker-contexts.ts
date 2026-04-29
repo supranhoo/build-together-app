@@ -94,10 +94,10 @@ export function resolvePickerContext(
  *   AND the context allows unmapped items.
  * - Inactive materials are always excluded.
  */
-export function filterMaterialsByContext(
-  materials: Material[],
+export function filterMaterialsByContext<T extends PickerMaterial>(
+  materials: T[],
   ctx: PickerContext,
-): Material[] {
+): T[] {
   return materials.filter((m) => {
     if (!m.isActive) return false;
     return matchField(m.type, ctx.materialType, ctx.allowUnmapped)
