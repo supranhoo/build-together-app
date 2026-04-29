@@ -827,9 +827,11 @@ Allocation factor by basis: `per_mt → qtyMt`, `per_kwh → powerKwh`, `per_nm3
 ### UI
 - `Admin Settings → System Logic` (`?tab=system-logic`) — admin-only form to edit `SystemLogicConfig`. Each save is audited.
 - `Admin Settings → Cost Rates` (existing) — extended with `Allocation basis` (shown for utility/fixed) and `Status` selectors. Listing now shows both columns.
+- **`Portal → /portal/cost-sheet` (`src/pages/PortalCostSheet.tsx`)** — operational page that computes the 4-bucket breakdown for a single day. Inputs: date, metal MT, slag MT, power kWh, oxygen Nm³, days, and any number of variable-consumption lines (material + qty). The page reads `cost_rates` and `materials.std_cost` for the active profit center and renders the engine output live (Variable / Fixed / Utility / Credit / Total / Cost per MT). Excel export produces a Summary sheet plus a Consumption sheet. No DB writes — strictly a calculator surface; persistence will arrive with the period-close flow.
 
-### Tests — `src/test/costing-extended.test.ts` (9 cases)
-Variable-only cost, per_kwh + per_nm3 utility allocation, slag credit subtraction, INACTIVE skip, out-of-window skip, zero-production cost/MT, and `isModuleEnabled` default/override behaviour.
+### Tests — `src/test/costing-extended.test.ts` (9 cases) + `src/test/portal-cost-sheet.test.ts` (3 cases)
+Variable-only cost, per_kwh + per_nm3 utility allocation, slag credit subtraction, INACTIVE skip, out-of-window skip, zero-production cost/MT, `isModuleEnabled` default/override, plus page-wiring smoke tests for the 4-bucket calculator.
 
 ### Version History
 - 2026-04-29 (Phase 11): Extended cost engine with utility/credit buckets and allocation basis. Added `system_settings` and `module_mappings` tables. New `Admin Settings → System Logic` tab. 9 new unit tests.
+- 2026-04-29 (Phase 11): Added `/portal/cost-sheet` operational page exposing the 4-bucket engine to end users. 3 new unit tests.

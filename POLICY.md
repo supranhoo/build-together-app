@@ -391,3 +391,8 @@
 - **Slag credit is a `cost_type='credit'` row.** It is subtracted (not added) from the total. The feature can be globally disabled via `System Logic → Enable slag credit`.
 - **System Logic changes are admin-only and audited.** Every save writes an `audit_logs` row with `entity_type='system_settings'`.
 - **Per-workspace module toggles override the global catalog.** A missing row means the module is enabled. Disabling a module from `module_mappings` hides it for that workspace only.
+
+## Cost Sheet Operational Page (2026-04-29)
+- **Read-only calculator.** `/portal/cost-sheet` performs no DB writes. It reads `cost_rates` and `materials.std_cost` for the active profit center and displays the engine output. Persistence belongs to the period-close workflow, not this page.
+- **Single source of truth.** All math is delegated to `calculateCostSheet` in `src/lib/costing.ts`. The page must never re-implement a bucket calculation locally; if a number on screen disagrees with the engine, the page is wrong.
+- **Inventory rate proxy.** Variable cost uses `materials.std_cost` as the per-UOM rate. Replacing this with a moving-average or last-purchase rate requires a documented policy change here and matching engine update.
