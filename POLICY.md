@@ -376,3 +376,10 @@
 - **Item codes are auto-generated** on creation as `<TYPE>-<GROUP>-<NNNN>` (e.g. `RM-ORE-0001`), zero-padded to 4 digits. Operators cannot type the code on new items. Admins MAY override the code when editing an existing item (legacy correction path). CSV bulk upload retains its own code column.
 - **Group and Subgroup must exist in Master Data → Group & Hierarchy before they can be used on an item.** The New Item dialog no longer accepts free-text groups/subgroups; the dropdowns are populated strictly from active rows in `material_groups`. This enforces Rule #10 (Zero-Hardcoding / admin-controlled master data).
 - **Item Name is prefilled with the Subgroup value** as a convenience. Operators are expected to extend it (e.g. "Mn-Ore" → "Mn-Ore HG Lump 30-50mm"). The prefill never overwrites a name the operator has customized.
+
+## Test Data Management Policy (2026-04-29)
+- **Admin-only.** Only users with `admin` or `super_admin` role can seed, upload, purge, or lock the feature. UI tab is hidden for everyone else; backend RPCs reject non-admins with `forbidden`.
+- **Tagging is mandatory.** Any data inserted through the test-data feature is force-tagged `is_test_data = true` and linked to a `test_batch_id`. Production rows are never tagged and cannot be deleted by the purge.
+- **Purge requires typed confirmation** of the exact phrase `PURGE-TEST-DATA`. The dry-run preview always shows row counts before deletion.
+- **Go-Live lockdown.** When the workspace goes live an admin disables the feature; all seed/upload/purge RPCs then return `feature_locked`. Re-enabling requires a `super_admin` and a written reason.
+- **Auditability.** Every seed, upload, purge, lock, and unlock writes an immutable row to `audit_logs`.
