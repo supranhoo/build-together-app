@@ -4,7 +4,7 @@ import { FIXED_SPEC_COLUMNS, getSpecValue } from "@/lib/spec-columns";
 describe("spec-columns", () => {
   it("exposes the fixed column list in stable order", () => {
     expect(FIXED_SPEC_COLUMNS.map((c) => c.key)).toEqual([
-      "Mn", "Moisture", "Fe", "SiO2", "CaO", "Al2O3", "MgO", "P", "S", "FC", "VM", "Ash", "Size",
+      "Mn", "Moisture", "Fe", "SiO2", "CaO", "Al2O3", "MgO", "P", "S", "FC", "VM", "Ash", "Si", "Size",
     ]);
   });
 
