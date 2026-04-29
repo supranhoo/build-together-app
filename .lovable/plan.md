@@ -1,121 +1,148 @@
-# Admin Test Data Management (Pre–Go-Live)
+## What you uploaded
 
-A safe, auditable, **Admin/Super-Admin–only** facility to seed, upload, and purge test data across all operational tables — and **lock itself down** once the workspace is marked Live.
+1. **`costingEngine.ts`** — a richer cost-sheet calculator that splits costs into 4 types (`VARIABLE`, `FIXED`, `UTILITY`, `CREDIT`) and allocates utility costs by basis (`PER_KWH`, `PER_NM3`). It also computes a slag credit and a final cost/MT.
+2. **`systemSettingsService.ts`** — a service for two admin tables:
+   - `system_settings` (single JSON config row keyed `system_logic`)
+   - `module_mappings` (per-profit-center on/off toggles for modules)
 
-## Risk & Impact (per Rule #9)
+These overlap heavily with what already exists (`src/lib/costing.ts`, `cost_rates`, `app_modules`), so I'll **integrate, not duplicate**.
 
-- **Data**: Adds a nullable `is_test_data BOOLEAN DEFAULT false` to every operational table (~40 tables). Existing rows default to `false` → cannot be deleted by the purge. Adds 2 new tables (`test_data_settings`, `test_data_batches`).
-- **Workflow**: New Admin Settings tab "Test Data" — invisible to non-admins (route guarded by `RequireAdmin` + RPC re-checks role server-side).
-- **UI/UX**: Single page, three actions (Seed / Upload / Purge), prominent red "Live mode locked" banner once disabled.
-- **Regression risk**: Adding a column is non-breaking; all existing INSERTs continue to work (column defaults to false). Purge function is **double-guarded** (`is_test_data=true` AND batch tag) so production rows are mathematically unreachable.
-- **Mitigation**: Feature flag + role check + explicit `WHERE is_test_data = true` in every DELETE + audit log on every action + dry-run preview before purge.
+## Risk & Impact (Rule #9)
+
+- **Data**: 
+  - Extend `cost_type` enum on `cost_rates` from `('fixed','variable')` to add `'utility'` and `'credit'`. Add nullable `allocation_basis text` and `status text default 'ACTIVE'` columns.
+  - New `system_settings` table (single-row JSON, admin-only RLS).
+  - New `module_mappings` table (PC × module enable/disable, admin-only RLS).
+- **Workflow**: Admin Cost Rates page gets two new cost types and an allocation basis selector. New Admin "System Logic" page for global toggles. New per-PC module toggles surface in Admin Modules.
+- **UI**: Additive only — existing rates stay valid (default status=ACTIVE).
+- **Regression risk**: Existing `costing.ts` callers (PortalCosting, PortalFerroCostSheet) keep working — the new logic is exposed as an additional function (`calculateCostSheet`). No call sites change unless explicitly migrated.
+- **Mitigation**: Append-only schema, defaults preserve old behavior, new unit tests cover all 4 cost-type buckets.
 
 ## Design
 
-### 1. Tagging (SSOT)
+### A. Costing engine — extend `src/lib/costing.ts`
 
-Every operational table gets:
+Add (do not replace) a new function that mirrors your uploaded contract but uses our existing `CostRate` shape:
+
+```ts
+export type CostBucket = "variable" | "fixed" | "utility" | "credit";
+export type AllocationBasis = "per_mt" | "per_kwh" | "per_nm3" | "per_day" | "lumpsum";
+
+export function calculateCostSheet(
+  entry: { date: string; qtyMt: number; slagQty: number; powerKwh: number; oxygenNm3: number; days: number },
+  consumption: ConsumptionLine[],
+  rates: CostRate[],            // already PC-scoped
+  inventoryRates: Record<string, number>,
+): { variable: number; fixed: number; utility: number; credit: number; total: number; costPerMt: number | null }
 ```
-is_test_data   boolean   not null default false
-test_batch_id  uuid      null      references test_data_batches(id) on delete set null
-```
 
-Tables tagged: `materials, material_groups, suppliers, sales_customers, purchase_requisitions, purchase_orders, sales_inquiries, sales_orders, heat_logs, material_consumption, inventory_ledger, grn_logs, quality_samples, bunker_feed_tests, fg_inspections, dispatch_clearances, quality_complaints, maintenance_*, ferro_cost_sheets, cost_period_snapshots, import_shipments, risk_events, compliance_records, byproduct_credits, selling_prices, standard_cost_bom, stock_locations, furnaces, shifts, spec_templates, uom_conversions, cost_rates, picker_contexts, item_property_definitions, item_group_property_map`.
+Behaviour mirrors the uploaded file:
+- `variable` = Σ(qty × inventoryRate)
+- `fixed` = Σ amounts of FIXED rates active on `entry.date`
+- `utility` = Σ amount × (kwh | nm3 | days | qtyMt | 1) per `allocation_basis`
+- `credit` = slagQty × CREDIT-rate
+- `total` = variable + fixed + utility − credit
 
-Master/config tables (`profit_centers, app_modules, profile, user_roles, audit_logs, permission_grants`) are **excluded** — never test-tagged, never purged.
+Existing functions (`materialCost`, `conversionCost`, `buildCostBreakdown`) stay untouched — current callers unaffected.
 
-### 2. New tables
+### B. Cost rates schema migration
 
 ```sql
-test_data_settings (
-  profit_center_id uuid PK references profit_centers(id),
-  is_enabled boolean not null default true,
-  locked_at timestamptz, locked_by uuid, lock_reason text
-)
+ALTER TYPE cost_type_enum ADD VALUE IF NOT EXISTS 'utility';
+ALTER TYPE cost_type_enum ADD VALUE IF NOT EXISTS 'credit';
+ALTER TABLE cost_rates
+  ADD COLUMN IF NOT EXISTS allocation_basis text,
+  ADD COLUMN IF NOT EXISTS status text NOT NULL DEFAULT 'ACTIVE'
+    CHECK (status IN ('ACTIVE','INACTIVE'));
+```
+(If `cost_type` is a text column rather than enum, just widen the CHECK constraint.)
 
-test_data_batches (
-  id uuid PK, profit_center_id uuid, label text,
-  source text check (source in ('seed','excel','manual')),
-  created_by uuid, created_at timestamptz default now(),
-  row_counts jsonb,        -- {"materials": 12, "heat_logs": 50}
-  purged_at timestamptz, purged_by uuid
-)
+`AdminCostRates.tsx` gets:
+- `costType` select expanded to 4 values.
+- Conditional `allocation_basis` select shown only for `utility`.
+- Status toggle (ACTIVE/INACTIVE) on the row.
+
+### C. System settings service — `src/lib/system-settings.ts`
+
+Replace the uploaded service with one that uses our `supabase` client and our auth/audit conventions:
+
+```ts
+export interface SystemLogicConfig {
+  enableSlagCredit: boolean;
+  enableUtilityAllocation: boolean;
+  defaultAllocationBasis: AllocationBasis;
+  costRoundingDp: number;
+}
+export const getSystemLogic / saveSystemLogic / getModuleMappings / setModuleMapping
 ```
 
-### 3. Server-side functions (SECURITY DEFINER, role-gated)
-
-- `seed_test_data(_pc uuid, _label text)` — inserts curated demo rows into ~10 core tables, all flagged `is_test_data=true` with one `test_batch_id`. Returns batch id + counts.
-- `purge_test_data(_pc uuid, _confirm text)` — requires `_confirm = 'PURGE-TEST-DATA'`. Deletes in FK-safe order, **only WHERE `is_test_data = true AND profit_center_id = _pc`**. Wrapped in a single transaction; rolls back on any error. Writes one `audit_logs` row per table with deleted counts.
-- `set_test_data_lock(_pc uuid, _enabled boolean, _reason text)` — Admin toggle; once `is_enabled=false` the seed/upload/purge RPCs reject with `feature_locked`.
-
-All three RPCs first call `has_role(auth.uid(),'admin') OR has_role(auth.uid(),'super_admin')` and `has_profit_center_access(...)`. Non-admins get `forbidden`.
-
-### 4. Excel upload
-
-- Reuses existing CSV/XLSX patterns (`src/lib/master-items-csv.ts`).
-- Frontend parses XLSX → JSON → validates with `zod` → calls a per-table RPC `bulk_insert_test_<table>(batch_id, rows[])` that:
-  - Forces `is_test_data=true, test_batch_id=<batch>` on every row (cannot be overridden by Excel).
-  - Validates per-row; collects errors; **transactional** — any error rolls back the whole batch.
-- Workbook template downloadable per table with sample row + column mapping doc.
-
-### 5. UI — `/portal/inventory/master-data?md=test-data` (new tab, Admin-only)
-
-```text
-[Banner: Test Data Mode — ENABLED  ⚠ Disable before Go-Live]
-
-Section 1: Seed demo data        [Seed Now]
-Section 2: Upload Excel          [Pick table ▾] [Drop file] [Validate] [Import]
-Section 3: Batches               table: label | source | rows | created | [Purge batch]
-Section 4: Purge ALL test data   [Type PURGE-TEST-DATA] [Delete All] (red)
-Section 5: Go-Live Lockdown      [Disable Test Data Feature] (irreversible warning)
+Migration:
+```sql
+CREATE TABLE system_settings (
+  key text PRIMARY KEY,
+  config jsonb NOT NULL,
+  updated_at timestamptz DEFAULT now(),
+  updated_by uuid
+);
+CREATE TABLE module_mappings (
+  profit_center_id uuid REFERENCES profit_centers(id) ON DELETE CASCADE,
+  module_id text NOT NULL,
+  is_enabled boolean NOT NULL DEFAULT true,
+  updated_at timestamptz DEFAULT now(),
+  updated_by uuid,
+  PRIMARY KEY (profit_center_id, module_id)
+);
+-- RLS: SELECT for any workspace member; INSERT/UPDATE only for admins (has_role admin/super_admin)
 ```
 
-Tab is hidden from `MASTER_DATA_TABS` for non-admins via role check in `AdminMasterData.tsx`.
+Every save writes to `audit_logs` (`entity_type='system_settings'` or `'module_mapping'`).
 
-### 6. Lockdown
+### D. Admin UI
 
-- Disabling sets `test_data_settings.is_enabled=false` + records `locked_by/at/reason`.
-- All RPCs short-circuit: `if not is_enabled then raise 'feature_locked'`.
-- UI hides actions, shows red "LIVE MODE — Test Data feature disabled on <date> by <user>" banner.
-- Re-enabling requires Super-Admin role (extra check in RPC).
+- **New page** `src/pages/AdminSystemLogic.tsx` — form bound to `SystemLogicConfig`, admin-only via `RequireAdmin`. Mounted under Admin Settings nav.
+- **Edit** `src/pages/AdminModules.tsx` — when a PC is selected, show the per-PC enable toggle backed by `module_mappings` (alongside the existing global module list).
+- `AdminCostRates.tsx` — add `allocation_basis` + `status` UI.
 
-### 7. Audit & Safety
+### E. Wiring the engine
 
-- Every action writes to `audit_logs` with `entity_type='test_data'`, action ∈ `seed|upload|purge|lock|unlock`, and JSON summary (batch id, row counts, reason).
-- Purge requires typed confirmation string (`PURGE-TEST-DATA`).
-- Dry-run preview shows count of test rows per table before purge executes.
-- Production rows physically cannot be deleted: `WHERE is_test_data = true` + default `false` on all existing data.
-- RLS on `test_data_batches` and `test_data_settings`: only admins of the workspace can SELECT/INSERT/UPDATE.
+`PortalFerroCostSheet.tsx` (and any other cost-sheet consumer) calls the new `calculateCostSheet` only when `SystemLogicConfig.enableUtilityAllocation === true`; otherwise the existing breakdown stays. This keeps the change opt-in until UAT.
+
+### F. Tests (Rule #11)
+
+`src/test/costing-extended.test.ts`:
+- Variable-only entry → matches Σ(qty × rate).
+- Utility per-kwh and per-nm3 allocation.
+- Slag credit subtracts correctly.
+- Inactive rate ignored even if date matches.
+- Cost/MT = 0 when production = 0 → returns `null`.
+
+`src/test/system-settings.test.ts`:
+- `getSystemLogic` returns `null` on PGRST116.
+- Module mapping defaults to enabled when row missing.
+
+### G. Docs (Rule #5)
+
+Update `DOCUMENTATION.md` (Costing section + new "System Logic" subsection) and `POLICY.md` (cost-type taxonomy, Go-Live module enablement rule) in the same change.
 
 ## Files to create / edit
 
-**Migrations** (1 file):
-- Add `is_test_data` + `test_batch_id` columns to ~40 tables, create `test_data_settings`, `test_data_batches`, RPCs `seed_test_data`, `purge_test_data`, `set_test_data_lock`, `bulk_insert_test_rows`, RLS policies.
+**Create**
+- `src/lib/system-settings.ts`
+- `src/pages/AdminSystemLogic.tsx`
+- `src/test/costing-extended.test.ts`
+- `src/test/system-settings.test.ts`
+- 1 migration: cost_rates extension + system_settings + module_mappings + RLS
 
-**Frontend** (new):
-- `src/pages/AdminTestData.tsx` — UI with the 5 sections above.
-- `src/lib/test-data.ts` — client wrappers (`seed`, `purge`, `uploadExcel`, `setLock`, `listBatches`).
-- `src/lib/test-data-excel.ts` — XLSX → row[] parser + zod schemas per table.
-- `src/test/test-data.test.ts` — unit tests (role gate, lock gate, confirm-string gate, batch isolation).
+**Edit**
+- `src/lib/costing.ts` (append `calculateCostSheet` + types)
+- `src/lib/master-data.ts` (widen `CostType`, add `allocationBasis`/`status`)
+- `src/pages/AdminCostRates.tsx` (UI for new fields)
+- `src/pages/AdminModules.tsx` (per-PC toggle)
+- `src/App.tsx` (route for `/admin/system-logic`)
+- `DOCUMENTATION.md`, `POLICY.md`
 
-**Edited**:
-- `src/pages/AdminMasterData.tsx` — register new tab, hide for non-admins.
-- `DOCUMENTATION.md` + `POLICY.md` — Phase 10: Test Data Management.
+## Open questions before I build
 
-## Tests (Rule #11)
-
-- Non-admin call to `seed/purge/lock` → `forbidden`.
-- Purge with wrong confirm string → rejected.
-- Purge after lock → `feature_locked`.
-- Purge deletes only `is_test_data=true` rows (seed 5 test + 5 prod, purge → only 5 deleted).
-- Excel upload force-overrides client `is_test_data=false` to true.
-- Audit log written for every action.
-
-## Out of scope
-- Restoring purged data (it's deletion by design).
-- Per-row tagging UI (rows are tagged at insert time only).
-- Test data for `auth.users` (test users are created via existing Admin Users page with a "test" prefix convention).
-
-## Open questions
-1. Should the Go-Live lock be **per workspace** (current design) or **global** across all profit centers? Per-workspace is more flexible for staged rollouts.
-2. Should we allow Super-Admin to **re-enable** after lockdown, or is the lock truly one-way once Live? Current design: Super-Admin can re-enable (with audit). Safer alternative: one-way.
+1. **Cost type names**: your file uses uppercase (`VARIABLE`,`FIXED`,`UTILITY`,`CREDIT`); ours uses lowercase (`variable`,`fixed`). I'll keep lowercase in DB and map at the boundary — OK?
+2. **Slag CREDIT rate location**: should it be a row in `cost_rates` with `cost_type='credit'` and the slag material as `material_id` (clean), or a single config value in `SystemLogicConfig` (simpler)? I recommend the former.
+3. **`module_mappings` vs existing `app_modules`**: do you want the per-PC toggle in addition to the existing global module list, or replace it? I assumed **in addition** (per-PC overrides global).
