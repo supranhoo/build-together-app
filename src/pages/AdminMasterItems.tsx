@@ -28,8 +28,8 @@ import {
   itemsToCsvRows,
   parseItemCsv,
 } from "@/lib/master-items-csv";
-import { GroupSubgroupPicker } from "@/components/master-data/GroupSubgroupPicker";
 import { FIXED_SPEC_COLUMNS, getSpecValue } from "@/lib/spec-columns";
+import { nextItemCode, nextItemName } from "@/lib/master-items-code";
 import {
   fetchGroupPropertyMap,
   fetchPropertyDefinitions,
@@ -127,17 +127,29 @@ export default function AdminMasterItems() {
 
   useEffect(() => { void load(); /* eslint-disable-next-line */ }, [activeProfitCenter?.id]);
 
-  const groupOptions = useMemo(() => {
+  /**
+   * Group/Subgroup dropdown options sourced from `material_groups` (admin-
+   * managed master). Per Zero-Hardcoding rule (§10), operators select from
+   * the curated hierarchy rather than typing freehand. New groups must be
+   * added under Master Data → Group & Hierarchy first.
+   */
+  const groupSelectOptions = useMemo(() => {
     const set = new Set<string>();
-    items.forEach((i) => { if (i.groupName) set.add(i.groupName); });
+    groups.forEach((g) => { if (g.isActive && g.parentGroup) set.add(g.parentGroup); });
     return Array.from(set).sort();
-  }, [items]);
-  const subgroupExtras = useMemo(
-    () => items
-      .filter((i) => (i.groupName ?? "").trim().toLowerCase() === form.groupName.trim().toLowerCase())
-      .map((i) => i.subgroup),
-    [items, form.groupName],
-  );
+  }, [groups]);
+
+  const subgroupSelectOptions = useMemo(() => {
+    const target = form.groupName.trim().toLowerCase();
+    if (!target) return [] as string[];
+    const set = new Set<string>();
+    groups.forEach((g) => {
+      if (!g.isActive) return;
+      if ((g.parentGroup ?? "").trim().toLowerCase() !== target) return;
+      if (g.subgroup) set.add(g.subgroup);
+    });
+    return Array.from(set).sort();
+  }, [groups, form.groupName]);
 
   const filtered = useMemo(() => filterItems(items, search, typeFilter, groupFilter), [items, search, typeFilter, groupFilter]);
 
@@ -225,19 +237,42 @@ export default function AdminMasterItems() {
   };
 
   const handleTypeChange = useCallback((nextType: MaterialType) => {
-    setForm((prev) => refreshPropertyValuesForNewGroup({ ...prev, type: nextType }));
+    setForm((prev) => {
+      const next = refreshPropertyValuesForNewGroup({ ...prev, type: nextType });
+      // Auto-suggest code on type change (only for new items, never overwrite
+      // an existing material's code).
+      if (!prev.id) next.code = nextItemCode(items, nextType, next.groupName);
+      return next;
+    });
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [propertyDefs, groupPropertyMap]);
+  }, [propertyDefs, groupPropertyMap, items]);
 
   const handleGroupChange = useCallback((nextGroup: string) => {
-    setForm((prev) => refreshPropertyValuesForNewGroup({ ...prev, groupName: nextGroup }));
+    setForm((prev) => {
+      // Group switch invalidates the prior subgroup — clear it so the
+      // operator picks a valid one from the cascading dropdown.
+      const next = refreshPropertyValuesForNewGroup({
+        ...prev,
+        groupName: nextGroup,
+        subgroup: "",
+      });
+      if (!prev.id) next.code = nextItemCode(items, prev.type, nextGroup);
+      return next;
+    });
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [propertyDefs, groupPropertyMap]);
+  }, [propertyDefs, groupPropertyMap, items]);
 
   const handleSubgroupChange = useCallback((nextSubgroup: string) => {
-    setForm((prev) => refreshPropertyValuesForNewGroup({ ...prev, subgroup: nextSubgroup }));
+    setForm((prev) => {
+      const next = refreshPropertyValuesForNewGroup({ ...prev, subgroup: nextSubgroup });
+      // Prefill the Name field with the subgroup so the operator only has
+      // to append the distinguishing tail (e.g. "Mn-Ore" → "Mn-Ore HG Lump").
+      // Preserves any name the operator has already customized.
+      if (!prev.id) next.name = nextItemName(prev.name, prev.subgroup, nextSubgroup);
+      return next;
+    });
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [propertyDefs, groupPropertyMap]);
+  }, [propertyDefs, groupPropertyMap, items]);
 
   const handleSave = async () => {
     if (!activeProfitCenter || !session?.user) return;
@@ -361,7 +396,7 @@ export default function AdminMasterItems() {
             <SelectTrigger className="w-40"><SelectValue /></SelectTrigger>
             <SelectContent>
               <SelectItem value="all">All groups</SelectItem>
-              {groupOptions.map((g) => <SelectItem key={g} value={g}>{g}</SelectItem>)}
+              {groupSelectOptions.map((g) => <SelectItem key={g} value={g}>{g}</SelectItem>)}
             </SelectContent>
           </Select>
           <Button variant="outline" onClick={handleDownloadTemplate} title="Download a CSV template with example row">Template</Button>
@@ -384,7 +419,24 @@ export default function AdminMasterItems() {
             <DialogContent className="max-w-2xl">
               <DialogHeader><DialogTitle>{form.id ? "Edit item" : "New item"}</DialogTitle></DialogHeader>
               <div className="grid gap-3 sm:grid-cols-2 max-h-[60vh] overflow-y-auto pr-1">
-                <div><Label>Code</Label><Input value={form.code} onChange={(e) => setForm({ ...form, code: e.target.value })} /></div>
+                <div>
+                  <Label>Code</Label>
+                  {form.id ? (
+                    // Edit mode: keep editable for admin overrides on legacy rows.
+                    <Input value={form.code} onChange={(e) => setForm({ ...form, code: e.target.value })} />
+                  ) : (
+                    // New mode: auto-generated as <TYPE>-<GROUP>-<NNNN> once Type
+                    // and Group are picked. Read-only to keep coding consistent
+                    // across the org.
+                    <Input
+                      value={form.code}
+                      readOnly
+                      disabled
+                      placeholder="Auto — pick Type and Group"
+                      className="bg-muted/40"
+                    />
+                  )}
+                </div>
                 <div><Label>Name</Label><Input value={form.name} onChange={(e) => setForm({ ...form, name: e.target.value })} /></div>
                 <div>
                   <Label>Type</Label>
@@ -404,17 +456,42 @@ export default function AdminMasterItems() {
                     </SelectContent>
                   </Select>
                 </div>
-                <GroupSubgroupPicker
-                  groups={groups}
-                  group={form.groupName}
-                  subgroup={form.subgroup}
-                  groupExtras={groupOptions}
-                  subgroupExtras={subgroupExtras}
-                  onGroupChange={handleGroupChange}
-                  onSubgroupChange={handleSubgroupChange}
-                  groupListId="item-group-options"
-                  subgroupListId="item-subgroup-options"
-                />
+                <div>
+                  <Label>Group</Label>
+                  <Select value={form.groupName} onValueChange={handleGroupChange}>
+                    <SelectTrigger>
+                      <SelectValue placeholder={groupSelectOptions.length === 0 ? "No groups defined" : "Select group"} />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {groupSelectOptions.map((g) => <SelectItem key={g} value={g}>{g}</SelectItem>)}
+                    </SelectContent>
+                  </Select>
+                  {groupSelectOptions.length === 0 && (
+                    <p className="mt-1 text-xs text-muted-foreground">
+                      Add groups under <em>Master Data → Group &amp; Hierarchy</em>.
+                    </p>
+                  )}
+                </div>
+                <div>
+                  <Label>Subgroup</Label>
+                  <Select
+                    value={form.subgroup}
+                    onValueChange={handleSubgroupChange}
+                    disabled={!form.groupName || subgroupSelectOptions.length === 0}
+                  >
+                    <SelectTrigger>
+                      <SelectValue placeholder={!form.groupName ? "Pick a group first" : subgroupSelectOptions.length === 0 ? "No subgroups defined" : "Select subgroup"} />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {subgroupSelectOptions.map((s) => <SelectItem key={s} value={s}>{s}</SelectItem>)}
+                    </SelectContent>
+                  </Select>
+                  {form.groupName && subgroupSelectOptions.length === 0 && (
+                    <p className="mt-1 text-xs text-muted-foreground">
+                      No subgroups defined for <span className="font-medium">{form.groupName}</span>. Add them under <em>Master Data → Group &amp; Hierarchy</em>.
+                    </p>
+                  )}
+                </div>
                 <div><Label>Std cost</Label><Input type="number" step="0.0001" value={form.stdCost} onChange={(e) => setForm({ ...form, stdCost: e.target.value })} /></div>
                 <div><Label>Reorder level</Label><Input type="number" step="0.001" value={form.reorderLevel} onChange={(e) => setForm({ ...form, reorderLevel: e.target.value })} /></div>
                 <div><Label>Min level</Label><Input type="number" step="0.001" value={form.minLevel} onChange={(e) => setForm({ ...form, minLevel: e.target.value })} /></div>
