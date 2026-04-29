@@ -456,17 +456,42 @@ export default function AdminMasterItems() {
                     </SelectContent>
                   </Select>
                 </div>
-                <GroupSubgroupPicker
-                  groups={groups}
-                  group={form.groupName}
-                  subgroup={form.subgroup}
-                  groupExtras={groupOptions}
-                  subgroupExtras={subgroupExtras}
-                  onGroupChange={handleGroupChange}
-                  onSubgroupChange={handleSubgroupChange}
-                  groupListId="item-group-options"
-                  subgroupListId="item-subgroup-options"
-                />
+                <div>
+                  <Label>Group</Label>
+                  <Select value={form.groupName} onValueChange={handleGroupChange}>
+                    <SelectTrigger>
+                      <SelectValue placeholder={groupSelectOptions.length === 0 ? "No groups defined" : "Select group"} />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {groupSelectOptions.map((g) => <SelectItem key={g} value={g}>{g}</SelectItem>)}
+                    </SelectContent>
+                  </Select>
+                  {groupSelectOptions.length === 0 && (
+                    <p className="mt-1 text-xs text-muted-foreground">
+                      Add groups under <em>Master Data → Group &amp; Hierarchy</em>.
+                    </p>
+                  )}
+                </div>
+                <div>
+                  <Label>Subgroup</Label>
+                  <Select
+                    value={form.subgroup}
+                    onValueChange={handleSubgroupChange}
+                    disabled={!form.groupName || subgroupSelectOptions.length === 0}
+                  >
+                    <SelectTrigger>
+                      <SelectValue placeholder={!form.groupName ? "Pick a group first" : subgroupSelectOptions.length === 0 ? "No subgroups defined" : "Select subgroup"} />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {subgroupSelectOptions.map((s) => <SelectItem key={s} value={s}>{s}</SelectItem>)}
+                    </SelectContent>
+                  </Select>
+                  {form.groupName && subgroupSelectOptions.length === 0 && (
+                    <p className="mt-1 text-xs text-muted-foreground">
+                      No subgroups defined for <span className="font-medium">{form.groupName}</span>. Add them under <em>Master Data → Group &amp; Hierarchy</em>.
+                    </p>
+                  )}
+                </div>
                 <div><Label>Std cost</Label><Input type="number" step="0.0001" value={form.stdCost} onChange={(e) => setForm({ ...form, stdCost: e.target.value })} /></div>
                 <div><Label>Reorder level</Label><Input type="number" step="0.001" value={form.reorderLevel} onChange={(e) => setForm({ ...form, reorderLevel: e.target.value })} /></div>
                 <div><Label>Min level</Label><Input type="number" step="0.001" value={form.minLevel} onChange={(e) => setForm({ ...form, minLevel: e.target.value })} /></div>
