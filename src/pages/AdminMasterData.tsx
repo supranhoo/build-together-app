@@ -45,7 +45,16 @@ export function resolveMasterDataTab(raw: string | null | undefined): MasterData
 
 export default function AdminMasterData() {
   const [params, setParams] = useSearchParams();
-  const active = useMemo(() => resolveMasterDataTab(params.get("md")), [params]);
+  const { isAdmin } = useWorkspace();
+  const visibleTabs = useMemo(
+    () => MASTER_DATA_TABS.filter((t) => !("adminOnly" in t && t.adminOnly) || isAdmin),
+    [isAdmin],
+  );
+  const active = useMemo(() => {
+    const raw = params.get("md");
+    const valid = visibleTabs.map((t) => t.key);
+    return (valid as readonly string[]).includes(raw ?? "") ? (raw as MasterDataTabKey) : visibleTabs[0].key;
+  }, [params, visibleTabs]);
 
   const handleChange = (next: string) => {
     setParams((current) => {
@@ -59,13 +68,13 @@ export default function AdminMasterData() {
   return (
     <Tabs value={active} onValueChange={handleChange} className="space-y-4">
       <TabsList className="flex h-auto w-full flex-wrap justify-start gap-1 bg-muted/50 p-1">
-        {MASTER_DATA_TABS.map((tab) => (
+        {visibleTabs.map((tab) => (
           <TabsTrigger key={tab.key} value={tab.key} className="data-[state=active]:bg-primary data-[state=active]:text-primary-foreground">
             {tab.label}
           </TabsTrigger>
         ))}
       </TabsList>
-      {MASTER_DATA_TABS.map(({ key, Component }) => (
+      {visibleTabs.map(({ key, Component }) => (
         <TabsContent key={key} value={key} className="mt-2">
           <Component />
         </TabsContent>
