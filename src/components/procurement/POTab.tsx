@@ -15,6 +15,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { MaterialPicker } from "@/components/MaterialPicker";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Badge } from "@/components/ui/badge";
@@ -489,19 +490,17 @@ export function POTab() {
                 <div key={l.tempId} className="grid grid-cols-12 gap-2 rounded-md border border-border bg-muted/20 p-2">
                   <div className="col-span-4">
                     <Label className="text-xs">Material</Label>
-                    <Select
+                    <MaterialPicker
+                      contextKey="procurement.po"
+                      profitCenterId={activeProfitCenter?.id ?? null}
+                      materials={materials}
                       value={l.materialId}
-                      onValueChange={(v) => {
+                      onChange={(v) => {
                         const mat = materialMap.get(v);
                         updateLine(l.tempId, { materialId: v, uom: mat?.uom ?? l.uom });
                       }}
                       disabled={mode === "from_pr"}
-                    >
-                      <SelectTrigger><SelectValue placeholder="Select" /></SelectTrigger>
-                      <SelectContent>
-                        {materials.map((m) => <SelectItem key={m.id} value={m.id}>{m.code} — {m.name}</SelectItem>)}
-                      </SelectContent>
-                    </Select>
+                    />
                   </div>
                   <div className="col-span-2">
                     <Label className="text-xs">Qty</Label>
