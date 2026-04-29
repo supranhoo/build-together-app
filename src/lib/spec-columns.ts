@@ -42,6 +42,8 @@ export const FIXED_SPEC_COLUMNS: FixedSpecColumn[] = [
   { key: "FC", unit: "%", aliases: ["fc", "fc%", "fc_pct", "fixed carbon", "fixed_carbon"] },
   { key: "VM", unit: "%", aliases: ["vm", "vm%", "vm_pct", "volatile matter", "volatile_matter"] },
   { key: "Ash", unit: "%", aliases: ["ash", "ash%", "ash_pct"] },
+  // Si added 2026-04-29 per operator spec: required on Reductant & Fluxes.
+  { key: "Si", unit: "%", aliases: ["si", "si%", "si_pct", "silicon"] },
   { key: "Size", unit: "mm", aliases: ["size", "size_mm", "size mm", "size range", "size_range"] },
 ];
 
