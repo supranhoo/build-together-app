@@ -148,7 +148,7 @@ export default function PortalCostSheet() {
     setLines((ls) => ls.map((l) => (l.id === id ? { ...l, ...patch } : l)));
 
   const handleExport = () => {
-    const rows = [
+    const summary = [
       { metric: "Variable", value: result.variable },
       { metric: "Fixed", value: result.fixed },
       { metric: "Utility", value: result.utility },
@@ -156,7 +156,24 @@ export default function PortalCostSheet() {
       { metric: "Total Net Cost", value: result.total },
       { metric: "Cost / MT", value: result.costPerMt ?? 0 },
     ];
-    exportRows(`cost-sheet-${date}`, rows);
+    const consumptionRows = lines
+      .filter((l) => l.materialId && num(l.quantity) > 0)
+      .map((l) => {
+        const item = itemById.get(l.materialId);
+        const qty = num(l.quantity);
+        const rate = item?.stdCost ?? 0;
+        return {
+          material: item ? `${item.code} — ${item.name}` : l.materialId,
+          uom: item?.uom ?? "",
+          quantity: qty,
+          rate,
+          line_cost: qty * rate,
+        };
+      });
+    exportRows(`cost-sheet-${date}`, [
+      { name: "Summary", rows: summary },
+      { name: "Consumption", rows: consumptionRows },
+    ]);
   };
 
   if (!activeProfitCenter) return null;
