@@ -857,3 +857,7 @@ Tab resolution defaults, invalid-input fallback, valid round-trip, and the canon
 
 ### Version History
 - 2026-04-29 (Phase 11): Added unified `/admin/system-control` page (7 tabs reusing existing components) plus placeholder `Workflows` and `Policies` screens. Sidebar gains a `System Control` entry. 4 new unit tests.
+
+## Maker-Checker Approvals (2026-04-30)
+
+New `pending_approvals` table queues sensitive admin actions. Edge function `admin-approve-action` executes approved payloads server-side using the service role; `admin-create-user` powers the invite flow. Frontend libs: `src/lib/approvals.ts`, `src/lib/user-roles.ts`, `src/lib/module-bulk.ts`. New page `AdminApprovals` is registered as an Approvals tab in both `AdminSettings` and `AdminSystemControl`. `AdminUsers` gains Invite + Delete (queued); `AdminRoles` gains a per-user role-assignment card; `AdminSystemLogic` gains per-row Enable-all / Disable-all bulk actions. RLS adds write policies to `user_roles` (admins → non-privileged roles; super_admins → all). Tests: `src/test/admin-approvals.test.ts` (7 cases — self-approval guard, privileged-role detection, mapping diff, bulk threshold).
