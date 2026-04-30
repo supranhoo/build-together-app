@@ -401,3 +401,8 @@
 - **No duplicated logic.** `/admin/system-control` is a UX wrapper. Every action it triggers must flow through the same component used by `/admin/settings` so RLS, audit logging, and master-data validation behave identically.
 - **Workflows and Policies tabs are read-only previews.** Maker-Checker rules require a backed `approval_workflows` schema (not yet migrated) and platform auth policies are managed by Lovable Cloud — neither may be hardcoded in the client.
 - **Sidebar exposure.** The `System Control` link is admin-only by virtue of the parent `/admin` route guard (`RequireAdmin`); no extra role check should be added in the link itself.
+
+## Si Balance (2026-04-30)
+- **No hardcoded chemistry factors.** The SiO₂→Si stoichiometric factor (`sio2ToSiFactor`, default 2.139) and `siRecoveryMinPct` (default 75) live in `profit_center_settings.production.alerts` and are admin-configurable per workspace. Calls to `siSlag()` / `siBalance()` MUST receive the factor from settings — never inline a number at the call site.
+- **Si% is per-heat manual entry, not master data.** Operators type Si% directly into the FAD ore table and into `FG Si %` / `Slag SiO₂ %` / `Dust Si %` on the Output step. Item-master Si specs are intentionally NOT pulled in — Si chemistry depends on heat-by-heat QC, not standing item specs.
+- **Mn block is unchanged.** Si is additive to the existing Live Mn Balance card; the Mn formulas, factor (1.29), and thresholds remain authoritative for Mn metallurgy.
