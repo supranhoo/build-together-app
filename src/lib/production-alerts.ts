@@ -53,5 +53,7 @@ export async function fetchProductionAlertThresholds(profitCenterId: string): Pr
     fcPerMtMax: Number.isFinite(v.fcPerMtMax) ? Number(v.fcPerMtMax) : DEFAULT_PRODUCTION_ALERTS.fcPerMtMax,
     moistureMaxPct: Number.isFinite(v.moistureMaxPct) ? Number(v.moistureMaxPct) : DEFAULT_PRODUCTION_ALERTS.moistureMaxPct,
     kwhPerMtTarget: Number.isFinite(v.kwhPerMtTarget) ? Number(v.kwhPerMtTarget) : DEFAULT_PRODUCTION_ALERTS.kwhPerMtTarget,
+    siRecoveryMinPct: Number.isFinite(v.siRecoveryMinPct) ? Number(v.siRecoveryMinPct) : DEFAULT_PRODUCTION_ALERTS.siRecoveryMinPct,
+    sio2ToSiFactor: Number.isFinite(v.sio2ToSiFactor) && Number(v.sio2ToSiFactor) > 0 ? Number(v.sio2ToSiFactor) : DEFAULT_PRODUCTION_ALERTS.sio2ToSiFactor,
   };
 }
