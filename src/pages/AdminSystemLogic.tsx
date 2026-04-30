@@ -23,6 +23,7 @@ import {
   type ModuleMapping,
 } from "@/lib/system-settings";
 import { ALLOCATION_BASES } from "@/lib/master-data";
+import { applyBulkMappings, BULK_APPROVAL_THRESHOLD, diffMappings, requiresApproval } from "@/lib/module-bulk";
 
 export default function AdminSystemLogic() {
   const { isAdmin, allProfitCenters, appModules } = useWorkspace();
