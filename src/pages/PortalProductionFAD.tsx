@@ -679,6 +679,7 @@ export default function PortalProductionFAD() {
                           <TableHead className="w-24">Moisture %</TableHead>
                           <TableHead className="w-24">Mn %</TableHead>
                           <TableHead className="w-28 bg-muted/40">Mn Input (MT)</TableHead>
+                          <TableHead className="w-24">Si % <span className="text-[10px] text-muted-foreground font-normal">(manual)</span></TableHead>
                           <TableHead className="w-10" />
                         </TableRow>
                       </TableHeader>
@@ -711,6 +712,16 @@ export default function PortalProductionFAD() {
                             </TableCell>
                             <TableCell className="bg-muted/40 text-center font-medium font-mono">{r.mnInput.toFixed(2)}</TableCell>
                             <TableCell>
+                              <Input
+                                type="number"
+                                step="0.01"
+                                value={r.siPct}
+                                onChange={(e) => updateRow(setOreRows, r.id, { siPct: Number(e.target.value) })}
+                                className="h-8 text-center font-mono px-1"
+                                placeholder="0"
+                              />
+                            </TableCell>
+                            <TableCell>
                               <Button variant="ghost" size="icon" onClick={() => removeRow(setOreRows, r.id)} className="text-destructive">
                                 <Trash2 className="h-4 w-4" />
                               </Button>
@@ -718,7 +729,7 @@ export default function PortalProductionFAD() {
                           </TableRow>
                           {err && (
                             <TableRow key={`${r.id}-err`}>
-                              <TableCell colSpan={6} className="py-1 text-xs text-destructive bg-destructive/5">
+                              <TableCell colSpan={7} className="py-1 text-xs text-destructive bg-destructive/5">
                                 <AlertTriangle className="inline h-3 w-3 mr-1" />{err}
                               </TableCell>
                             </TableRow>
@@ -729,6 +740,7 @@ export default function PortalProductionFAD() {
                         <TableRow className="bg-muted font-bold">
                           <TableCell colSpan={4} className="text-right">Total Mn Input (Dry):</TableCell>
                           <TableCell className="text-center text-primary">{calc.totalMnInput.toFixed(2)} MT</TableCell>
+                          <TableCell className="text-center text-primary">Si: {calc.totalSiInput.toFixed(2)} MT</TableCell>
                           <TableCell />
                         </TableRow>
                       </TableBody>
