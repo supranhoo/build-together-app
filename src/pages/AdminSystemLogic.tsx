@@ -199,7 +199,8 @@ export default function AdminSystemLogic() {
           <CardTitle className="flex items-center gap-2"><LayoutGrid className="h-4 w-4" /> Module mappings per Profit Center</CardTitle>
           <CardDescription>
             Enable or disable application modules for each Profit Center. Unmapped cells default to enabled.
-            Each toggle saves immediately and is audited.
+            Each toggle saves immediately and is audited. Bulk row actions of <strong>{BULK_APPROVAL_THRESHOLD}+</strong>{" "}
+            module changes are routed through maker-checker approvals.
           </CardDescription>
         </CardHeader>
         <CardContent>
@@ -215,6 +216,7 @@ export default function AdminSystemLogic() {
                 <TableHeader>
                   <TableRow>
                     <TableHead className="sticky left-0 bg-background min-w-[200px]">Profit Center</TableHead>
+                    <TableHead className="min-w-[200px]">Bulk</TableHead>
                     {sortedModules.map((m) => (
                       <TableHead key={m.id} className="text-center min-w-[120px]">
                         <div className="font-medium">{m.defaultLabel}</div>
@@ -224,23 +226,92 @@ export default function AdminSystemLogic() {
                   </TableRow>
                 </TableHeader>
                 <TableBody>
-                  {activePCs.map((pc) => (
-                    <TableRow key={pc.id}>
-                      <TableCell className="sticky left-0 bg-background font-medium">{pc.name}</TableCell>
-                      {sortedModules.map((m) => {
-                        const cellKey = `${pc.id}:${m.id}`;
-                        return (
-                          <TableCell key={m.id} className="text-center">
-                            <Switch
-                              checked={isEnabled(pc.id, m.id)}
-                              disabled={savingCell === cellKey}
-                              onCheckedChange={(v) => void handleToggle(pc.id, m.id, v)}
-                            />
-                          </TableCell>
-                        );
-                      })}
-                    </TableRow>
-                  ))}
+                  {activePCs.map((pc) => {
+                    const rowMappings: ModuleMapping[] = sortedModules.map((m) => ({
+                      profitCenterId: pc.id,
+                      moduleId: m.id,
+                      isEnabled: isEnabled(pc.id, m.id),
+                      updatedAt: "",
+                      updatedBy: null,
+                    }));
+                    const handleBulk = async (target: boolean) => {
+                      if (!session?.user) return;
+                      const desired = sortedModules.map((m) => ({ moduleId: m.id, isEnabled: target }));
+                      const changes = diffMappings(rowMappings, desired);
+                      if (changes.length === 0) {
+                        toast({ title: "No changes" });
+                        return;
+                      }
+                      try {
+                        const direct = await applyBulkMappings({
+                          profitCenterId: pc.id,
+                          changes,
+                          actorUserId: session.user.id,
+                        });
+                        await createAuditLog({
+                          actorUserId: session.user.id,
+                          profitCenterId: pc.id,
+                          entityType: "module_mapping",
+                          action: direct ? "module.bulk_applied" : "module.bulk_queued",
+                          changeSummary: { changeCount: changes.length, target },
+                        });
+                        toast({
+                          title: direct
+                            ? `Updated ${changes.length} modules`
+                            : `Queued ${changes.length} changes for approval`,
+                        });
+                        if (direct) {
+                          // Reflect locally
+                          setMappings((current) => {
+                            const next = { ...current, [pc.id]: { ...(current[pc.id] ?? {}) } };
+                            for (const c of changes) next[pc.id][c.moduleId] = c.isEnabled;
+                            return next;
+                          });
+                        }
+                      } catch (e) {
+                        toast({ title: "Bulk save failed", description: (e as Error).message, variant: "destructive" });
+                      }
+                    };
+                    const enableChanges = diffMappings(rowMappings, sortedModules.map((m) => ({ moduleId: m.id, isEnabled: true })));
+                    const disableChanges = diffMappings(rowMappings, sortedModules.map((m) => ({ moduleId: m.id, isEnabled: false })));
+                    return (
+                      <TableRow key={pc.id}>
+                        <TableCell className="sticky left-0 bg-background font-medium">{pc.name}</TableCell>
+                        <TableCell>
+                          <div className="flex gap-1">
+                            <Button
+                              size="sm"
+                              variant="outline"
+                              onClick={() => void handleBulk(true)}
+                              title={requiresApproval(enableChanges) ? "Requires approval" : undefined}
+                            >
+                              Enable all{requiresApproval(enableChanges) ? " *" : ""}
+                            </Button>
+                            <Button
+                              size="sm"
+                              variant="outline"
+                              onClick={() => void handleBulk(false)}
+                              title={requiresApproval(disableChanges) ? "Requires approval" : undefined}
+                            >
+                              Disable all{requiresApproval(disableChanges) ? " *" : ""}
+                            </Button>
+                          </div>
+                        </TableCell>
+                        {sortedModules.map((m) => {
+                          const cellKey = `${pc.id}:${m.id}`;
+                          return (
+                            <TableCell key={m.id} className="text-center">
+                              <Switch
+                                checked={isEnabled(pc.id, m.id)}
+                                disabled={savingCell === cellKey}
+                                onCheckedChange={(v) => void handleToggle(pc.id, m.id, v)}
+                              />
+                            </TableCell>
+                          );
+                        })}
+                      </TableRow>
+                    );
+                  })}
                 </TableBody>
               </Table>
             </div>
