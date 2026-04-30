@@ -274,7 +274,7 @@ export default function PortalProductionFAD() {
   }, [stockLocations, stockLocationId]);
 
   // ---- Row handlers ----
-  const addOre = () => setOreRows((r) => [...r, { id: newId(), materialId: "", qtyWetMt: 0, mnPct: 0, moisturePct: 0 }]);
+  const addOre = () => setOreRows((r) => [...r, { id: newId(), materialId: "", qtyWetMt: 0, mnPct: 0, moisturePct: 0, siPct: 0 }]);
   const addReductant = () =>
     setReductantRows((r) => [
       ...r,
