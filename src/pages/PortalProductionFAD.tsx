@@ -1011,7 +1011,10 @@ export default function PortalProductionFAD() {
                         <label className="block text-xs font-medium text-muted-foreground mb-1">FG Mn %</label>
                         <Input type="number" step="0.01" value={fgMnPct} onChange={(e) => setFgMnPct(e.target.value)} />
                       </div>
-                      <div />
+                      <div>
+                        <label className="block text-xs font-medium text-muted-foreground mb-1">FG Si %</label>
+                        <Input type="number" step="0.01" value={fgSiPct} onChange={(e) => setFgSiPct(e.target.value)} placeholder="0" />
+                      </div>
                       <div>
                         <label className="block text-xs font-medium text-muted-foreground mb-1">Slag Qty (MT)</label>
                         <Input type="number" step="0.01" value={slagQtyMt} onChange={(e) => setSlagQtyMt(e.target.value)} />
@@ -1021,7 +1024,10 @@ export default function PortalProductionFAD() {
                         <Input type="number" step="0.01" value={slagMnoPct} onChange={(e) => setSlagMnoPct(e.target.value)}
                           className={Number(slagMnoPct) > thresholds.slagMnoMaxPct ? "border-amber-500" : ""} />
                       </div>
-                      <div />
+                      <div>
+                        <label className="block text-xs font-medium text-muted-foreground mb-1">Slag SiO₂ %</label>
+                        <Input type="number" step="0.01" value={slagSio2Pct} onChange={(e) => setSlagSio2Pct(e.target.value)} placeholder="0" />
+                      </div>
                       <div>
                         <label className="block text-xs font-medium text-muted-foreground mb-1">Dust Qty (MT)</label>
                         <Input type="number" step="0.01" value={dustQtyMt} onChange={(e) => setDustQtyMt(e.target.value)} />
@@ -1029,6 +1035,10 @@ export default function PortalProductionFAD() {
                       <div>
                         <label className="block text-xs font-medium text-muted-foreground mb-1">Dust Mn %</label>
                         <Input type="number" step="0.01" value={dustMnPct} onChange={(e) => setDustMnPct(e.target.value)} />
+                      </div>
+                      <div>
+                        <label className="block text-xs font-medium text-muted-foreground mb-1">Dust Si %</label>
+                        <Input type="number" step="0.01" value={dustSiPct} onChange={(e) => setDustSiPct(e.target.value)} placeholder="0" />
                       </div>
                     </div>
                   </CardContent>
