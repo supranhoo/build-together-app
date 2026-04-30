@@ -1181,7 +1181,7 @@ export default function PortalProductionFAD() {
                     </div>
                   </div>
 
-
+                  <div className="p-4 space-y-3 border-t border-border">
                     <h4 className="text-xs font-bold border-b border-border pb-1">Reductant &amp; Fuel</h4>
                     <div className="flex justify-between text-sm">
                       <span className="text-muted-foreground">Total FC Input</span>
