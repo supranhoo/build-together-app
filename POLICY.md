@@ -45,6 +45,14 @@
 - Material consumption tied to a heat log is recorded only through the consumption flow, which automatically generates a matching ledger entry by trigger; consumption rows themselves are immutable to preserve heat-to-material traceability.
 - Negative stock is permitted operationally (real-world plants back-date receipts) but every negative balance is fully traceable through the ledger; reporting must surface negative balances for reconciliation.
 
+## Inter–Profit-Center Transfers
+- Inter-PC transfers follow a two-step request → accept/reject lifecycle. Direct ledger writes that span profit centers without a `pc_transfers` header are forbidden.
+- On request, stock is debited at the source PC immediately (`transfer_pc_out`); the material is "in transit" until the receiver decides. This prevents the same stock from being committed twice.
+- Only users with `inventory.adjustment` permission and access to the source PC may request a transfer. Only users with `inventory.receipt` permission and access to the destination PC may accept; reject requires the same permission.
+- The receiver maps the incoming stock to a material and stock location that belong to the destination PC at accept time. The server validates the mapping; cross-PC material/location references are rejected.
+- Reject and cancel post a reversing `transfer_pc_in` at the source location to return stock — the original out-row is never modified.
+- All four lifecycle actions (`request`, `accept`, `reject`, `cancel`) write an audit log entry; client code must never bypass the SECURITY DEFINER RPCs.
+
 ## KPI Reporting Governance
 - KPI formulas are configuration, not code. They live in `kpi_definitions` and must never be hardcoded in the UI or in business logic.
 - Global default KPIs (`profit_center_id IS NULL`) may be created or modified only by super admins. Workspace overrides may be created or modified by workspace admins (or super admins) for their own workspace.

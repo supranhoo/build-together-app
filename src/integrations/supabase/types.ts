@@ -2462,6 +2462,136 @@ export type Database = {
           },
         ]
       }
+      pc_transfers: {
+        Row: {
+          created_at: string
+          decided_at: string | null
+          decided_by: string | null
+          decision_notes: string | null
+          destination_material_id: string | null
+          destination_profit_center_id: string
+          destination_stock_location_id: string | null
+          id: string
+          in_ledger_id: string | null
+          out_ledger_id: string | null
+          quantity: number
+          request_notes: string | null
+          requested_by: string
+          reversal_ledger_id: string | null
+          source_material_id: string
+          source_profit_center_id: string
+          source_stock_location_id: string
+          status: string
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          decided_at?: string | null
+          decided_by?: string | null
+          decision_notes?: string | null
+          destination_material_id?: string | null
+          destination_profit_center_id: string
+          destination_stock_location_id?: string | null
+          id?: string
+          in_ledger_id?: string | null
+          out_ledger_id?: string | null
+          quantity: number
+          request_notes?: string | null
+          requested_by: string
+          reversal_ledger_id?: string | null
+          source_material_id: string
+          source_profit_center_id: string
+          source_stock_location_id: string
+          status?: string
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          decided_at?: string | null
+          decided_by?: string | null
+          decision_notes?: string | null
+          destination_material_id?: string | null
+          destination_profit_center_id?: string
+          destination_stock_location_id?: string | null
+          id?: string
+          in_ledger_id?: string | null
+          out_ledger_id?: string | null
+          quantity?: number
+          request_notes?: string | null
+          requested_by?: string
+          reversal_ledger_id?: string | null
+          source_material_id?: string
+          source_profit_center_id?: string
+          source_stock_location_id?: string
+          status?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "pc_transfers_destination_material_id_fkey"
+            columns: ["destination_material_id"]
+            isOneToOne: false
+            referencedRelation: "materials"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "pc_transfers_destination_profit_center_id_fkey"
+            columns: ["destination_profit_center_id"]
+            isOneToOne: false
+            referencedRelation: "profit_centers"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "pc_transfers_destination_stock_location_id_fkey"
+            columns: ["destination_stock_location_id"]
+            isOneToOne: false
+            referencedRelation: "stock_locations"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "pc_transfers_in_ledger_id_fkey"
+            columns: ["in_ledger_id"]
+            isOneToOne: false
+            referencedRelation: "inventory_ledger"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "pc_transfers_out_ledger_id_fkey"
+            columns: ["out_ledger_id"]
+            isOneToOne: false
+            referencedRelation: "inventory_ledger"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "pc_transfers_reversal_ledger_id_fkey"
+            columns: ["reversal_ledger_id"]
+            isOneToOne: false
+            referencedRelation: "inventory_ledger"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "pc_transfers_source_material_id_fkey"
+            columns: ["source_material_id"]
+            isOneToOne: false
+            referencedRelation: "materials"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "pc_transfers_source_profit_center_id_fkey"
+            columns: ["source_profit_center_id"]
+            isOneToOne: false
+            referencedRelation: "profit_centers"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "pc_transfers_source_stock_location_id_fkey"
+            columns: ["source_stock_location_id"]
+            isOneToOne: false
+            referencedRelation: "stock_locations"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       pending_approvals: {
         Row: {
           action_type: string
@@ -4395,6 +4525,15 @@ export type Database = {
         }
         Returns: Json
       }
+      accept_pc_transfer: {
+        Args: {
+          _decision_notes: string
+          _dest_location: string
+          _dest_material: string
+          _transfer_id: string
+        }
+        Returns: Json
+      }
       bulk_reverse_inventory_ledger: {
         Args: { _ids: string[]; _reason: string }
         Returns: Json
@@ -4418,6 +4557,10 @@ export type Database = {
       can_void_heat_log: {
         Args: { _heat_log_id: string; _user_id: string }
         Returns: boolean
+      }
+      cancel_pc_transfer: {
+        Args: { _decision_notes: string; _transfer_id: string }
+        Returns: Json
       }
       compute_kpi: {
         Args: {
@@ -4473,6 +4616,21 @@ export type Database = {
       }
       purge_test_data: {
         Args: { _batch_id?: string; _confirm: string; _pc: string }
+        Returns: Json
+      }
+      reject_pc_transfer: {
+        Args: { _decision_notes: string; _transfer_id: string }
+        Returns: Json
+      }
+      request_pc_transfer: {
+        Args: {
+          _dest_pc: string
+          _notes: string
+          _quantity: number
+          _source_location: string
+          _source_material: string
+          _source_pc: string
+        }
         Returns: Json
       }
       reverse_inventory_ledger: {

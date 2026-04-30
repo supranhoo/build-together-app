@@ -12,6 +12,7 @@ import { useToast } from "@/hooks/use-toast";
 import { supabase } from "@/integrations/supabase/client";
 import { fetchMaterials, fetchStockLocations, type Material, type StockLocation } from "@/lib/inventory";
 import { fetchPermissionGrants, userRoleAllows, type PermissionGrant } from "@/lib/permissions";
+import { InterPcTransferPanel } from "@/components/inventory/InterPcTransferPanel";
 
 const client = supabase as unknown as { from: (t: string) => any };
 
@@ -100,8 +101,9 @@ export default function PortalInventoryTransfers() {
   }
 
   return (
+    <div className="space-y-6">
     <Card className="border-border bg-card shadow-panel">
-      <CardHeader><CardTitle>Inter-location transfer</CardTitle></CardHeader>
+      <CardHeader><CardTitle>Inter-location transfer (within this PC)</CardTitle></CardHeader>
       <CardContent className="space-y-4">
         <div className="grid gap-4 sm:grid-cols-2">
           <div>
@@ -150,5 +152,7 @@ export default function PortalInventoryTransfers() {
         </div>
       </CardContent>
     </Card>
+    <InterPcTransferPanel />
+    </div>
   );
 }
