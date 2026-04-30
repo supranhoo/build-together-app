@@ -17,6 +17,7 @@ import { fetchFurnaces, fetchShifts, type Furnace, type Shift } from "@/lib/prod
 import { fetchStockLocations, type StockLocation } from "@/lib/inventory";
 import { fetchMasterItems, type MasterItem } from "@/lib/master-data";
 import { mnBalance, mnInput as mnInputCalc, type MaterialSpecLookup } from "@/lib/ferro-alloys";
+import { siBalance, siInput as siInputCalc } from "@/lib/silicon-balance";
 import { fetchProductionAlertThresholds, DEFAULT_PRODUCTION_ALERTS, type ProductionAlertThresholds } from "@/lib/production-alerts";
 import {
   classifyMaterial,
@@ -39,6 +40,8 @@ interface OreRow {
   qtyWetMt: number;
   mnPct: number;
   moisturePct: number;
+  /** Manual Si% override (per-heat). Used by the Live Si Balance. */
+  siPct: number;
 }
 
 interface ReductantRow {
@@ -243,6 +246,12 @@ export default function PortalProductionFAD() {
   const [dustQtyMt, setDustQtyMt] = useState<string>("");
   const [dustMnPct, setDustMnPct] = useState<string>(String(formulas.dustMnDefaultPct));
 
+  // Si tracking — per-heat manual entry (not pulled from item-master).
+  // SiO₂→Si factor and Si recovery threshold come from `thresholds` (admin-configurable).
+  const [fgSiPct, setFgSiPct] = useState<string>("");
+  const [slagSio2Pct, setSlagSio2Pct] = useState<string>("");
+  const [dustSiPct, setDustSiPct] = useState<string>("");
+
   const [oreRows, setOreRows] = useState<OreRow[]>([]);
   const [reductantRows, setReductantRows] = useState<ReductantRow[]>([]);
   const [fluxRows, setFluxRows] = useState<FluxRow[]>([]);
@@ -271,7 +280,7 @@ export default function PortalProductionFAD() {
   }, [stockLocations, stockLocationId]);
 
   // ---- Row handlers ----
-  const addOre = () => setOreRows((r) => [...r, { id: newId(), materialId: "", qtyWetMt: 0, mnPct: 0, moisturePct: 0 }]);
+  const addOre = () => setOreRows((r) => [...r, { id: newId(), materialId: "", qtyWetMt: 0, mnPct: 0, moisturePct: 0, siPct: 0 }]);
   const addReductant = () =>
     setReductantRows((r) => [
       ...r,
@@ -370,6 +379,22 @@ export default function PortalProductionFAD() {
 
     const totalBalance = (balance.recoveryPct ?? 0) + (balance.slagLossPct ?? 0) + (balance.dustLossPct ?? 0) + (balance.diffLossPct ?? 0);
 
+    // ---- Si balance (per-heat manual Si% inputs; factor from admin settings) ----
+    const totalSiInput = siInputCalc(
+      oreRows.map((r) => ({ qty: r.qtyWetMt, siPct: r.siPct, moisturePct: r.moisturePct })),
+    );
+    const siBal = siBalance({
+      inputSi: totalSiInput,
+      productionMt: prod,
+      fgSiPct: Number(fgSiPct) || 0,
+      slagQty: Number(slagQtyMt) || 0,
+      slagSio2Pct: Number(slagSio2Pct) || 0,
+      dustQty: Number(dustQtyMt) || 0,
+      dustSiPct: Number(dustSiPct) || 0,
+      sio2ToSiFactor: thresholds.sio2ToSiFactor,
+    });
+    const totalSiBalance = (siBal.recoveryPct ?? 0) + (siBal.slagLossPct ?? 0) + (siBal.dustLossPct ?? 0) + (siBal.diffLossPct ?? 0);
+
     return {
       oreResults,
       totalMnInput,
@@ -385,8 +410,11 @@ export default function PortalProductionFAD() {
       pastePerMT,
       balance,
       totalBalance,
+      totalSiInput,
+      siBal,
+      totalSiBalance,
     };
-  }, [oreRows, reductantRows, fluxRows, pasteRows, productionMt, fgMnPct, slagQtyMt, slagMnoPct, dustQtyMt, dustMnPct]);
+  }, [oreRows, reductantRows, fluxRows, pasteRows, productionMt, fgMnPct, slagQtyMt, slagMnoPct, dustQtyMt, dustMnPct, fgSiPct, slagSio2Pct, dustSiPct, thresholds.sio2ToSiFactor]);
 
   // ---- Submit ----
   const totalPower = useMemo(() => {
@@ -651,6 +679,7 @@ export default function PortalProductionFAD() {
                           <TableHead className="w-24">Moisture %</TableHead>
                           <TableHead className="w-24">Mn %</TableHead>
                           <TableHead className="w-28 bg-muted/40">Mn Input (MT)</TableHead>
+                          <TableHead className="w-24">Si % <span className="text-[10px] text-muted-foreground font-normal">(manual)</span></TableHead>
                           <TableHead className="w-10" />
                         </TableRow>
                       </TableHeader>
@@ -683,6 +712,16 @@ export default function PortalProductionFAD() {
                             </TableCell>
                             <TableCell className="bg-muted/40 text-center font-medium font-mono">{r.mnInput.toFixed(2)}</TableCell>
                             <TableCell>
+                              <Input
+                                type="number"
+                                step="0.01"
+                                value={r.siPct}
+                                onChange={(e) => updateRow(setOreRows, r.id, { siPct: Number(e.target.value) })}
+                                className="h-8 text-center font-mono px-1"
+                                placeholder="0"
+                              />
+                            </TableCell>
+                            <TableCell>
                               <Button variant="ghost" size="icon" onClick={() => removeRow(setOreRows, r.id)} className="text-destructive">
                                 <Trash2 className="h-4 w-4" />
                               </Button>
@@ -690,7 +729,7 @@ export default function PortalProductionFAD() {
                           </TableRow>
                           {err && (
                             <TableRow key={`${r.id}-err`}>
-                              <TableCell colSpan={6} className="py-1 text-xs text-destructive bg-destructive/5">
+                              <TableCell colSpan={7} className="py-1 text-xs text-destructive bg-destructive/5">
                                 <AlertTriangle className="inline h-3 w-3 mr-1" />{err}
                               </TableCell>
                             </TableRow>
@@ -701,6 +740,7 @@ export default function PortalProductionFAD() {
                         <TableRow className="bg-muted font-bold">
                           <TableCell colSpan={4} className="text-right">Total Mn Input (Dry):</TableCell>
                           <TableCell className="text-center text-primary">{calc.totalMnInput.toFixed(2)} MT</TableCell>
+                          <TableCell className="text-center text-primary">Si: {calc.totalSiInput.toFixed(2)} MT</TableCell>
                           <TableCell />
                         </TableRow>
                       </TableBody>
@@ -971,7 +1011,10 @@ export default function PortalProductionFAD() {
                         <label className="block text-xs font-medium text-muted-foreground mb-1">FG Mn %</label>
                         <Input type="number" step="0.01" value={fgMnPct} onChange={(e) => setFgMnPct(e.target.value)} />
                       </div>
-                      <div />
+                      <div>
+                        <label className="block text-xs font-medium text-muted-foreground mb-1">FG Si %</label>
+                        <Input type="number" step="0.01" value={fgSiPct} onChange={(e) => setFgSiPct(e.target.value)} placeholder="0" />
+                      </div>
                       <div>
                         <label className="block text-xs font-medium text-muted-foreground mb-1">Slag Qty (MT)</label>
                         <Input type="number" step="0.01" value={slagQtyMt} onChange={(e) => setSlagQtyMt(e.target.value)} />
@@ -981,7 +1024,10 @@ export default function PortalProductionFAD() {
                         <Input type="number" step="0.01" value={slagMnoPct} onChange={(e) => setSlagMnoPct(e.target.value)}
                           className={Number(slagMnoPct) > thresholds.slagMnoMaxPct ? "border-amber-500" : ""} />
                       </div>
-                      <div />
+                      <div>
+                        <label className="block text-xs font-medium text-muted-foreground mb-1">Slag SiO₂ %</label>
+                        <Input type="number" step="0.01" value={slagSio2Pct} onChange={(e) => setSlagSio2Pct(e.target.value)} placeholder="0" />
+                      </div>
                       <div>
                         <label className="block text-xs font-medium text-muted-foreground mb-1">Dust Qty (MT)</label>
                         <Input type="number" step="0.01" value={dustQtyMt} onChange={(e) => setDustQtyMt(e.target.value)} />
@@ -989,6 +1035,10 @@ export default function PortalProductionFAD() {
                       <div>
                         <label className="block text-xs font-medium text-muted-foreground mb-1">Dust Mn %</label>
                         <Input type="number" step="0.01" value={dustMnPct} onChange={(e) => setDustMnPct(e.target.value)} />
+                      </div>
+                      <div>
+                        <label className="block text-xs font-medium text-muted-foreground mb-1">Dust Si %</label>
+                        <Input type="number" step="0.01" value={dustSiPct} onChange={(e) => setDustSiPct(e.target.value)} placeholder="0" />
                       </div>
                     </div>
                   </CardContent>
@@ -1062,6 +1112,72 @@ export default function PortalProductionFAD() {
                     <div className="pt-3 flex justify-between items-center text-xs text-muted-foreground border-t border-border">
                       <span>Balance check (~100%)</span>
                       <span className="font-mono font-bold">{calc.totalBalance.toFixed(1)}%</span>
+                    </div>
+                  </div>
+
+                  {/* Live Si Balance — mirror of Mn block; factor from admin settings (no hardcode) */}
+                  <div className="p-4 space-y-2 border-t border-border">
+                    <div className="flex items-center justify-between">
+                      <h4 className="text-xs font-bold">Live Si Balance</h4>
+                      <span className="text-[10px] text-muted-foreground font-mono" title="SiO₂→Si stoichiometric factor (admin-configurable)">
+                        factor: {thresholds.sio2ToSiFactor.toFixed(3)}
+                      </span>
+                    </div>
+                    <div className="flex justify-between text-sm">
+                      <span className="text-muted-foreground">Total Si Input</span>
+                      <span className="font-mono font-medium">{calc.totalSiInput.toFixed(2)} MT</span>
+                    </div>
+                    <div className="flex justify-between text-sm">
+                      <span className="text-muted-foreground">Metal Si Output</span>
+                      <span className="font-mono font-medium">{calc.siBal.metalSi.toFixed(2)} MT</span>
+                    </div>
+                    <div className="flex justify-between text-sm">
+                      <span className="text-amber-600">Slag Si Output</span>
+                      <span className="font-mono font-medium">{calc.siBal.slagSi.toFixed(2)} MT</span>
+                    </div>
+                    <div className="flex justify-between text-sm">
+                      <span className="text-muted-foreground">Dust Si Output</span>
+                      <span className="font-mono font-medium">{calc.siBal.dustSi.toFixed(2)} MT</span>
+                    </div>
+                    <div className="flex justify-between pt-2 border-t border-border font-bold">
+                      <span>Total Si Output</span>
+                      <span className="font-mono">{calc.siBal.totalOutputSi.toFixed(2)} MT</span>
+                    </div>
+                  </div>
+
+                  <div className="p-4 bg-muted/30 space-y-3">
+                    <div>
+                      <div className="flex justify-between items-end mb-1">
+                        <span className="text-sm font-bold">Si Recovery</span>
+                        <span className={`font-mono text-xl ${recoveryColor(calc.siBal.recoveryPct, thresholds.siRecoveryMinPct)}`}>
+                          {calc.siBal.recoveryPct === null ? "—" : `${calc.siBal.recoveryPct.toFixed(2)}%`}
+                        </span>
+                      </div>
+                      {calc.siBal.recoveryPct !== null && calc.siBal.recoveryPct > 0 && calc.siBal.recoveryPct < thresholds.siRecoveryMinPct && (
+                        <p className="text-xs text-destructive flex items-center mt-1">
+                          <AlertTriangle className="h-3 w-3 mr-1" /> Low Si recovery (&lt;{thresholds.siRecoveryMinPct}%)
+                        </p>
+                      )}
+                    </div>
+                    <div className="grid grid-cols-2 gap-4 pt-2">
+                      <div>
+                        <span className="block text-xs text-muted-foreground mb-1">Si Slag Loss</span>
+                        <span className="font-mono text-sm font-medium text-amber-600">{(calc.siBal.slagLossPct ?? 0).toFixed(2)}%</span>
+                      </div>
+                      <div>
+                        <span className="block text-xs text-muted-foreground mb-1">Si Dust Loss</span>
+                        <span className="font-mono text-sm font-medium">{(calc.siBal.dustLossPct ?? 0).toFixed(2)}%</span>
+                      </div>
+                      <div className="col-span-2">
+                        <span className="block text-xs text-muted-foreground mb-1">Diffusion / Unaccounted</span>
+                        <span className={`font-mono text-sm font-medium ${(calc.siBal.diffLossPct ?? 0) > 5 ? "text-destructive" : ""}`}>
+                          {(calc.siBal.diffLossPct ?? 0).toFixed(2)}%
+                        </span>
+                      </div>
+                    </div>
+                    <div className="pt-3 flex justify-between items-center text-xs text-muted-foreground border-t border-border">
+                      <span>Si balance check (~100%)</span>
+                      <span className="font-mono font-bold">{calc.totalSiBalance.toFixed(1)}%</span>
                     </div>
                   </div>
 

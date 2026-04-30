@@ -18,6 +18,10 @@ export interface ProductionAlertThresholds {
   moistureMaxPct: number;
   /** kWh/MT above this → energy "high" status; within +5% → "near limit". */
   kwhPerMtTarget: number;
+  /** Si recovery % below this → red alert (SiMn / FeSi heats). */
+  siRecoveryMinPct: number;
+  /** SiO₂→Si stoichiometric factor (admin-configurable; default 2.139). */
+  sio2ToSiFactor: number;
 }
 
 export const DEFAULT_PRODUCTION_ALERTS: ProductionAlertThresholds = {
@@ -26,6 +30,8 @@ export const DEFAULT_PRODUCTION_ALERTS: ProductionAlertThresholds = {
   fcPerMtMax: 0.45,
   moistureMaxPct: 15,
   kwhPerMtTarget: 4000,
+  siRecoveryMinPct: 75,
+  sio2ToSiFactor: 2.139,
 };
 
 const client = supabase as unknown as { from: (t: string) => any };
@@ -47,5 +53,7 @@ export async function fetchProductionAlertThresholds(profitCenterId: string): Pr
     fcPerMtMax: Number.isFinite(v.fcPerMtMax) ? Number(v.fcPerMtMax) : DEFAULT_PRODUCTION_ALERTS.fcPerMtMax,
     moistureMaxPct: Number.isFinite(v.moistureMaxPct) ? Number(v.moistureMaxPct) : DEFAULT_PRODUCTION_ALERTS.moistureMaxPct,
     kwhPerMtTarget: Number.isFinite(v.kwhPerMtTarget) ? Number(v.kwhPerMtTarget) : DEFAULT_PRODUCTION_ALERTS.kwhPerMtTarget,
+    siRecoveryMinPct: Number.isFinite(v.siRecoveryMinPct) ? Number(v.siRecoveryMinPct) : DEFAULT_PRODUCTION_ALERTS.siRecoveryMinPct,
+    sio2ToSiFactor: Number.isFinite(v.sio2ToSiFactor) && Number(v.sio2ToSiFactor) > 0 ? Number(v.sio2ToSiFactor) : DEFAULT_PRODUCTION_ALERTS.sio2ToSiFactor,
   };
 }
