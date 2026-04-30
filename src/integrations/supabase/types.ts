@@ -2462,6 +2462,56 @@ export type Database = {
           },
         ]
       }
+      pending_approvals: {
+        Row: {
+          action_type: string
+          created_at: string
+          decided_at: string | null
+          decided_by: string | null
+          decision_note: string | null
+          id: string
+          payload: Json
+          profit_center_id: string | null
+          requested_by: string
+          status: string
+          updated_at: string
+        }
+        Insert: {
+          action_type: string
+          created_at?: string
+          decided_at?: string | null
+          decided_by?: string | null
+          decision_note?: string | null
+          id?: string
+          payload: Json
+          profit_center_id?: string | null
+          requested_by: string
+          status?: string
+          updated_at?: string
+        }
+        Update: {
+          action_type?: string
+          created_at?: string
+          decided_at?: string | null
+          decided_by?: string | null
+          decision_note?: string | null
+          id?: string
+          payload?: Json
+          profit_center_id?: string | null
+          requested_by?: string
+          status?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "pending_approvals_profit_center_id_fkey"
+            columns: ["profit_center_id"]
+            isOneToOne: false
+            referencedRelation: "profit_centers"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       permission_grants: {
         Row: {
           action: string
@@ -2626,6 +2676,7 @@ export type Database = {
           department: string | null
           display_name: string | null
           id: string
+          is_active: boolean
           job_title: string | null
           updated_at: string
           user_id: string
@@ -2636,6 +2687,7 @@ export type Database = {
           department?: string | null
           display_name?: string | null
           id?: string
+          is_active?: boolean
           job_title?: string | null
           updated_at?: string
           user_id: string
@@ -2646,6 +2698,7 @@ export type Database = {
           department?: string | null
           display_name?: string | null
           id?: string
+          is_active?: boolean
           job_title?: string | null
           updated_at?: string
           user_id?: string

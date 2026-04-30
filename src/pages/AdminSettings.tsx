@@ -15,6 +15,7 @@ import AdminRoles from "./AdminRoles";
 import AdminAudit from "./AdminAudit";
 import AdminUsers from "./AdminUsers";
 import AdminSystemLogic from "./AdminSystemLogic";
+import AdminApprovals from "./AdminApprovals";
 
 /**
  * Admin Settings tabs — single entry point that hosts every administrative
@@ -40,6 +41,7 @@ export const ADMIN_SETTINGS_TABS = [
   { key: "kpis", label: "KPIs", Component: AdminKpis },
   { key: "report-deliveries", label: "Report Deliveries", Component: AdminReportDeliveries },
   { key: "roles", label: "Roles & Permissions", Component: AdminRoles },
+  { key: "approvals", label: "Approvals", Component: AdminApprovals },
   { key: "audit", label: "Audit", Component: AdminAudit },
 ] as const;
 
