@@ -20,6 +20,7 @@ import AdminSystemLogic from "./AdminSystemLogic";
 import AdminWorkflows from "./AdminWorkflows";
 import AdminAudit from "./AdminAudit";
 import AdminPolicies from "./AdminPolicies";
+import AdminApprovals from "./AdminApprovals";
 
 /**
  * Unified System Control page — single landing pad that mirrors the uploaded
@@ -41,6 +42,7 @@ export const SYSTEM_CONTROL_TABS = [
   { key: "rbac", label: "RBAC/ABAC", Icon: Key, Component: AdminRoles },
   { key: "profit-centers", label: "PC Dashboard", Icon: Building2, Component: AdminWorkspaces },
   { key: "pc-settings", label: "PC Settings", Icon: Settings2, Component: AdminSystemLogic },
+  { key: "approvals", label: "Approvals", Icon: ShieldCheck, Component: AdminApprovals },
   { key: "workflows", label: "Workflows", Icon: GitMerge, Component: AdminWorkflows },
   { key: "audit", label: "Audit Logs", Icon: Activity, Component: AdminAudit },
   { key: "security", label: "Policies", Icon: Lock, Component: AdminPolicies },
