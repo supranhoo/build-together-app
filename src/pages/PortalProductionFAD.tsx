@@ -379,6 +379,22 @@ export default function PortalProductionFAD() {
 
     const totalBalance = (balance.recoveryPct ?? 0) + (balance.slagLossPct ?? 0) + (balance.dustLossPct ?? 0) + (balance.diffLossPct ?? 0);
 
+    // ---- Si balance (per-heat manual Si% inputs; factor from admin settings) ----
+    const totalSiInput = siInputCalc(
+      oreRows.map((r) => ({ qty: r.qtyWetMt, siPct: r.siPct, moisturePct: r.moisturePct })),
+    );
+    const siBal = siBalance({
+      inputSi: totalSiInput,
+      productionMt: prod,
+      fgSiPct: Number(fgSiPct) || 0,
+      slagQty: Number(slagQtyMt) || 0,
+      slagSio2Pct: Number(slagSio2Pct) || 0,
+      dustQty: Number(dustQtyMt) || 0,
+      dustSiPct: Number(dustSiPct) || 0,
+      sio2ToSiFactor: thresholds.sio2ToSiFactor,
+    });
+    const totalSiBalance = (siBal.recoveryPct ?? 0) + (siBal.slagLossPct ?? 0) + (siBal.dustLossPct ?? 0) + (siBal.diffLossPct ?? 0);
+
     return {
       oreResults,
       totalMnInput,
@@ -394,8 +410,11 @@ export default function PortalProductionFAD() {
       pastePerMT,
       balance,
       totalBalance,
+      totalSiInput,
+      siBal,
+      totalSiBalance,
     };
-  }, [oreRows, reductantRows, fluxRows, pasteRows, productionMt, fgMnPct, slagQtyMt, slagMnoPct, dustQtyMt, dustMnPct]);
+  }, [oreRows, reductantRows, fluxRows, pasteRows, productionMt, fgMnPct, slagQtyMt, slagMnoPct, dustQtyMt, dustMnPct, fgSiPct, slagSio2Pct, dustSiPct, thresholds.sio2ToSiFactor]);
 
   // ---- Submit ----
   const totalPower = useMemo(() => {
