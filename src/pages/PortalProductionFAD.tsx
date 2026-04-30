@@ -1115,7 +1115,73 @@ export default function PortalProductionFAD() {
                     </div>
                   </div>
 
-                  <div className="p-4 space-y-3 border-t border-border">
+                  {/* Live Si Balance — mirror of Mn block; factor from admin settings (no hardcode) */}
+                  <div className="p-4 space-y-2 border-t border-border">
+                    <div className="flex items-center justify-between">
+                      <h4 className="text-xs font-bold">Live Si Balance</h4>
+                      <span className="text-[10px] text-muted-foreground font-mono" title="SiO₂→Si stoichiometric factor (admin-configurable)">
+                        factor: {thresholds.sio2ToSiFactor.toFixed(3)}
+                      </span>
+                    </div>
+                    <div className="flex justify-between text-sm">
+                      <span className="text-muted-foreground">Total Si Input</span>
+                      <span className="font-mono font-medium">{calc.totalSiInput.toFixed(2)} MT</span>
+                    </div>
+                    <div className="flex justify-between text-sm">
+                      <span className="text-muted-foreground">Metal Si Output</span>
+                      <span className="font-mono font-medium">{calc.siBal.metalSi.toFixed(2)} MT</span>
+                    </div>
+                    <div className="flex justify-between text-sm">
+                      <span className="text-amber-600">Slag Si Output</span>
+                      <span className="font-mono font-medium">{calc.siBal.slagSi.toFixed(2)} MT</span>
+                    </div>
+                    <div className="flex justify-between text-sm">
+                      <span className="text-muted-foreground">Dust Si Output</span>
+                      <span className="font-mono font-medium">{calc.siBal.dustSi.toFixed(2)} MT</span>
+                    </div>
+                    <div className="flex justify-between pt-2 border-t border-border font-bold">
+                      <span>Total Si Output</span>
+                      <span className="font-mono">{calc.siBal.totalOutputSi.toFixed(2)} MT</span>
+                    </div>
+                  </div>
+
+                  <div className="p-4 bg-muted/30 space-y-3">
+                    <div>
+                      <div className="flex justify-between items-end mb-1">
+                        <span className="text-sm font-bold">Si Recovery</span>
+                        <span className={`font-mono text-xl ${recoveryColor(calc.siBal.recoveryPct, thresholds.siRecoveryMinPct)}`}>
+                          {calc.siBal.recoveryPct === null ? "—" : `${calc.siBal.recoveryPct.toFixed(2)}%`}
+                        </span>
+                      </div>
+                      {calc.siBal.recoveryPct !== null && calc.siBal.recoveryPct > 0 && calc.siBal.recoveryPct < thresholds.siRecoveryMinPct && (
+                        <p className="text-xs text-destructive flex items-center mt-1">
+                          <AlertTriangle className="h-3 w-3 mr-1" /> Low Si recovery (&lt;{thresholds.siRecoveryMinPct}%)
+                        </p>
+                      )}
+                    </div>
+                    <div className="grid grid-cols-2 gap-4 pt-2">
+                      <div>
+                        <span className="block text-xs text-muted-foreground mb-1">Si Slag Loss</span>
+                        <span className="font-mono text-sm font-medium text-amber-600">{(calc.siBal.slagLossPct ?? 0).toFixed(2)}%</span>
+                      </div>
+                      <div>
+                        <span className="block text-xs text-muted-foreground mb-1">Si Dust Loss</span>
+                        <span className="font-mono text-sm font-medium">{(calc.siBal.dustLossPct ?? 0).toFixed(2)}%</span>
+                      </div>
+                      <div className="col-span-2">
+                        <span className="block text-xs text-muted-foreground mb-1">Diffusion / Unaccounted</span>
+                        <span className={`font-mono text-sm font-medium ${(calc.siBal.diffLossPct ?? 0) > 5 ? "text-destructive" : ""}`}>
+                          {(calc.siBal.diffLossPct ?? 0).toFixed(2)}%
+                        </span>
+                      </div>
+                    </div>
+                    <div className="pt-3 flex justify-between items-center text-xs text-muted-foreground border-t border-border">
+                      <span>Si balance check (~100%)</span>
+                      <span className="font-mono font-bold">{calc.totalSiBalance.toFixed(1)}%</span>
+                    </div>
+                  </div>
+
+
                     <h4 className="text-xs font-bold border-b border-border pb-1">Reductant &amp; Fuel</h4>
                     <div className="flex justify-between text-sm">
                       <span className="text-muted-foreground">Total FC Input</span>
