@@ -246,6 +246,12 @@ export default function PortalProductionFAD() {
   const [dustQtyMt, setDustQtyMt] = useState<string>("");
   const [dustMnPct, setDustMnPct] = useState<string>(String(formulas.dustMnDefaultPct));
 
+  // Si tracking — per-heat manual entry (not pulled from item-master).
+  // SiO₂→Si factor and Si recovery threshold come from `thresholds` (admin-configurable).
+  const [fgSiPct, setFgSiPct] = useState<string>("");
+  const [slagSio2Pct, setSlagSio2Pct] = useState<string>("");
+  const [dustSiPct, setDustSiPct] = useState<string>("");
+
   const [oreRows, setOreRows] = useState<OreRow[]>([]);
   const [reductantRows, setReductantRows] = useState<ReductantRow[]>([]);
   const [fluxRows, setFluxRows] = useState<FluxRow[]>([]);
