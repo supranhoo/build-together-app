@@ -26,7 +26,7 @@ import {
 type RuleType = PermissionRule["type"];
 
 export default function AdminRoles() {
-  const { isSuperAdmin } = useWorkspace();
+  const { isAdmin, isSuperAdmin, manageableProfiles } = useWorkspace();
   const { session } = useAuth();
   const { toast } = useToast();
   const [grants, setGrants] = useState<PermissionGrant[]>([]);
@@ -36,8 +36,16 @@ export default function AdminRoles() {
   const [isActive, setIsActive] = useState(true);
   const [saving, setSaving] = useState(false);
 
+  const [userRoles, setUserRoles] = useState<UserRoleRow[]>([]);
+  const [assignBusy, setAssignBusy] = useState<string | null>(null);
+  const [pickRole, setPickRole] = useState<Record<string, AppRole>>({});
+
   const load = async () => setGrants(await fetchPermissionGrants());
-  useEffect(() => { void load(); }, []);
+  const loadUserRoles = async () => {
+    try { setUserRoles(await listUserRoles()); } catch { /* RLS may block non-admins; tolerate */ }
+  };
+  useEffect(() => { void load(); void loadUserRoles(); }, []);
+
 
   const grouped = useMemo(() => {
     const map = new Map<string, PermissionGrant[]>();
