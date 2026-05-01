@@ -32,12 +32,6 @@ const forgotPasswordSchema = z.object({
 type SignInValues = z.infer<typeof signInSchema>;
 type ForgotPasswordValues = z.infer<typeof forgotPasswordSchema>;
 
-const highlights = [
-  "Live floor visibility for plant teams",
-  "Authenticated employee access with profile records",
-  "Prepared workspaces for inventory, production, and reports",
-];
-
 const RESET_COOLDOWN_SECONDS = 60;
 
 export default function Login() {
