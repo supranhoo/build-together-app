@@ -32,12 +32,6 @@ const forgotPasswordSchema = z.object({
 type SignInValues = z.infer<typeof signInSchema>;
 type ForgotPasswordValues = z.infer<typeof forgotPasswordSchema>;
 
-const highlights = [
-  "Live floor visibility for plant teams",
-  "Authenticated employee access with profile records",
-  "Prepared workspaces for inventory, production, and reports",
-];
-
 const RESET_COOLDOWN_SECONDS = 60;
 
 export default function Login() {
@@ -150,22 +144,7 @@ export default function Login() {
               </div>
             </div>
 
-            <div className="max-w-2xl pb-10">
-              <p className="text-sm font-semibold uppercase tracking-[0.28em] text-primary">Industrial enterprise access</p>
-              <h1 className="mt-5 max-w-3xl text-6xl font-semibold leading-[0.92] text-white text-balance">
-                Plant intelligence from furnace floor to management report.
-              </h1>
-              <p className="mt-6 max-w-xl text-lg leading-8 text-white/76">
-                SteelFlow ERP gives BFCL teams a secure front door for operating inventory, production, and reporting with the discipline of a steel plant control room.
-              </p>
-              <div className="mt-10 grid gap-3 sm:grid-cols-3">
-                {highlights.map((item) => (
-                  <div key={item} className="rounded-md border border-white/10 bg-white/5 px-4 py-4 text-sm leading-6 text-white/84 backdrop-blur-sm">
-                    {item}
-                  </div>
-                ))}
-              </div>
-            </div>
+<div className="max-w-2xl pb-10" />
           </div>
         </section>
 
