@@ -660,10 +660,11 @@ Per user decision (2026-04-26), every KPI tile rendered via `<AccentKpiCard />` 
 
 **Lazy migration** — Existing items keep their stored JSON. `specsObjectToRows` converts the object into editor rows on open; primitives become string values, nested objects are stringified. Per-row metadata (`required`, `numeric`, `min`, `max`) is **not** persisted in `materials.specs` (the schema has no place to store it without a new table) and therefore resets to `false`/empty on next reopen. This is intentional — the editor is a UX layer over the same storage shape.
 
-**CSV bulk upload/export unchanged** — `src/lib/master-items-csv.ts` continues to use a single `specs_json` column. Round-trip via CSV is lossless for keys/values; per-row constraints set in the editor are not exported (they are not persisted).
+**CSV bulk upload/export — per-spec columns (2026-05-02)** — `src/lib/master-items-csv.ts` exposes one explicit column per `FIXED_SPEC_COLUMNS` entry (Mn, Moisture, Fe, SiO2, CaO, Al2O3, MgO, P, S, FC, VM, Ash, Si, Size) instead of a single `specs_json` blob. Operators fill one cell per spec value; the importer parses each as a number (Size also accepts range strings like "10-30"). Custom/non-standard spec keys are no longer supported via CSV — they must be added in the Item Master editor. Per-row constraints (required/min/max) live in Spec Templates and are not exported.
 
 ### Version History
 - 2026-04-26 (Item Master Specs editor): replaced free-form JSON textarea with structured rows editor (`SpecsEditor`) + strict required + numeric range validation. Added 14 unit tests covering migration, validation, and serialization. 414/414 passing.
+- 2026-05-02 (Item Master CSV): replaced single `specs_json` column with one column per standard spec (`FIXED_SPEC_COLUMNS`). Template, Export, and Bulk upload all use the new layout. Custom keys no longer round-trip through CSV. Tests rewritten (14 passing).
 
 ## Specifications Master — Spec Templates per Nature (2026-04-26, updated 2026-04-27)
 
