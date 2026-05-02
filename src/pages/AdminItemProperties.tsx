@@ -403,27 +403,33 @@ function GroupMappingCard({
           </div>
           <div>
             <Label>Group</Label>
-            <Input
-              value={groupName}
-              onChange={(e) => setGroupName(e.target.value)}
-              list="prop-map-group-options"
-              placeholder="ORE, REDUCTANT…"
-            />
-            <datalist id="prop-map-group-options">
-              {groupOptions.map((g) => <option key={g} value={g} />)}
-            </datalist>
+            <Select
+              value={groupName || undefined}
+              onValueChange={(v) => { setGroupName(v); setSubgroup(""); }}
+            >
+              <SelectTrigger>
+                <SelectValue placeholder={groupOptions.length ? "Select group" : "No groups defined"} />
+              </SelectTrigger>
+              <SelectContent>
+                {groupOptions.map((g) => <SelectItem key={g} value={g}>{g}</SelectItem>)}
+              </SelectContent>
+            </Select>
           </div>
           <div>
             <Label>Subgroup (blank = group default)</Label>
-            <Input
-              value={subgroup}
-              onChange={(e) => setSubgroup(e.target.value)}
-              list="prop-map-subgroup-options"
-              placeholder={groupName ? "SINTER, COKE…" : "Pick a group first"}
-            />
-            <datalist id="prop-map-subgroup-options">
-              {subgroupOptions.map((s) => <option key={s} value={s} />)}
-            </datalist>
+            <Select
+              value={subgroup === "" ? "__default__" : subgroup}
+              onValueChange={(v) => setSubgroup(v === "__default__" ? "" : v)}
+              disabled={!groupName}
+            >
+              <SelectTrigger>
+                <SelectValue placeholder={groupName ? "Group default" : "Pick a group first"} />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="__default__">Group default (all subgroups)</SelectItem>
+                {subgroupOptions.map((s) => <SelectItem key={s} value={s}>{s}</SelectItem>)}
+              </SelectContent>
+            </Select>
           </div>
         </div>
 
