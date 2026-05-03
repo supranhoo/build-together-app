@@ -91,7 +91,9 @@ export function buildItemTemplateRows(): string[][] {
 export interface ParsedItemRow {
   /** 1-based source row number including the header (so `2` = first data row). */
   rowNumber: number;
-  input: Omit<UpsertItemInput, "profitCenterId">;
+  /** Code is assigned by the page layer (system-generated), so the parser
+   *  intentionally omits it from `input`. */
+  input: Omit<UpsertItemInput, "profitCenterId" | "code">;
 }
 
 export interface ParsedItemError {
@@ -110,6 +112,11 @@ export interface ParseItemCsvResult {
  * Validation is intentionally strict but per-row: one bad row never aborts
  * the whole batch — we collect every problem so the user can fix the file
  * once and re-upload.
+ *
+ * Item codes are NOT read from CSV — they are assigned by
+ * `nextItemCodeBatch()` after parsing succeeds. Min/Max/Reorder thresholds
+ * are also no longer accepted from CSV: they are derived from the
+ * production plan + Standard BOM (see `inventory-min-max.ts`).
  */
 export function parseItemCsv(rawRows: string[][]): ParseItemCsvResult {
   const result: ParseItemCsvResult = { rows: [], errors: [] };
@@ -122,12 +129,15 @@ export function parseItemCsv(rawRows: string[][]): ParseItemCsvResult {
   const indexOf = (name: string) => header.indexOf(name.toLowerCase());
 
   // Required: base headers (minus subgroup) and the trailing is_active.
-  // Optional: subgroup and every spec column — operators may omit columns
-  // they don't care about for a given material category.
   const requiredHeaders = ITEM_CSV_BASE_HEADERS.filter((h) => h !== "subgroup");
   const missing = requiredHeaders.filter((h) => indexOf(h) === -1);
   if (missing.length > 0) {
     result.errors.push({ rowNumber: 1, message: `Missing required column(s): ${missing.join(", ")}` });
+    return result;
+  }
+  // Reject legacy uploads that still try to set `code` manually.
+  if (indexOf("code") !== -1) {
+    result.errors.push({ rowNumber: 1, message: "code column is not allowed — item codes are system-assigned. Remove the column and re-upload." });
     return result;
   }
 
@@ -139,11 +149,9 @@ export function parseItemCsv(rawRows: string[][]): ParseItemCsvResult {
       return idx === -1 ? "" : (cells[idx] ?? "").trim();
     };
 
-    const code = get("code");
     const name = get("name");
     const isLineBlank = cells.every((c) => (c ?? "").trim() === "");
     if (isLineBlank) continue; // silently skip fully blank lines
-    if (!code) { result.errors.push({ rowNumber, message: "code is required" }); continue; }
     if (!name) { result.errors.push({ rowNumber, message: "name is required" }); continue; }
 
     const typeRaw = get("type");
@@ -159,11 +167,8 @@ export function parseItemCsv(rawRows: string[][]): ParseItemCsvResult {
 
     const uom = get("uom") || "kg";
     const stdCost = parseOptionalNumber(get("std_cost"));
-    const minLevel = parseOptionalNumber(get("min_level"));
-    const maxLevel = parseOptionalNumber(get("max_level"));
-    const reorderLevel = parseOptionalNumber(get("reorder_level"));
-    if (stdCost === "invalid" || minLevel === "invalid" || maxLevel === "invalid" || reorderLevel === "invalid") {
-      result.errors.push({ rowNumber, message: "numeric column has a non-number value" });
+    if (stdCost === "invalid") {
+      result.errors.push({ rowNumber, message: "std_cost has a non-number value" });
       continue;
     }
 
@@ -197,7 +202,6 @@ export function parseItemCsv(rawRows: string[][]): ParseItemCsvResult {
     result.rows.push({
       rowNumber,
       input: {
-        code,
         name,
         type,
         groupName: get("group_name") || null,
@@ -205,9 +209,11 @@ export function parseItemCsv(rawRows: string[][]): ParseItemCsvResult {
         uom,
         stdCost: stdCost as number | null,
         specs,
-        minLevel: minLevel as number | null,
-        maxLevel: maxLevel as number | null,
-        reorderLevel: reorderLevel as number | null,
+        // Min/Max/Reorder are now plan-derived; the parser leaves them null
+        // so existing rows in the DB keep their manual override fallback.
+        minLevel: null,
+        maxLevel: null,
+        reorderLevel: null,
         isActive,
       },
     });
