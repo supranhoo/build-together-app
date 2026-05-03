@@ -25,7 +25,7 @@ import {
   type StockStatus,
   type StockThreshold,
 } from "@/lib/inventory-min-max";
-import { Link } from "react-router-dom";
+
 
 function statusBadge(s: StockStatus) {
   switch (s) {
