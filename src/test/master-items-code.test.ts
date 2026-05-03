@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { nextItemCode, nextItemName } from "@/lib/master-items-code";
+import { nextItemCode, nextItemCodeBatch, nextItemName } from "@/lib/master-items-code";
 
 describe("nextItemCode", () => {
   it("returns 0001 when no existing codes match", () => {
