@@ -450,21 +450,15 @@ export default function AdminMasterItems() {
               <div className="grid gap-3 sm:grid-cols-2 max-h-[60vh] overflow-y-auto pr-1">
                 <div>
                   <Label>Code</Label>
-                  {form.id ? (
-                    // Edit mode: keep editable for admin overrides on legacy rows.
-                    <Input value={form.code} onChange={(e) => setForm({ ...form, code: e.target.value })} />
-                  ) : (
-                    // New mode: auto-generated as <TYPE>-<GROUP>-<NNNN> once Type
-                    // and Group are picked. Read-only to keep coding consistent
-                    // across the org.
-                    <Input
-                      value={form.code}
-                      readOnly
-                      disabled
-                      placeholder="Auto — pick Type and Group"
-                      className="bg-muted/40"
-                    />
-                  )}
+                  {/* Always read-only: codes are system-assigned `<TYPE>-<GROUP>-<NNNN>`
+                      and immutable once created (POLICY.md §10). */}
+                  <Input
+                    value={form.code}
+                    readOnly
+                    disabled
+                    placeholder="Auto — pick Type and Group"
+                    className="bg-muted/40"
+                  />
                 </div>
                 <div><Label>Name</Label><Input value={form.name} onChange={(e) => setForm({ ...form, name: e.target.value })} /></div>
                 <div>
