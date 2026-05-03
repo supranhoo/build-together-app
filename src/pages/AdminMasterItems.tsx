@@ -27,9 +27,10 @@ import {
   buildItemTemplateRows,
   itemsToCsvRows,
   parseItemCsv,
+  type ParsedItemRow,
 } from "@/lib/master-items-csv";
 import { FIXED_SPEC_COLUMNS, getSpecValue } from "@/lib/spec-columns";
-import { nextItemCode, nextItemName } from "@/lib/master-items-code";
+import { nextItemCode, nextItemCodeBatch, nextItemName } from "@/lib/master-items-code";
 import {
   fetchGroupPropertyMap,
   fetchPropertyDefinitions,
