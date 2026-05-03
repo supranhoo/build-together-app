@@ -50,6 +50,30 @@ export function nextItemCode(
 }
 
 /**
+ * Pre-allocate `count` sequential codes for the same `(type, group)` so a
+ * single CSV bulk upload can assign codes locally without N round-trips to
+ * the database. Returns codes in upload order.
+ */
+export function nextItemCodeBatch(
+  existing: CodeSeed[],
+  type: MaterialType | "" | null,
+  group: string | null,
+  count: number,
+): string[] {
+  if (count <= 0) return [];
+  const first = nextItemCode(existing, type, group);
+  if (!first) return new Array(count).fill("");
+  const lastDash = first.lastIndexOf("-");
+  const prefix = first.slice(0, lastDash + 1);
+  const startSeq = Number.parseInt(first.slice(lastDash + 1), 10);
+  const out: string[] = [];
+  for (let i = 0; i < count; i += 1) {
+    out.push(`${prefix}${String(startSeq + i).padStart(4, "0")}`);
+  }
+  return out;
+}
+
+/**
  * Decide the next Name value when the Subgroup changes.
  *
  * - Empty name → adopt `nextSubgroup`.

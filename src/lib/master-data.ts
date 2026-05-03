@@ -322,3 +322,117 @@ export function parseSpecsJson(raw: string): Record<string, unknown> {
   }
   return parsed as Record<string, unknown>;
 }
+
+// ---------- Production Plan (drives Min/Max thresholds) ----------
+export interface ProductionPlanRecord {
+  id: string;
+  profitCenterId: string;
+  periodMonth: string;
+  grade: string;
+  plannedMt: number;
+  isActive: boolean;
+  notes: string | null;
+}
+
+export async function fetchProductionPlan(profitCenterId: string): Promise<ProductionPlanRecord[]> {
+  const { data, error } = await client
+    .from("production_plan")
+    .select("id, profit_center_id, period_month, grade, planned_mt, is_active, notes")
+    .eq("profit_center_id", profitCenterId)
+    .order("period_month", { ascending: false });
+  if (error) throw error;
+  return (data ?? []).map((r: any) => ({
+    id: r.id,
+    profitCenterId: r.profit_center_id,
+    periodMonth: r.period_month,
+    grade: r.grade,
+    plannedMt: Number(r.planned_mt),
+    isActive: Boolean(r.is_active),
+    notes: r.notes ?? null,
+  }));
+}
+
+export async function upsertProductionPlan(input: {
+  id?: string;
+  profitCenterId: string;
+  periodMonth: string;
+  grade: string;
+  plannedMt: number;
+  isActive: boolean;
+  notes: string | null;
+  createdBy: string;
+}) {
+  const payload = {
+    profit_center_id: input.profitCenterId,
+    period_month: input.periodMonth,
+    grade: input.grade,
+    planned_mt: input.plannedMt,
+    is_active: input.isActive,
+    notes: input.notes,
+    created_by: input.createdBy,
+  };
+  if (input.id) {
+    const { error } = await client.from("production_plan").update(payload).eq("id", input.id);
+    if (error) throw error;
+  } else {
+    const { error } = await client.from("production_plan").insert(payload);
+    if (error) throw error;
+  }
+}
+
+// ---------- Material Planning Policy (cover-day defaults) ----------
+export interface PlanningPolicyRecord {
+  id: string;
+  profitCenterId: string;
+  materialId: string | null;
+  minCoverDays: number;
+  reorderCoverDays: number;
+  maxCoverDays: number;
+  notes: string | null;
+}
+
+export async function fetchPlanningPolicy(profitCenterId: string): Promise<PlanningPolicyRecord[]> {
+  const { data, error } = await client
+    .from("material_planning_policy")
+    .select("id, profit_center_id, material_id, min_cover_days, reorder_cover_days, max_cover_days, notes")
+    .eq("profit_center_id", profitCenterId);
+  if (error) throw error;
+  return (data ?? []).map((r: any) => ({
+    id: r.id,
+    profitCenterId: r.profit_center_id,
+    materialId: r.material_id ?? null,
+    minCoverDays: Number(r.min_cover_days),
+    reorderCoverDays: Number(r.reorder_cover_days),
+    maxCoverDays: Number(r.max_cover_days),
+    notes: r.notes ?? null,
+  }));
+}
+
+export async function upsertPlanningPolicy(input: {
+  id?: string;
+  profitCenterId: string;
+  materialId: string | null;
+  minCoverDays: number;
+  reorderCoverDays: number;
+  maxCoverDays: number;
+  notes: string | null;
+  createdBy: string;
+}) {
+  const payload = {
+    profit_center_id: input.profitCenterId,
+    material_id: input.materialId,
+    min_cover_days: input.minCoverDays,
+    reorder_cover_days: input.reorderCoverDays,
+    max_cover_days: input.maxCoverDays,
+    notes: input.notes,
+    created_by: input.createdBy,
+  };
+  if (input.id) {
+    const { error } = await client.from("material_planning_policy").update(payload).eq("id", input.id);
+    if (error) throw error;
+  } else {
+    const { error } = await client.from("material_planning_policy").insert(payload);
+    if (error) throw error;
+  }
+}
+

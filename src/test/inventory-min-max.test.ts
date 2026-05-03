@@ -27,3 +27,53 @@ describe("classifyStockStatus", () => {
     expect(classifyStockStatus(100, { minLevel: null, reorderLevel: null, maxLevel: null })).toBe("unconfigured");
   });
 });
+
+import {
+  computeThresholdsFromPlan,
+  type BomRow,
+  type PlanningPolicyRow,
+  type ProductionPlanRow,
+} from "@/lib/inventory-min-max";
+
+describe("computeThresholdsFromPlan", () => {
+  const plan: ProductionPlanRow[] = [
+    { periodMonth: "2026-05-01", grade: "FeMn-HC", plannedMt: 1500, isActive: true }, // 50 MT/day
+  ];
+  const bom: BomRow[] = [
+    { materialId: "m1", grade: "FeMn-HC", stdQtyPerMt: 2, isActive: true }, // 100/day
+  ];
+
+  it("derives min/reorder/max using workspace defaults (7/14/30)", () => {
+    const out = computeThresholdsFromPlan(plan, bom, []);
+    expect(out).toHaveLength(1);
+    expect(out[0]).toMatchObject({ materialId: "m1", source: "plan", dailyConsumption: 100 });
+    expect(out[0].minLevel).toBe(700);
+    expect(out[0].reorderLevel).toBe(1400);
+    expect(out[0].maxLevel).toBe(3000);
+  });
+
+  it("honors per-material policy overrides", () => {
+    const policy: PlanningPolicyRow[] = [
+      { materialId: "m1", minCoverDays: 3, reorderCoverDays: 5, maxCoverDays: 10 },
+    ];
+    const out = computeThresholdsFromPlan(plan, bom, policy);
+    expect(out[0]).toMatchObject({ minLevel: 300, reorderLevel: 500, maxLevel: 1000 });
+  });
+
+  it("falls back to manual values when material has no plan/BOM", () => {
+    const fallback = new Map([["m9", { minLevel: 5, reorderLevel: 10, maxLevel: 20 }]]);
+    const out = computeThresholdsFromPlan(plan, bom, [], fallback);
+    const m9 = out.find((r) => r.materialId === "m9")!;
+    expect(m9.source).toBe("manual");
+    expect(m9.minLevel).toBe(5);
+  });
+
+  it("ignores inactive plan and bom rows", () => {
+    const out = computeThresholdsFromPlan(
+      [{ ...plan[0], isActive: false }],
+      bom,
+      [],
+    );
+    expect(out).toEqual([]);
+  });
+});

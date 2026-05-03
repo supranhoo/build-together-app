@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { nextItemCode, nextItemName } from "@/lib/master-items-code";
+import { nextItemCode, nextItemCodeBatch, nextItemName } from "@/lib/master-items-code";
 
 describe("nextItemCode", () => {
   it("returns 0001 when no existing codes match", () => {
@@ -57,5 +57,24 @@ describe("nextItemName", () => {
 
   it("preserves name when previous subgroup was empty (operator typed it)", () => {
     expect(nextItemName("Custom Item", "", "Coke")).toBe("Custom Item");
+  });
+});
+
+describe("nextItemCodeBatch", () => {
+  it("allocates N sequential codes starting from the next available", () => {
+    const existing = [{ code: "RM-ORE-0005", type: "RM" as const, groupName: "ORE" }];
+    expect(nextItemCodeBatch(existing, "RM", "ORE", 3)).toEqual([
+      "RM-ORE-0006",
+      "RM-ORE-0007",
+      "RM-ORE-0008",
+    ]);
+  });
+
+  it("returns empty list when type or group is missing (rows will be rejected)", () => {
+    expect(nextItemCodeBatch([], "", "ORE", 2)).toEqual(["", ""]);
+  });
+
+  it("returns [] for count<=0", () => {
+    expect(nextItemCodeBatch([], "RM", "ORE", 0)).toEqual([]);
   });
 });
