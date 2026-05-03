@@ -15,18 +15,21 @@ import type { MasterItem, MaterialType, UpsertItemInput } from "@/lib/master-dat
 import { MATERIAL_TYPES } from "@/lib/master-data";
 import { FIXED_SPEC_COLUMNS, getSpecValue } from "@/lib/spec-columns";
 
-/** Base columns (excluding spec columns), in canonical order. */
+/**
+ * Base columns (excluding spec columns), in canonical order.
+ *
+ * 2026-05-03: Removed `code` — item codes are system-assigned (`<TYPE>-<GROUP>-<NNNN>`)
+ * and must never be authored by an operator. The bulk-upload page calls
+ * `nextItemCodeBatch()` to allocate codes per `(type, group)` group before
+ * persisting each row.
+ */
 export const ITEM_CSV_BASE_HEADERS = [
-  "code",
   "name",
   "type",
   "group_name",
   "subgroup",
   "uom",
   "std_cost",
-  "min_level",
-  "max_level",
-  "reorder_level",
 ] as const;
 
 /** Trailing column after the spec block. */
@@ -47,7 +50,7 @@ export type ItemCsvHeader = (typeof ITEM_CSV_HEADERS)[number];
 /** Build the example template row. Values for spec columns are illustrative. */
 function buildSampleRow(): string[] {
   const sampleSpecs: Record<string, string> = { Mn: "35", Fe: "12" };
-  const base = ["RM-MN-01", "Manganese Ore (Lump)", "RM", "Mn Ore", "Lump", "MT", "12500", "50", "500", "120"];
+  const base = ["Manganese Ore (Lump)", "RM", "Mn Ore", "Lump", "MT", "12500"];
   const specs = ITEM_CSV_SPEC_HEADERS.map((k) => sampleSpecs[k] ?? "");
   return [...base, ...specs, "true"];
 }
