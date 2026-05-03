@@ -57,21 +57,21 @@ function buildSampleRow(): string[] {
 
 export const ITEM_CSV_TEMPLATE_SAMPLE: ReadonlyArray<string> = buildSampleRow();
 
-/** Serialize current items to a 2D array (header + body) ready for `toCsv`. */
+/** Serialize current items to a 2D array (header + body) ready for `toCsv`.
+ *
+ * Note: the system-assigned `code` is intentionally NOT included in the export
+ * so a round-trip Export → Edit → Bulk-upload can never overwrite codes.
+ */
 export function itemsToCsvRows(items: ReadonlyArray<MasterItem>): string[][] {
   const header = [...ITEM_CSV_HEADERS];
   const body = items.map((item) => {
     const base = [
-      item.code,
       item.name,
       item.type ?? "",
       item.groupName ?? "",
       item.subgroup ?? "",
       item.uom,
       item.stdCost === null ? "" : String(item.stdCost),
-      item.minLevel === null ? "" : String(item.minLevel),
-      item.maxLevel === null ? "" : String(item.maxLevel),
-      item.reorderLevel === null ? "" : String(item.reorderLevel),
     ];
     const specs = FIXED_SPEC_COLUMNS.map((col) => getSpecValue(item.specs, col) ?? "");
     return [...base, ...specs, item.isActive ? "true" : "false"];
