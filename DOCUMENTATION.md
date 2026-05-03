@@ -863,3 +863,20 @@ Tab resolution defaults, invalid-input fallback, valid round-trip, and the canon
 ## Maker-Checker Approvals (2026-04-30)
 
 New `pending_approvals` table queues sensitive admin actions. Edge function `admin-approve-action` executes approved payloads server-side using the service role; `admin-create-user` powers the invite flow. Frontend libs: `src/lib/approvals.ts`, `src/lib/user-roles.ts`, `src/lib/module-bulk.ts`. New page `AdminApprovals` is registered as an Approvals tab in both `AdminSettings` and `AdminSystemControl`. `AdminUsers` gains Invite + Delete (queued); `AdminRoles` gains a per-user role-assignment card; `AdminSystemLogic` gains per-row Enable-all / Disable-all bulk actions. RLS adds write policies to `user_roles` (admins → non-privileged roles; super_admins → all). Tests: `src/test/admin-approvals.test.ts` (7 cases — self-approval guard, privileged-role detection, mapping diff, bulk threshold).
+
+## Min/Max Threshold Derivation (2026-05-03)
+
+`src/lib/inventory-min-max.ts → computeThresholdsFromPlan()` is the SSOT.
+
+Inputs:
+- `production_plan` rows (monthly tonnage per grade)
+- `standard_cost_bom` rows (qty per MT of finished product)
+- `material_planning_policy` rows (cover-day defaults + per-material overrides)
+- Manual fallback from `materials.min_level / max_level / reorder_level`
+
+Output: `ComputedThreshold[]` with `source: 'plan' | 'manual' | 'unconfigured'`.
+
+Consumed by `PortalInventoryMinMax.tsx`. Manual edit UI was removed; the page now displays computed values + source badge.
+
+## Item Code (2026-05-03)
+System-assigned via `nextItemCode()` / `nextItemCodeBatch()`. CSV `code` column rejected. Edit dialog Code field is read-only.
