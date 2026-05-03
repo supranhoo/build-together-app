@@ -116,10 +116,8 @@ export default function PortalInventoryMinMax() {
       <CardHeader>
         <CardTitle>Min / Max stock thresholds</CardTitle>
         <p className="text-sm text-muted-foreground">
-          Thresholds are derived automatically from the active{" "}
-          <Link to="/admin/production-plan" className="underline hover:text-foreground">production plan</Link>,
-          the Standard BOM, and the workspace{" "}
-          <Link to="/admin/planning-policy" className="underline hover:text-foreground">cover-day policy</Link>.
+          Thresholds are derived automatically from the active production plan,
+          the Standard BOM, and the workspace cover-day policy (default 7 / 14 / 30 days).
           Manual values on the Item Master are used only as a fallback when no plan exists.
         </p>
       </CardHeader>
