@@ -345,20 +345,48 @@ export default function AdminMasterItems() {
       const rawRows = parseCsv(text);
       const { rows, errors } = parseItemCsv(rawRows);
       const messages: string[] = errors.map((e) => `Row ${e.rowNumber}: ${e.message}`);
+      // Pre-allocate system codes per (type, group) bucket so a single CSV
+      // upload assigns N sequential codes without DB round-trips.
+      const buckets = new Map<string, ParsedItemRow[]>();
+      const keyOf = (r: ParsedItemRow) => `${r.input.type ?? ""}|${r.input.groupName ?? ""}`;
+      for (const r of rows) {
+        const k = keyOf(r);
+        if (!buckets.has(k)) buckets.set(k, []);
+        buckets.get(k)!.push(r);
+      }
+      const codeFor = new Map<number, string>();
+      let runningItems = items.slice();
+      for (const [, bucket] of buckets) {
+        const first = bucket[0].input;
+        const allocated = nextItemCodeBatch(runningItems, first.type, first.groupName, bucket.length);
+        bucket.forEach((r, i) => {
+          codeFor.set(r.rowNumber, allocated[i] ?? "");
+          // Feed back into the running list so the NEXT bucket sees these.
+          runningItems = [
+            ...runningItems,
+            { code: allocated[i] ?? "", type: first.type, groupName: first.groupName } as MasterItem,
+          ];
+        });
+      }
       let inserted = 0;
       for (const { rowNumber, input } of rows) {
+        const code = codeFor.get(rowNumber) ?? "";
+        if (!code) {
+          messages.push(`Row ${rowNumber}: cannot generate code (type and group_name are required)`);
+          continue;
+        }
         try {
-          await upsertMasterItem({ ...input, profitCenterId: activeProfitCenter.id });
+          await upsertMasterItem({ ...input, code, profitCenterId: activeProfitCenter.id });
           await createAuditLog({
             actorUserId: session.user.id,
             profitCenterId: activeProfitCenter.id,
             entityType: "item_master",
             action: "item_master.bulk_upserted",
-            changeSummary: { code: input.code, name: input.name, type: input.type, source: "csv_bulk_upload" },
+            changeSummary: { code, name: input.name, type: input.type, source: "csv_bulk_upload" },
           });
           inserted += 1;
         } catch (e) {
-          messages.push(`Row ${rowNumber} (${input.code}): ${e instanceof Error ? e.message : "save failed"}`);
+          messages.push(`Row ${rowNumber} (${code}): ${e instanceof Error ? e.message : "save failed"}`);
         }
       }
       setImportReport({ inserted, failed: messages.length, errors: messages });
