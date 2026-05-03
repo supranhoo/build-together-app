@@ -2349,6 +2349,60 @@ export type Database = {
           },
         ]
       }
+      material_planning_policy: {
+        Row: {
+          created_at: string
+          created_by: string
+          id: string
+          material_id: string | null
+          max_cover_days: number
+          min_cover_days: number
+          notes: string | null
+          profit_center_id: string
+          reorder_cover_days: number
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          created_by: string
+          id?: string
+          material_id?: string | null
+          max_cover_days?: number
+          min_cover_days?: number
+          notes?: string | null
+          profit_center_id: string
+          reorder_cover_days?: number
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          created_by?: string
+          id?: string
+          material_id?: string | null
+          max_cover_days?: number
+          min_cover_days?: number
+          notes?: string | null
+          profit_center_id?: string
+          reorder_cover_days?: number
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "material_planning_policy_material_id_fkey"
+            columns: ["material_id"]
+            isOneToOne: false
+            referencedRelation: "materials"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "material_planning_policy_profit_center_id_fkey"
+            columns: ["profit_center_id"]
+            isOneToOne: false
+            referencedRelation: "profit_centers"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       materials: {
         Row: {
           category: string
@@ -2795,6 +2849,53 @@ export type Database = {
             columns: ["test_batch_id"]
             isOneToOne: false
             referencedRelation: "test_data_batches"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      production_plan: {
+        Row: {
+          created_at: string
+          created_by: string
+          grade: string
+          id: string
+          is_active: boolean
+          notes: string | null
+          period_month: string
+          planned_mt: number
+          profit_center_id: string
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          created_by: string
+          grade: string
+          id?: string
+          is_active?: boolean
+          notes?: string | null
+          period_month: string
+          planned_mt: number
+          profit_center_id: string
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          created_by?: string
+          grade?: string
+          id?: string
+          is_active?: boolean
+          notes?: string | null
+          period_month?: string
+          planned_mt?: number
+          profit_center_id?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "production_plan_profit_center_id_fkey"
+            columns: ["profit_center_id"]
+            isOneToOne: false
+            referencedRelation: "profit_centers"
             referencedColumns: ["id"]
           },
         ]
