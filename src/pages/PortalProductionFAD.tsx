@@ -1051,11 +1051,17 @@ export default function PortalProductionFAD() {
               <Card className="sticky top-4">
                 <CardHeader className="pb-3">
                   <CardTitle className="text-lg flex items-center gap-2">
-                    <FlaskConical className="h-5 w-5 text-primary" /> Live Mn Balance
+                    <FlaskConical className="h-5 w-5 text-primary" /> Live Balance
                   </CardTitle>
                   <CardDescription>Real-time recovery &amp; loss calculation</CardDescription>
                 </CardHeader>
                 <CardContent className="p-0">
+                  <Tabs defaultValue="mn" className="w-full">
+                    <TabsList className="grid grid-cols-2 mx-4 mt-2">
+                      <TabsTrigger value="mn">Mn Balance</TabsTrigger>
+                      <TabsTrigger value="si">Si Balance</TabsTrigger>
+                    </TabsList>
+                    <TabsContent value="mn" className="mt-0">
                   <div className="p-4 space-y-2 border-b border-border">
                     <div className="flex justify-between text-sm">
                       <span className="text-muted-foreground">Total Mn Input</span>
