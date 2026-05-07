@@ -1051,11 +1051,17 @@ export default function PortalProductionFAD() {
               <Card className="sticky top-4">
                 <CardHeader className="pb-3">
                   <CardTitle className="text-lg flex items-center gap-2">
-                    <FlaskConical className="h-5 w-5 text-primary" /> Live Mn Balance
+                    <FlaskConical className="h-5 w-5 text-primary" /> Live Balance
                   </CardTitle>
                   <CardDescription>Real-time recovery &amp; loss calculation</CardDescription>
                 </CardHeader>
                 <CardContent className="p-0">
+                  <Tabs defaultValue="mn" className="w-full">
+                    <TabsList className="grid grid-cols-2 mx-4 mt-2">
+                      <TabsTrigger value="mn">Mn Balance</TabsTrigger>
+                      <TabsTrigger value="si">Si Balance</TabsTrigger>
+                    </TabsList>
+                    <TabsContent value="mn" className="mt-0">
                   <div className="p-4 space-y-2 border-b border-border">
                     <div className="flex justify-between text-sm">
                       <span className="text-muted-foreground">Total Mn Input</span>
@@ -1114,9 +1120,11 @@ export default function PortalProductionFAD() {
                       <span className="font-mono font-bold">{calc.totalBalance.toFixed(1)}%</span>
                     </div>
                   </div>
+                    </TabsContent>
 
+                    <TabsContent value="si" className="mt-0">
                   {/* Live Si Balance — mirror of Mn block; factor from admin settings (no hardcode) */}
-                  <div className="p-4 space-y-2 border-t border-border">
+                  <div className="p-4 space-y-2 border-b border-border">
                     <div className="flex items-center justify-between">
                       <h4 className="text-xs font-bold">Live Si Balance</h4>
                       <span className="text-[10px] text-muted-foreground font-mono" title="SiO₂→Si stoichiometric factor (admin-configurable)">
@@ -1180,6 +1188,8 @@ export default function PortalProductionFAD() {
                       <span className="font-mono font-bold">{calc.totalSiBalance.toFixed(1)}%</span>
                     </div>
                   </div>
+                    </TabsContent>
+                  </Tabs>
 
                   <div className="p-4 space-y-3 border-t border-border">
                     <h4 className="text-xs font-bold border-b border-border pb-1">Reductant &amp; Fuel</h4>
