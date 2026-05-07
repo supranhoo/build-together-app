@@ -1188,6 +1188,8 @@ export default function PortalProductionFAD() {
                       <span className="font-mono font-bold">{calc.totalSiBalance.toFixed(1)}%</span>
                     </div>
                   </div>
+                    </TabsContent>
+                  </Tabs>
 
                   <div className="p-4 space-y-3 border-t border-border">
                     <h4 className="text-xs font-bold border-b border-border pb-1">Reductant &amp; Fuel</h4>
