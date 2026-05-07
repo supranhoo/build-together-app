@@ -1120,9 +1120,11 @@ export default function PortalProductionFAD() {
                       <span className="font-mono font-bold">{calc.totalBalance.toFixed(1)}%</span>
                     </div>
                   </div>
+                    </TabsContent>
 
+                    <TabsContent value="si" className="mt-0">
                   {/* Live Si Balance — mirror of Mn block; factor from admin settings (no hardcode) */}
-                  <div className="p-4 space-y-2 border-t border-border">
+                  <div className="p-4 space-y-2 border-b border-border">
                     <div className="flex items-center justify-between">
                       <h4 className="text-xs font-bold">Live Si Balance</h4>
                       <span className="text-[10px] text-muted-foreground font-mono" title="SiO₂→Si stoichiometric factor (admin-configurable)">
