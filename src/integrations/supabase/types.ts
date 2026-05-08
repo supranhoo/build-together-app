@@ -233,6 +233,484 @@ export type Database = {
           },
         ]
       }
+      clu_additions: {
+        Row: {
+          added_at: string
+          category: string
+          created_at: string
+          created_by: string
+          fc_pct: number | null
+          heat_id: string
+          id: string
+          material_id: string | null
+          material_name: string
+          mn_pct: number | null
+          moisture_pct: number | null
+          notes: string | null
+          profit_center_id: string
+          quantity: number
+          uom: string
+        }
+        Insert: {
+          added_at?: string
+          category: string
+          created_at?: string
+          created_by: string
+          fc_pct?: number | null
+          heat_id: string
+          id?: string
+          material_id?: string | null
+          material_name: string
+          mn_pct?: number | null
+          moisture_pct?: number | null
+          notes?: string | null
+          profit_center_id: string
+          quantity: number
+          uom?: string
+        }
+        Update: {
+          added_at?: string
+          category?: string
+          created_at?: string
+          created_by?: string
+          fc_pct?: number | null
+          heat_id?: string
+          id?: string
+          material_id?: string | null
+          material_name?: string
+          mn_pct?: number | null
+          moisture_pct?: number | null
+          notes?: string | null
+          profit_center_id?: string
+          quantity?: number
+          uom?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "clu_additions_heat_id_fkey"
+            columns: ["heat_id"]
+            isOneToOne: false
+            referencedRelation: "clu_heats"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "clu_additions_material_id_fkey"
+            columns: ["material_id"]
+            isOneToOne: false
+            referencedRelation: "materials"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "clu_additions_profit_center_id_fkey"
+            columns: ["profit_center_id"]
+            isOneToOne: false
+            referencedRelation: "profit_centers"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      clu_blowing_data: {
+        Row: {
+          carbon_pct: number | null
+          created_at: string
+          created_by: string
+          heat_id: string
+          id: string
+          notes: string | null
+          oxygen_flow: number | null
+          profit_center_id: string
+          recorded_at: string
+          temperature_c: number | null
+        }
+        Insert: {
+          carbon_pct?: number | null
+          created_at?: string
+          created_by: string
+          heat_id: string
+          id?: string
+          notes?: string | null
+          oxygen_flow?: number | null
+          profit_center_id: string
+          recorded_at?: string
+          temperature_c?: number | null
+        }
+        Update: {
+          carbon_pct?: number | null
+          created_at?: string
+          created_by?: string
+          heat_id?: string
+          id?: string
+          notes?: string | null
+          oxygen_flow?: number | null
+          profit_center_id?: string
+          recorded_at?: string
+          temperature_c?: number | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "clu_blowing_data_heat_id_fkey"
+            columns: ["heat_id"]
+            isOneToOne: false
+            referencedRelation: "clu_heats"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "clu_blowing_data_profit_center_id_fkey"
+            columns: ["profit_center_id"]
+            isOneToOne: false
+            referencedRelation: "profit_centers"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      clu_delays: {
+        Row: {
+          category: string
+          created_at: string
+          created_by: string
+          duration_min: number | null
+          ended_at: string | null
+          heat_id: string | null
+          id: string
+          profit_center_id: string
+          reason: string
+          started_at: string
+          updated_at: string
+        }
+        Insert: {
+          category: string
+          created_at?: string
+          created_by: string
+          duration_min?: number | null
+          ended_at?: string | null
+          heat_id?: string | null
+          id?: string
+          profit_center_id: string
+          reason: string
+          started_at: string
+          updated_at?: string
+        }
+        Update: {
+          category?: string
+          created_at?: string
+          created_by?: string
+          duration_min?: number | null
+          ended_at?: string | null
+          heat_id?: string | null
+          id?: string
+          profit_center_id?: string
+          reason?: string
+          started_at?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "clu_delays_heat_id_fkey"
+            columns: ["heat_id"]
+            isOneToOne: false
+            referencedRelation: "clu_heats"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "clu_delays_profit_center_id_fkey"
+            columns: ["profit_center_id"]
+            isOneToOne: false
+            referencedRelation: "profit_centers"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      clu_heats: {
+        Row: {
+          auxiliary_power_mwh: number | null
+          avg_power_factor: number | null
+          batch_no: string | null
+          created_at: string
+          created_by: string
+          current_step_index: number
+          furnace_id: string | null
+          furnace_power_mwh: number | null
+          grade: string | null
+          heat_date: string
+          heat_number: string
+          id: string
+          is_voided: boolean
+          metadata: Json
+          product_name: string | null
+          profit_center_id: string
+          shift_id: string | null
+          status: string
+          tapping_no: string | null
+          tapping_power_mwh: number | null
+          updated_at: string
+          void_reason: string | null
+          voided_at: string | null
+          voided_by: string | null
+        }
+        Insert: {
+          auxiliary_power_mwh?: number | null
+          avg_power_factor?: number | null
+          batch_no?: string | null
+          created_at?: string
+          created_by: string
+          current_step_index?: number
+          furnace_id?: string | null
+          furnace_power_mwh?: number | null
+          grade?: string | null
+          heat_date?: string
+          heat_number: string
+          id?: string
+          is_voided?: boolean
+          metadata?: Json
+          product_name?: string | null
+          profit_center_id: string
+          shift_id?: string | null
+          status?: string
+          tapping_no?: string | null
+          tapping_power_mwh?: number | null
+          updated_at?: string
+          void_reason?: string | null
+          voided_at?: string | null
+          voided_by?: string | null
+        }
+        Update: {
+          auxiliary_power_mwh?: number | null
+          avg_power_factor?: number | null
+          batch_no?: string | null
+          created_at?: string
+          created_by?: string
+          current_step_index?: number
+          furnace_id?: string | null
+          furnace_power_mwh?: number | null
+          grade?: string | null
+          heat_date?: string
+          heat_number?: string
+          id?: string
+          is_voided?: boolean
+          metadata?: Json
+          product_name?: string | null
+          profit_center_id?: string
+          shift_id?: string | null
+          status?: string
+          tapping_no?: string | null
+          tapping_power_mwh?: number | null
+          updated_at?: string
+          void_reason?: string | null
+          voided_at?: string | null
+          voided_by?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "clu_heats_furnace_id_fkey"
+            columns: ["furnace_id"]
+            isOneToOne: false
+            referencedRelation: "furnaces"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "clu_heats_profit_center_id_fkey"
+            columns: ["profit_center_id"]
+            isOneToOne: false
+            referencedRelation: "profit_centers"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "clu_heats_shift_id_fkey"
+            columns: ["shift_id"]
+            isOneToOne: false
+            referencedRelation: "shifts"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      clu_output: {
+        Row: {
+          created_at: string
+          created_by: string
+          dust_mn_pct: number | null
+          dust_qty_mt: number
+          fg_mn_pct: number | null
+          heat_id: string
+          id: string
+          notes: string | null
+          production_qty_mt: number
+          profit_center_id: string
+          slag_mno_pct: number | null
+          slag_qty_mt: number
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          created_by: string
+          dust_mn_pct?: number | null
+          dust_qty_mt?: number
+          fg_mn_pct?: number | null
+          heat_id: string
+          id?: string
+          notes?: string | null
+          production_qty_mt?: number
+          profit_center_id: string
+          slag_mno_pct?: number | null
+          slag_qty_mt?: number
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          created_by?: string
+          dust_mn_pct?: number | null
+          dust_qty_mt?: number
+          fg_mn_pct?: number | null
+          heat_id?: string
+          id?: string
+          notes?: string | null
+          production_qty_mt?: number
+          profit_center_id?: string
+          slag_mno_pct?: number | null
+          slag_qty_mt?: number
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "clu_output_heat_id_fkey"
+            columns: ["heat_id"]
+            isOneToOne: true
+            referencedRelation: "clu_heats"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "clu_output_profit_center_id_fkey"
+            columns: ["profit_center_id"]
+            isOneToOne: false
+            referencedRelation: "profit_centers"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      clu_sampling: {
+        Row: {
+          c_pct: number | null
+          created_at: string
+          created_by: string
+          heat_id: string
+          id: string
+          mn_pct: number | null
+          notes: string | null
+          p_pct: number | null
+          profit_center_id: string
+          s_pct: number | null
+          sample_type: string
+          sampled_at: string
+          si_pct: number | null
+          temperature_c: number | null
+        }
+        Insert: {
+          c_pct?: number | null
+          created_at?: string
+          created_by: string
+          heat_id: string
+          id?: string
+          mn_pct?: number | null
+          notes?: string | null
+          p_pct?: number | null
+          profit_center_id: string
+          s_pct?: number | null
+          sample_type: string
+          sampled_at?: string
+          si_pct?: number | null
+          temperature_c?: number | null
+        }
+        Update: {
+          c_pct?: number | null
+          created_at?: string
+          created_by?: string
+          heat_id?: string
+          id?: string
+          mn_pct?: number | null
+          notes?: string | null
+          p_pct?: number | null
+          profit_center_id?: string
+          s_pct?: number | null
+          sample_type?: string
+          sampled_at?: string
+          si_pct?: number | null
+          temperature_c?: number | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "clu_sampling_heat_id_fkey"
+            columns: ["heat_id"]
+            isOneToOne: false
+            referencedRelation: "clu_heats"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "clu_sampling_profit_center_id_fkey"
+            columns: ["profit_center_id"]
+            isOneToOne: false
+            referencedRelation: "profit_centers"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      clu_sop_master: {
+        Row: {
+          blowing_time_target_min: number | null
+          carbon_from: number | null
+          carbon_to: number | null
+          created_at: string
+          created_by: string | null
+          flux_qty_target: number | null
+          grade: string
+          id: string
+          is_active: boolean
+          notes: string | null
+          oxygen_flow_target: number | null
+          profit_center_id: string
+          temp_target: number | null
+          updated_at: string
+        }
+        Insert: {
+          blowing_time_target_min?: number | null
+          carbon_from?: number | null
+          carbon_to?: number | null
+          created_at?: string
+          created_by?: string | null
+          flux_qty_target?: number | null
+          grade: string
+          id?: string
+          is_active?: boolean
+          notes?: string | null
+          oxygen_flow_target?: number | null
+          profit_center_id: string
+          temp_target?: number | null
+          updated_at?: string
+        }
+        Update: {
+          blowing_time_target_min?: number | null
+          carbon_from?: number | null
+          carbon_to?: number | null
+          created_at?: string
+          created_by?: string | null
+          flux_qty_target?: number | null
+          grade?: string
+          id?: string
+          is_active?: boolean
+          notes?: string | null
+          oxygen_flow_target?: number | null
+          profit_center_id?: string
+          temp_target?: number | null
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "clu_sop_master_profit_center_id_fkey"
+            columns: ["profit_center_id"]
+            isOneToOne: false
+            referencedRelation: "profit_centers"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       compliance_records: {
         Row: {
           attachments: Json
