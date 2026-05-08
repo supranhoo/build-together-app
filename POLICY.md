@@ -441,3 +441,20 @@ max_level     = daily × max_cover_days       (default 30)
 - Source data: `production_plan`, `standard_cost_bom`, `material_planning_policy`.
 - Manual values on `materials.min_level / max_level / reorder_level` are used only as a fallback when no plan/BOM derivation exists.
 - Only admins / super-admins can edit the production plan or planning policy.
+
+## CLU Production Module (2026-05-08)
+
+### Heat lifecycle states
+`draft → pending_approval → approved` (or `rejected`). `voided` is terminal and records `void_reason`, `voided_by`, `voided_at`.
+
+### Authoring & approval
+- Any user with profit-center access can create a CLU heat as `draft` and add blowing/sampling/addition/output rows.
+- Submission moves a heat to `pending_approval`. Approval / rejection follows the existing `heat_logs` approvals pattern (PR3 wires the polymorphic `entity_type='clu_heat'` row).
+- Voiding requires the `heat_log:void` permission and a non-empty reason.
+
+### SOP master
+- Read for any PC member.
+- Create / edit / delete only by profit-center admins (`can_manage_profit_center`). One SOP per `(profit_center, grade)`.
+
+### Metallurgical factors
+- `mnoToMnFactor` (default 1.29) is sourced from the workspace `production.formulas` setting. Components must NOT hardcode it; pass it into `computeCluBalance` from the resolved settings.
