@@ -880,3 +880,30 @@ Consumed by `PortalInventoryMinMax.tsx`. Manual edit UI was removed; the page no
 
 ## Item Code (2026-05-03)
 System-assigned via `nextItemCode()` / `nextItemCodeBatch()`. CSV `code` column rejected. Edit dialog Code field is read-only.
+
+## CLU Production Module — PR1 (2026-05-08)
+
+New schema + pure-calc layer for the Converter Ladle Unit refining process. UI lands in PR2.
+
+### Tables (all `profit_center_id`-scoped, RLS enabled)
+- `clu_sop_master` — SOP targets per grade (carbon range, blowing time, oxygen flow, flux qty, temperature)
+- `clu_heats` — One row per CLU heat: heat number, furnace, shift, grade, lifecycle step, status (`draft | pending_approval | approved | rejected | voided`), power readings, freeform `metadata` jsonb, void fields
+- `clu_blowing_data` — Time-series blowing ticks (oxygen flow, temperature, carbon%)
+- `clu_sampling` — Initial / mid / final chemistry samples (Mn, C, Si, P, S, temp)
+- `clu_additions` — Material additions during a heat (flux / reductant / paste / alloy / ore with qty, moisture, Mn%, FC%)
+- `clu_output` — One row per heat: production qty, FG Mn%, slag qty/MnO%, dust qty/Mn%
+- `clu_delays` — Process delay log (category, start/end, reason)
+
+### RLS
+- SOP master: SELECT for PC members, INSERT/UPDATE/DELETE only for PC admins (`can_manage_profit_center`)
+- Heats + child tables (blowing/sampling/additions/output/delays): SELECT/INSERT/UPDATE for PC members; DELETE only for PC admins; INSERT additionally enforces `created_by = auth.uid()`
+
+### Libraries
+- `src/lib/clu-calc.ts` — Pure metallurgical math (`computeCluBalance`). Mirrors the FAD Mn-balance approach but tailored to CLU output shape. `mnoToMnFactor` defaults to 1.29 but is parameterised so the workspace `production.formulas` setting can override it. **No hardcoded chemistry factors in components.**
+- `src/lib/clu-production.ts` — Typed CRUD for all 7 tables (`fetchHeats`, `upsertHeat`, `addBlowingTick`, `addSampling`, `addAddition`, `saveOutput`, `logDelay`, `fetchSopMaster`).
+
+### Tests — `src/test/clu-calc.test.ts` (12 cases)
+Happy path, zero-input edge case (no NaN/Infinity), performance tagging, custom + invalid `mnoToMnFactor`, multiple-material aggregation.
+
+### Version History
+- 2026-05-08 (CLU PR1): 7 new tables + RLS, pure calc lib, persistence lib, 12 unit tests. UI follows in PR2.
