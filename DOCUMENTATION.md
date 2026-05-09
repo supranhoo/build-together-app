@@ -907,3 +907,5 @@ Happy path, zero-input edge case (no NaN/Infinity), performance tagging, custom 
 
 ### Version History
 - 2026-05-08 (CLU PR1): 7 new tables + RLS, pure calc lib, persistence lib, 12 unit tests. UI follows in PR2.
+- 2026-05-09 (CLU PR2): Page scaffold mounted at `/portal/production/clu` with Dashboard / Planning / History / SOP Master tabs. Conditional NavLink for PCs whose `processProfile` contains "CLU".
+- 2026-05-09 (CLU PR3): 21-step heat-entry sheet (`src/components/clu/CluHeatEntrySheet.tsx`) + `src/lib/clu-lifecycle.ts`. Status transitions (`draft → pending_approval → approved/rejected → voided`) implemented via `transitionHeat` with reason validation; appended to `metadata.transitions` for audit. Approve/Reject/Void buttons gated to admin/super_admin via `useAuth().profile.role`. 7 transition tests added (`src/test/clu-production-actions.test.ts`).

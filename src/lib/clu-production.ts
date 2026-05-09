@@ -458,6 +458,79 @@ export async function fetchDelays(profitCenterId: string, limit = 100): Promise<
   return (data ?? []).map(toDelay);
 }
 
+// ---------- Heat status transitions ----------
+/**
+ * Allowed transitions:
+ *   draft            → pending_approval (operator submits)
+ *   pending_approval → approved | rejected (admin acts)
+ *   approved         → voided (admin only, reason required)
+ *
+ * Authorisation is enforced at the database via RLS; this helper performs
+ * the optimistic update and returns the new status.
+ */
+export type CluHeatTransition = "submit" | "approve" | "reject" | "void";
+
+const TRANSITION_RULES: Record<CluHeatTransition, { from: CluHeatStatus[]; to: CluHeatStatus; requiresReason: boolean }> = {
+  submit: { from: ["draft"], to: "pending_approval", requiresReason: false },
+  approve: { from: ["pending_approval"], to: "approved", requiresReason: false },
+  reject: { from: ["pending_approval"], to: "rejected", requiresReason: true },
+  void: { from: ["approved"], to: "voided", requiresReason: true },
+};
+
+export function nextStatusFor(current: CluHeatStatus, transition: CluHeatTransition): CluHeatStatus | null {
+  const rule = TRANSITION_RULES[transition];
+  if (!rule.from.includes(current)) return null;
+  return rule.to;
+}
+
+export async function transitionHeat(input: {
+  heatId: string;
+  currentStatus: CluHeatStatus;
+  transition: CluHeatTransition;
+  reason?: string;
+  actorUserId: string;
+}): Promise<CluHeatStatus> {
+  const rule = TRANSITION_RULES[input.transition];
+  const next = nextStatusFor(input.currentStatus, input.transition);
+  if (!next) {
+    throw new Error(`Cannot ${input.transition} a heat in '${input.currentStatus}' state`);
+  }
+  if (rule.requiresReason && (!input.reason || input.reason.trim().length < 3)) {
+    throw new Error("A reason of at least 3 characters is required");
+  }
+
+  // Read existing metadata so we can append a transition entry without losing other keys.
+  const { data: existing, error: readError } = await client
+    .from("clu_heats")
+    .select("metadata")
+    .eq("id", input.heatId)
+    .maybeSingle();
+  if (readError) throw readError;
+  const metadata = (existing?.metadata as Record<string, unknown> | null) ?? {};
+  const transitions = Array.isArray(metadata.transitions) ? (metadata.transitions as unknown[]) : [];
+  transitions.push({
+    transition: input.transition,
+    from: input.currentStatus,
+    to: next,
+    actor: input.actorUserId,
+    reason: input.reason?.trim() ?? null,
+    at: new Date().toISOString(),
+  });
+
+  const patch: Record<string, unknown> = {
+    status: next,
+    metadata: { ...metadata, transitions },
+  };
+  if (input.transition === "void") {
+    patch.is_voided = true;
+  }
+
+  const { error } = await client.from("clu_heats").update(patch).eq("id", input.heatId);
+  if (error) throw error;
+  return next;
+}
+
+// ---------- Delays ----------
 export async function logDelay(input: {
   profitCenterId: string;
   heatId?: string | null;

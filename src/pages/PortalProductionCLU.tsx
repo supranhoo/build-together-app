@@ -11,10 +11,12 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Badge } from "@/components/ui/badge";
-import { AlertTriangle, FlaskConical, Loader2 } from "lucide-react";
+import { AlertTriangle, FlaskConical, Loader2, Plus } from "lucide-react";
+import { Button } from "@/components/ui/button";
 
 import { useWorkspace } from "@/hooks/use-workspace";
 import { useToast } from "@/hooks/use-toast";
+import { useAuth } from "@/hooks/use-auth";
 import {
   fetchHeats,
   fetchDelays,
@@ -23,6 +25,7 @@ import {
   type CluDelayRecord,
   type CluSopRecord,
 } from "@/lib/clu-production";
+import { CluHeatEntrySheet } from "@/components/clu/CluHeatEntrySheet";
 
 const fmtDate = (iso: string) => new Date(iso).toLocaleDateString();
 const fmtDateTime = (iso: string) => new Date(iso).toLocaleString();
@@ -40,11 +43,16 @@ const statusVariant: Record<CluHeatRecord["status"], "default" | "secondary" | "
 export default function PortalProductionCLU() {
   const { activeProfitCenter } = useWorkspace();
   const { toast } = useToast();
+  const { profile } = useAuth();
+  const isAdmin = profile?.role === "admin" || profile?.role === "super_admin";
 
   const [heats, setHeats] = useState<CluHeatRecord[]>([]);
   const [delays, setDelays] = useState<CluDelayRecord[]>([]);
   const [sops, setSops] = useState<CluSopRecord[]>([]);
   const [loading, setLoading] = useState(false);
+  const [sheetOpen, setSheetOpen] = useState(false);
+  const [activeHeat, setActiveHeat] = useState<CluHeatRecord | null>(null);
+  const [reloadKey, setReloadKey] = useState(0);
 
   useEffect(() => {
     if (!activeProfitCenter) return;
@@ -75,7 +83,7 @@ export default function PortalProductionCLU() {
     return () => {
       cancelled = true;
     };
-  }, [activeProfitCenter?.id, toast]);
+  }, [activeProfitCenter?.id, toast, reloadKey]);
 
   const dashboardStats = useMemo(() => {
     const today = new Date().toDateString();
@@ -102,13 +110,17 @@ export default function PortalProductionCLU() {
 
   return (
     <div className="space-y-6">
-      <div>
-        <p className="text-[11px] font-semibold uppercase tracking-[0.22em] text-primary">Production</p>
-        <h1 className="mt-1 text-2xl font-semibold">CLU — Converter Ladle Unit</h1>
-        <p className="mt-1 text-sm text-muted-foreground">
-          Heat lifecycle, blowing &amp; sampling data, additions, output and SOP master for {activeProfitCenter.name}.
-          Heat-entry forms and AI analysis ship in upcoming releases.
-        </p>
+      <div className="flex items-start justify-between gap-4">
+        <div>
+          <p className="text-[11px] font-semibold uppercase tracking-[0.22em] text-primary">Production</p>
+          <h1 className="mt-1 text-2xl font-semibold">CLU — Converter Ladle Unit</h1>
+          <p className="mt-1 text-sm text-muted-foreground">
+            21-step heat lifecycle, blowing &amp; sampling, additions, output and SOP master for {activeProfitCenter.name}.
+          </p>
+        </div>
+        <Button onClick={() => { setActiveHeat(null); setSheetOpen(true); }} size="sm">
+          <Plus className="mr-1 h-4 w-4" /> New heat
+        </Button>
       </div>
 
       <Tabs defaultValue="dashboard" className="space-y-4">
@@ -181,7 +193,7 @@ export default function PortalProductionCLU() {
               ) : planning.length === 0 ? (
                 <EmptyState text="No heats in planning." />
               ) : (
-                <HeatTable rows={planning} />
+                <HeatTable rows={planning} onOpen={(h) => { setActiveHeat(h); setSheetOpen(true); }} />
               )}
             </CardContent>
           </Card>
@@ -199,7 +211,7 @@ export default function PortalProductionCLU() {
               ) : history.length === 0 ? (
                 <EmptyState text="No completed heats yet." />
               ) : (
-                <HeatTable rows={history} />
+                <HeatTable rows={history} onOpen={(h) => { setActiveHeat(h); setSheetOpen(true); }} />
               )}
             </CardContent>
           </Card>
@@ -256,6 +268,15 @@ export default function PortalProductionCLU() {
           </Card>
         </TabsContent>
       </Tabs>
+
+      <CluHeatEntrySheet
+        open={sheetOpen}
+        heat={activeHeat}
+        profitCenterId={activeProfitCenter.id}
+        isAdmin={isAdmin}
+        onClose={() => setSheetOpen(false)}
+        onChanged={() => setReloadKey((k) => k + 1)}
+      />
     </div>
   );
 }
@@ -273,7 +294,7 @@ function StatCard({ label, value, loading }: { label: string; value: number; loa
   );
 }
 
-function HeatTable({ rows }: { rows: CluHeatRecord[] }) {
+function HeatTable({ rows, onOpen }: { rows: CluHeatRecord[]; onOpen: (h: CluHeatRecord) => void }) {
   return (
     <Table>
       <TableHeader>
@@ -288,7 +309,7 @@ function HeatTable({ rows }: { rows: CluHeatRecord[] }) {
       </TableHeader>
       <TableBody>
         {rows.map((h) => (
-          <TableRow key={h.id}>
+          <TableRow key={h.id} className="cursor-pointer hover:bg-muted/40" onClick={() => onOpen(h)}>
             <TableCell className="font-medium">{h.heatNumber}</TableCell>
             <TableCell>{fmtDate(h.heatDate)}</TableCell>
             <TableCell>{h.grade ?? "—"}</TableCell>

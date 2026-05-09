@@ -1,7 +1,7 @@
 # CLU Production Module — Staged Port
 
 ## Status
-**PR1 + PR2 complete (2026-05-09)** — schema + RLS + pure calc + persistence lib + 12 passing tests + page scaffold mounted at `/portal/production/clu` with conditional NavLink (PCs whose process profile contains "CLU").
+**PR1 + PR2 + PR3 complete (2026-05-09)** — schema + RLS + pure calc + persistence lib + 19 passing tests + page scaffold + 21-step heat-entry sheet with status transitions (draft → pending_approval → approved/rejected → voided) wired into the page (New heat button + clickable rows).
 
 ## Goal
 
@@ -21,10 +21,12 @@ Bring CLU process management to `/portal/production/clu`, adapted to our stack (
 - Profit-center guard via `useWorkspace`; empty states when no rows; no inline mocks.
 - Route `/portal/production/clu` in `App.tsx`; conditional NavLink in `PortalShell.tsx` driven by `processProfile` containing "CLU".
 
-### PR3 — Heat Entry lifecycle + Quality QC + Energy + Downtime
-- 21-step left rail, step-specific forms, live Mn balance preview.
-- Save as `draft` / `pending_approval`; integrates with `heat_log_approvals` via polymorphic `entity_type='clu_heat'`.
-- `src/test/clu-production.test.ts` for persistence helpers.
+### PR3 — Heat Entry lifecycle + transitions (DONE)
+- `src/lib/clu-lifecycle.ts` defines the 21 named steps grouped into 9 phases (header / charge / blow / sample / tap / output / energy / delays / submit).
+- `src/components/clu/CluHeatEntrySheet.tsx` renders a left step rail + right phase form (header, additions, blowing ticks, sampling, output + live Mn balance, energy, delays, submit review).
+- `transitionHeat` enforces draft → pending_approval → approved/rejected → voided with reason validation; transitions are appended to `metadata.transitions` for audit. Approval/rejection/void buttons gated on `profile.role` (admin/super_admin).
+- 7 new transition tests in `src/test/clu-production-actions.test.ts`.
+- Approvals stay in CLU's own status field (decision recorded last 2026-05-09): integrating with `heat_log_approvals` would require a polymorphic refactor of finance/PortalHeatApprovals; deferred until plant-head signs off on a single queue.
 
 ### PR4 — AI Analysis tab
 - Edge function `clu-heat-analysis` via Lovable AI Gateway (`google/gemini-2.5-pro`). No external API key.

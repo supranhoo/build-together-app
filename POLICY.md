@@ -458,3 +458,9 @@ max_level     = daily × max_cover_days       (default 30)
 
 ### Metallurgical factors
 - `mnoToMnFactor` (default 1.29) is sourced from the workspace `production.formulas` setting. Components must NOT hardcode it; pass it into `computeCluBalance` from the resolved settings.
+
+## CLU heat lifecycle (PR3, 2026-05-09)
+- A CLU heat moves through four states: `draft` → `pending_approval` → `approved` (or `rejected`) → `voided`.
+- Only the heat owner (or another user with PC access) can edit a draft. Once submitted, fields are read-only.
+- Only users with role `admin` or `super_admin` can approve, reject, or void a heat. Reject and Void require a reason of at least 3 characters.
+- Every transition is appended to `clu_heats.metadata.transitions` with actor, from/to states, reason and timestamp; this is the immutable audit trail until a dedicated `clu_heat_events` table is introduced.
