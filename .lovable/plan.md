@@ -1,7 +1,7 @@
 # CLU Production Module — Staged Port
 
 ## Status
-**PR1 + PR2 complete (2026-05-09)** — schema + RLS + pure calc + persistence lib + 12 passing tests + page scaffold mounted at `/portal/production/clu` with conditional NavLink (PCs whose process profile contains "CLU").
+**PR1 + PR2 + PR3 complete (2026-05-09)** — schema + RLS + pure calc + persistence lib + 19 passing tests + page scaffold + 21-step heat-entry sheet with status transitions (draft → pending_approval → approved/rejected → voided) wired into the page (New heat button + clickable rows).
 
 ## Goal
 
