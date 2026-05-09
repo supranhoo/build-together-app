@@ -11,10 +11,12 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Badge } from "@/components/ui/badge";
-import { AlertTriangle, FlaskConical, Loader2 } from "lucide-react";
+import { AlertTriangle, FlaskConical, Loader2, Plus } from "lucide-react";
+import { Button } from "@/components/ui/button";
 
 import { useWorkspace } from "@/hooks/use-workspace";
 import { useToast } from "@/hooks/use-toast";
+import { useAuth } from "@/hooks/use-auth";
 import {
   fetchHeats,
   fetchDelays,
@@ -23,6 +25,7 @@ import {
   type CluDelayRecord,
   type CluSopRecord,
 } from "@/lib/clu-production";
+import { CluHeatEntrySheet } from "@/components/clu/CluHeatEntrySheet";
 
 const fmtDate = (iso: string) => new Date(iso).toLocaleDateString();
 const fmtDateTime = (iso: string) => new Date(iso).toLocaleString();
