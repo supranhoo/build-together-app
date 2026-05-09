@@ -43,11 +43,16 @@ const statusVariant: Record<CluHeatRecord["status"], "default" | "secondary" | "
 export default function PortalProductionCLU() {
   const { activeProfitCenter } = useWorkspace();
   const { toast } = useToast();
+  const { profile } = useAuth();
+  const isAdmin = profile?.role === "admin" || profile?.role === "super_admin";
 
   const [heats, setHeats] = useState<CluHeatRecord[]>([]);
   const [delays, setDelays] = useState<CluDelayRecord[]>([]);
   const [sops, setSops] = useState<CluSopRecord[]>([]);
   const [loading, setLoading] = useState(false);
+  const [sheetOpen, setSheetOpen] = useState(false);
+  const [activeHeat, setActiveHeat] = useState<CluHeatRecord | null>(null);
+  const [reloadKey, setReloadKey] = useState(0);
 
   useEffect(() => {
     if (!activeProfitCenter) return;
