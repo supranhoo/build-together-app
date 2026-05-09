@@ -300,7 +300,7 @@ function HeatTable({ rows, onOpen }: { rows: CluHeatRecord[]; onOpen: (h: CluHea
       </TableHeader>
       <TableBody>
         {rows.map((h) => (
-          <TableRow key={h.id}>
+          <TableRow key={h.id} className="cursor-pointer hover:bg-muted/40" onClick={() => onOpen(h)}>
             <TableCell className="font-medium">{h.heatNumber}</TableCell>
             <TableCell>{fmtDate(h.heatDate)}</TableCell>
             <TableCell>{h.grade ?? "—"}</TableCell>
