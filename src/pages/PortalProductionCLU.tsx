@@ -193,7 +193,7 @@ export default function PortalProductionCLU() {
               ) : planning.length === 0 ? (
                 <EmptyState text="No heats in planning." />
               ) : (
-                <HeatTable rows={planning} />
+                <HeatTable rows={planning} onOpen={(h) => { setActiveHeat(h); setSheetOpen(true); }} />
               )}
             </CardContent>
           </Card>
@@ -211,7 +211,7 @@ export default function PortalProductionCLU() {
               ) : history.length === 0 ? (
                 <EmptyState text="No completed heats yet." />
               ) : (
-                <HeatTable rows={history} />
+                <HeatTable rows={history} onOpen={(h) => { setActiveHeat(h); setSheetOpen(true); }} />
               )}
             </CardContent>
           </Card>
