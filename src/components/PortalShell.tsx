@@ -53,15 +53,23 @@ export function PortalShell() {
   }, [profile?.display_name]);
 
   const navItems = useMemo(
-    () => [
-      ...portalStaticNavItems.map((item) => ({ ...item, icon: LayoutDashboard })),
-      ...modules.map((module) => ({
-        label: module.navLabel,
-        to: `/portal/${module.routeSegment}`,
-        icon: iconMap[module.moduleKey as keyof typeof iconMap] ?? Factory,
-      })),
-    ],
-    [modules],
+    () => {
+      const base = [
+        ...portalStaticNavItems.map((item) => ({ ...item, icon: LayoutDashboard })),
+        ...modules.map((module) => ({
+          label: module.navLabel,
+          to: `/portal/${module.routeSegment}`,
+          icon: iconMap[module.moduleKey as keyof typeof iconMap] ?? Factory,
+        })),
+      ];
+      // Surface CLU production for workspaces whose process profile mentions CLU.
+      const profile = (activeProfitCenter?.processProfile ?? "").toUpperCase();
+      if (profile.includes("CLU")) {
+        base.push({ label: "CLU Production", to: "/portal/production/clu", icon: FlaskConical });
+      }
+      return base;
+    },
+    [modules, activeProfitCenter?.processProfile],
   );
 
   const moduleLabelOverrides = useMemo(() => {
