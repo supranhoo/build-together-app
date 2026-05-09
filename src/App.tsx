@@ -40,6 +40,7 @@ import PortalMaintenance from "./pages/PortalMaintenance";
 import ModulePlaceholder from "./pages/ModulePlaceholder";
 import PortalProduction from "./pages/PortalProduction";
 import PortalProductionFAD from "./pages/PortalProductionFAD";
+import PortalProductionCLU from "./pages/PortalProductionCLU";
 import PortalInventory from "./pages/PortalInventory";
 import PortalInventoryDashboard from "./pages/PortalInventoryDashboard";
 import PortalInventoryStock from "./pages/PortalInventoryStock";
@@ -79,6 +80,7 @@ const App = () => (
                     <Route path="command-deck" element={<PortalCommandDeck />} />
                     <Route path="production" element={<PortalProduction />} />
                     <Route path="production-fad" element={<PortalProductionFAD />} />
+                    <Route path="production/clu" element={<PortalProductionCLU />} />
                     <Route path="inventory" element={<PortalInventory />}>
                       <Route index element={<PortalInventoryDashboard />} />
                       <Route path="stock" element={<PortalInventoryStock />} />
