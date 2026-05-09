@@ -83,7 +83,7 @@ export default function PortalProductionCLU() {
     return () => {
       cancelled = true;
     };
-  }, [activeProfitCenter?.id, toast]);
+  }, [activeProfitCenter?.id, toast, reloadKey]);
 
   const dashboardStats = useMemo(() => {
     const today = new Date().toDateString();
