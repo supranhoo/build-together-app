@@ -285,7 +285,7 @@ function StatCard({ label, value, loading }: { label: string; value: number; loa
   );
 }
 
-function HeatTable({ rows }: { rows: CluHeatRecord[] }) {
+function HeatTable({ rows, onOpen }: { rows: CluHeatRecord[]; onOpen: (h: CluHeatRecord) => void }) {
   return (
     <Table>
       <TableHeader>
