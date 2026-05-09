@@ -268,6 +268,15 @@ export default function PortalProductionCLU() {
           </Card>
         </TabsContent>
       </Tabs>
+
+      <CluHeatEntrySheet
+        open={sheetOpen}
+        heat={activeHeat}
+        profitCenterId={activeProfitCenter.id}
+        isAdmin={isAdmin}
+        onClose={() => setSheetOpen(false)}
+        onChanged={() => setReloadKey((k) => k + 1)}
+      />
     </div>
   );
 }
