@@ -110,13 +110,17 @@ export default function PortalProductionCLU() {
 
   return (
     <div className="space-y-6">
-      <div>
-        <p className="text-[11px] font-semibold uppercase tracking-[0.22em] text-primary">Production</p>
-        <h1 className="mt-1 text-2xl font-semibold">CLU — Converter Ladle Unit</h1>
-        <p className="mt-1 text-sm text-muted-foreground">
-          Heat lifecycle, blowing &amp; sampling data, additions, output and SOP master for {activeProfitCenter.name}.
-          Heat-entry forms and AI analysis ship in upcoming releases.
-        </p>
+      <div className="flex items-start justify-between gap-4">
+        <div>
+          <p className="text-[11px] font-semibold uppercase tracking-[0.22em] text-primary">Production</p>
+          <h1 className="mt-1 text-2xl font-semibold">CLU — Converter Ladle Unit</h1>
+          <p className="mt-1 text-sm text-muted-foreground">
+            21-step heat lifecycle, blowing &amp; sampling, additions, output and SOP master for {activeProfitCenter.name}.
+          </p>
+        </div>
+        <Button onClick={() => { setActiveHeat(null); setSheetOpen(true); }} size="sm">
+          <Plus className="mr-1 h-4 w-4" /> New heat
+        </Button>
       </div>
 
       <Tabs defaultValue="dashboard" className="space-y-4">
