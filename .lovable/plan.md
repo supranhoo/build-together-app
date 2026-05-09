@@ -1,7 +1,7 @@
 # CLU Production Module — Staged Port
 
 ## Status
-**PR1 complete (2026-05-08)** — schema + RLS + pure calc + persistence lib + 12 passing tests. No UI yet.
+**PR1 + PR2 complete (2026-05-09)** — schema + RLS + pure calc + persistence lib + 12 passing tests + page scaffold mounted at `/portal/production/clu` with conditional NavLink (PCs whose process profile contains "CLU").
 
 ## Goal
 
@@ -16,11 +16,10 @@ Bring CLU process management to `/portal/production/clu`, adapted to our stack (
 - `src/test/clu-calc.test.ts` — 12 cases (happy path, zero-input, performance tag, factor override, multi-material).
 - DOCUMENTATION.md + POLICY.md updated.
 
-### PR2 — Page scaffold + read-only tabs (next)
-- `src/pages/PortalProductionCLU.tsx` skeleton with Tabs (Dashboard, Planning, History, SOP Master).
-- Profit-center guard via `useWorkspace`.
-- Empty states when no rows — no inline mock data.
-- Route in `App.tsx`, NavLink in `PortalShell.tsx`.
+### PR2 — Page scaffold + read-only tabs (DONE)
+- `src/pages/PortalProductionCLU.tsx` with Tabs (Dashboard, Planning, History, SOP Master).
+- Profit-center guard via `useWorkspace`; empty states when no rows; no inline mocks.
+- Route `/portal/production/clu` in `App.tsx`; conditional NavLink in `PortalShell.tsx` driven by `processProfile` containing "CLU".
 
 ### PR3 — Heat Entry lifecycle + Quality QC + Energy + Downtime
 - 21-step left rail, step-specific forms, live Mn balance preview.
