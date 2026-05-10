@@ -1,7 +1,7 @@
 # CLU Production Module — Staged Port
 
 ## Status
-**PR1 + PR2 + PR3 complete (2026-05-09)** — schema + RLS + pure calc + persistence lib + 19 passing tests + page scaffold + 21-step heat-entry sheet with status transitions (draft → pending_approval → approved/rejected → voided) wired into the page (New heat button + clickable rows).
+**PR1 + PR2 + PR3 + PR4 complete (2026-05-10)** — schema/RLS/calc/persistence + page scaffold + 21-step heat-entry sheet with status transitions + AI analysis tab backed by `clu-heat-analysis` edge function (Lovable AI Gateway, `google/gemini-2.5-pro`), persisting `metadata.last_ai_analysis`.
 
 ## Goal
 
