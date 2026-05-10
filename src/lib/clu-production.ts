@@ -558,3 +558,19 @@ export async function logDelay(input: {
   });
   if (error) throw error;
 }
+
+// ---------- AI heat analysis (PR4) ----------
+export interface CluHeatAnalysisResult {
+  summary: string;
+  model: string;
+}
+
+export async function runHeatAnalysis(heatId: string): Promise<CluHeatAnalysisResult> {
+  const { data, error } = await supabase.functions.invoke("clu-heat-analysis", {
+    body: { heatId },
+  });
+  if (error) throw error;
+  if (!data?.summary) throw new Error((data as any)?.error ?? "AI analysis returned no content");
+  return { summary: data.summary as string, model: data.model as string };
+}
+

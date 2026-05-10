@@ -1,7 +1,7 @@
 # CLU Production Module — Staged Port
 
 ## Status
-**PR1 + PR2 + PR3 complete (2026-05-09)** — schema + RLS + pure calc + persistence lib + 19 passing tests + page scaffold + 21-step heat-entry sheet with status transitions (draft → pending_approval → approved/rejected → voided) wired into the page (New heat button + clickable rows).
+**PR1 + PR2 + PR3 + PR4 complete (2026-05-10)** — schema/RLS/calc/persistence + page scaffold + 21-step heat-entry sheet with status transitions + AI analysis tab backed by `clu-heat-analysis` edge function (Lovable AI Gateway, `google/gemini-2.5-pro`), persisting `metadata.last_ai_analysis`.
 
 ## Goal
 
@@ -28,10 +28,11 @@ Bring CLU process management to `/portal/production/clu`, adapted to our stack (
 - 7 new transition tests in `src/test/clu-production-actions.test.ts`.
 - Approvals stay in CLU's own status field (decision recorded last 2026-05-09): integrating with `heat_log_approvals` would require a polymorphic refactor of finance/PortalHeatApprovals; deferred until plant-head signs off on a single queue.
 
-### PR4 — AI Analysis tab
-- Edge function `clu-heat-analysis` via Lovable AI Gateway (`google/gemini-2.5-pro`). No external API key.
-- Persists last analysis on `clu_heats.metadata.last_ai_analysis`.
-- Auto-Capture toggle is UI-only / demo (flagged in DOCUMENTATION.md).
+### PR4 — AI Analysis tab (DONE)
+- Edge function `supabase/functions/clu-heat-analysis/index.ts` calls Lovable AI Gateway (`google/gemini-2.5-pro`); JWT-validated, RLS-scoped reads & update, no service role.
+- `runHeatAnalysis` helper in `src/lib/clu-production.ts` invokes via `supabase.functions.invoke`.
+- AI Analysis tab in `PortalProductionCLU.tsx`: heat picker + Run analysis + summary panel; persists `metadata.last_ai_analysis` and shows "Last run" timestamp.
+- 429 / 402 propagated as toast errors; rendered as plain markdown inside `<pre>` (no `react-markdown` dependency).
 
 ## Out of scope (deliberately dropped from upload)
 - `react-markdown` import in component code (use existing helpers / plain `<pre>` until PR4)
