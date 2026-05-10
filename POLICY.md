@@ -464,3 +464,8 @@ max_level     = daily × max_cover_days       (default 30)
 - Only the heat owner (or another user with PC access) can edit a draft. Once submitted, fields are read-only.
 - Only users with role `admin` or `super_admin` can approve, reject, or void a heat. Reject and Void require a reason of at least 3 characters.
 - Every transition is appended to `clu_heats.metadata.transitions` with actor, from/to states, reason and timestamp; this is the immutable audit trail until a dedicated `clu_heat_events` table is introduced.
+
+## CLU SOP master & delays (PR5, 2026-05-10)
+- SOP rows are unique per `(profit_center_id, grade)`. Only `admin` / `super_admin` may create or edit SOPs from the portal UI; all PC members can read.
+- `validateSopInput` rejects an empty grade and any range where `carbon_from > carbon_to`. The same guard runs both client-side (button disable + dialog error) and inside `upsertSop` so direct lib callers cannot bypass it.
+- Delay rows always require a reason of at least 3 characters. `duration_min` is computed from `started_at`/`ended_at`; an open delay (`ended_at = null`) stores `null` duration and may be closed in a follow-up edit (UI for editing open delays not yet shipped — out of scope until requested).
