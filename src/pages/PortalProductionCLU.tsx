@@ -56,6 +56,35 @@ export default function PortalProductionCLU() {
   const [sheetOpen, setSheetOpen] = useState(false);
   const [activeHeat, setActiveHeat] = useState<CluHeatRecord | null>(null);
   const [reloadKey, setReloadKey] = useState(0);
+  const [aiHeatId, setAiHeatId] = useState<string>("");
+  const [aiRunning, setAiRunning] = useState(false);
+  const [aiSummary, setAiSummary] = useState<string>("");
+
+  const aiHeat = useMemo(() => heats.find((h) => h.id === aiHeatId) ?? null, [heats, aiHeatId]);
+
+  useEffect(() => {
+    const meta = aiHeat?.metadata as { last_ai_analysis?: { summary?: string } } | undefined;
+    setAiSummary(meta?.last_ai_analysis?.summary ?? "");
+  }, [aiHeatId, aiHeat]);
+
+  const handleRunAnalysis = async () => {
+    if (!aiHeatId) return;
+    setAiRunning(true);
+    try {
+      const res = await runHeatAnalysis(aiHeatId);
+      setAiSummary(res.summary);
+      setReloadKey((k) => k + 1);
+      toast({ title: "Analysis complete", description: `Model: ${res.model}` });
+    } catch (e) {
+      toast({
+        title: "AI analysis failed",
+        description: e instanceof Error ? e.message : "Unknown error",
+        variant: "destructive",
+      });
+    } finally {
+      setAiRunning(false);
+    }
+  };
 
   useEffect(() => {
     if (!activeProfitCenter) return;
