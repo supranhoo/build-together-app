@@ -21,11 +21,14 @@ import {
   fetchHeats,
   fetchDelays,
   fetchSopMaster,
+  runHeatAnalysis,
   type CluHeatRecord,
   type CluDelayRecord,
   type CluSopRecord,
 } from "@/lib/clu-production";
 import { CluHeatEntrySheet } from "@/components/clu/CluHeatEntrySheet";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Sparkles } from "lucide-react";
 
 const fmtDate = (iso: string) => new Date(iso).toLocaleDateString();
 const fmtDateTime = (iso: string) => new Date(iso).toLocaleString();
