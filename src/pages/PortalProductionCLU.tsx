@@ -300,6 +300,58 @@ export default function PortalProductionCLU() {
             </CardContent>
           </Card>
         </TabsContent>
+
+        <TabsContent value="ai">
+          <Card className="border-border bg-card shadow-panel">
+            <CardHeader>
+              <CardTitle className="flex items-center gap-2">
+                <Sparkles className="h-4 w-4 text-primary" /> AI heat analysis
+              </CardTitle>
+              <CardDescription>
+                Pick a heat to generate a metallurgist's review (recovery, deviations, suggested actions). Powered by Lovable AI.
+              </CardDescription>
+            </CardHeader>
+            <CardContent className="space-y-4">
+              <div className="flex flex-wrap items-center gap-3">
+                <Select value={aiHeatId} onValueChange={setAiHeatId}>
+                  <SelectTrigger className="w-[280px]">
+                    <SelectValue placeholder="Select a heat…" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {heats.length === 0 ? (
+                      <SelectItem value="__none" disabled>No heats available</SelectItem>
+                    ) : (
+                      heats.map((h) => (
+                        <SelectItem key={h.id} value={h.id}>
+                          #{h.heatNumber} — {fmtDate(h.heatDate)} ({h.status.replace("_", " ")})
+                        </SelectItem>
+                      ))
+                    )}
+                  </SelectContent>
+                </Select>
+                <Button onClick={handleRunAnalysis} disabled={!aiHeatId || aiRunning} size="sm">
+                  {aiRunning ? <Loader2 className="mr-1 h-4 w-4 animate-spin" /> : <Sparkles className="mr-1 h-4 w-4" />}
+                  {aiRunning ? "Analysing…" : "Run analysis"}
+                </Button>
+                {aiHeat && (() => {
+                  const meta = aiHeat.metadata as { last_ai_analysis?: { generated_at?: string } } | undefined;
+                  const at = meta?.last_ai_analysis?.generated_at;
+                  return at ? (
+                    <span className="text-xs text-muted-foreground">Last run: {fmtDateTime(at)}</span>
+                  ) : null;
+                })()}
+              </div>
+
+              {aiSummary ? (
+                <pre className="max-h-[600px] overflow-auto whitespace-pre-wrap rounded-md border border-border bg-muted/30 p-4 text-sm leading-relaxed">
+                  {aiSummary}
+                </pre>
+              ) : (
+                <EmptyState text={aiHeatId ? "No analysis yet — click Run analysis." : "Pick a heat to begin."} />
+              )}
+            </CardContent>
+          </Card>
+        </TabsContent>
       </Tabs>
 
       <CluHeatEntrySheet
