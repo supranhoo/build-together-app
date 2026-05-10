@@ -1,7 +1,7 @@
 # CLU Production Module — Staged Port
 
 ## Status
-**PR1 + PR2 + PR3 + PR4 complete (2026-05-10)** — schema/RLS/calc/persistence + page scaffold + 21-step heat-entry sheet with status transitions + AI analysis tab backed by `clu-heat-analysis` edge function (Lovable AI Gateway, `google/gemini-2.5-pro`), persisting `metadata.last_ai_analysis`.
+**PR1 + PR2 + PR3 + PR4 + PR5 complete (2026-05-10)** — schema/RLS/calc/persistence + page scaffold + 21-step heat-entry sheet with status transitions + AI analysis tab backed by `clu-heat-analysis` edge function (Lovable AI Gateway, `google/gemini-2.5-pro`), persisting `metadata.last_ai_analysis` + SOP master editor (admin) and delay log dialog wired into the dashboard.
 
 ## Goal
 
