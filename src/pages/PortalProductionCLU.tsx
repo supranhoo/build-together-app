@@ -262,9 +262,16 @@ export default function PortalProductionCLU() {
 
         <TabsContent value="sop">
           <Card className="border-border bg-card shadow-panel">
-            <CardHeader>
-              <CardTitle>SOP master</CardTitle>
-              <CardDescription>Per-grade target ranges. Editable in a future release.</CardDescription>
+            <CardHeader className="flex flex-row items-start justify-between gap-4">
+              <div>
+                <CardTitle>SOP master</CardTitle>
+                <CardDescription>Per-grade target ranges drive heat-entry guidance and AI analysis.</CardDescription>
+              </div>
+              {isAdmin && (
+                <Button size="sm" onClick={() => { setEditSop(null); setSopDialogOpen(true); }}>
+                  <Plus className="mr-1 h-4 w-4" /> Add SOP
+                </Button>
+              )}
             </CardHeader>
             <CardContent>
               {loading ? (
@@ -282,6 +289,7 @@ export default function PortalProductionCLU() {
                       <TableHead className="text-right">Flux qty</TableHead>
                       <TableHead className="text-right">Temp °C</TableHead>
                       <TableHead>Active</TableHead>
+                      {isAdmin && <TableHead className="w-10" />}
                     </TableRow>
                   </TableHeader>
                   <TableBody>
@@ -302,6 +310,18 @@ export default function PortalProductionCLU() {
                             {s.isActive ? "Active" : "Inactive"}
                           </Badge>
                         </TableCell>
+                        {isAdmin && (
+                          <TableCell>
+                            <Button
+                              size="icon"
+                              variant="ghost"
+                              onClick={() => { setEditSop(s); setSopDialogOpen(true); }}
+                              aria-label={`Edit SOP ${s.grade}`}
+                            >
+                              <Pencil className="h-4 w-4" />
+                            </Button>
+                          </TableCell>
+                        )}
                       </TableRow>
                     ))}
                   </TableBody>
