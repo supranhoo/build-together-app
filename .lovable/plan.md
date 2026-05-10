@@ -34,6 +34,13 @@ Bring CLU process management to `/portal/production/clu`, adapted to our stack (
 - AI Analysis tab in `PortalProductionCLU.tsx`: heat picker + Run analysis + summary panel; persists `metadata.last_ai_analysis` and shows "Last run" timestamp.
 - 429 / 402 propagated as toast errors; rendered as plain markdown inside `<pre>` (no `react-markdown` dependency).
 
+### PR5 — SOP master editor + Delay logging UI (DONE)
+- `upsertSop` / `deleteSop` / `validateSopInput` added to `src/lib/clu-production.ts`. Validation rejects empty grade and inverted carbon ranges.
+- `src/components/clu/CluSopEditDialog.tsx` — admin-only create/edit dialog (grade, carbon range, blowing/O₂/flux/temp targets, notes, active toggle).
+- `src/components/clu/CluDelayLogDialog.tsx` — operator-facing delay capture (category, start/end, optional heat link, reason ≥3 chars). Server computes `duration_min`.
+- `PortalProductionCLU.tsx`: "Add SOP" + per-row edit (admin only) on SOP tab; "Log delay" on dashboard's Recent Delays card.
+- `src/test/clu-sop-validation.test.ts` — 5 cases for `validateSopInput`.
+
 ## Out of scope (deliberately dropped from upload)
 - `react-markdown` import in component code (use existing helpers / plain `<pre>` until PR4)
 - Raw color classes → semantic tokens
