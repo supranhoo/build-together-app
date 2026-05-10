@@ -11,7 +11,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Badge } from "@/components/ui/badge";
-import { AlertTriangle, FlaskConical, Loader2, Plus } from "lucide-react";
+import { AlertTriangle, FlaskConical, Loader2, Plus, Pencil, Sparkles, Timer } from "lucide-react";
 import { Button } from "@/components/ui/button";
 
 import { useWorkspace } from "@/hooks/use-workspace";
@@ -27,8 +27,9 @@ import {
   type CluSopRecord,
 } from "@/lib/clu-production";
 import { CluHeatEntrySheet } from "@/components/clu/CluHeatEntrySheet";
+import { CluSopEditDialog } from "@/components/clu/CluSopEditDialog";
+import { CluDelayLogDialog } from "@/components/clu/CluDelayLogDialog";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Sparkles } from "lucide-react";
 
 const fmtDate = (iso: string) => new Date(iso).toLocaleDateString();
 const fmtDateTime = (iso: string) => new Date(iso).toLocaleString();
