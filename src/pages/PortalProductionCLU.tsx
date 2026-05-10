@@ -47,8 +47,12 @@ const statusVariant: Record<CluHeatRecord["status"], "default" | "secondary" | "
 export default function PortalProductionCLU() {
   const { activeProfitCenter } = useWorkspace();
   const { toast } = useToast();
-  const { profile } = useAuth();
+  const { profile, session } = useAuth();
   const isAdmin = profile?.role === "admin" || profile?.role === "super_admin";
+  const userId = session?.user.id ?? "";
+  const [sopDialogOpen, setSopDialogOpen] = useState(false);
+  const [editSop, setEditSop] = useState<CluSopRecord | null>(null);
+  const [delayDialogOpen, setDelayDialogOpen] = useState(false);
 
   const [heats, setHeats] = useState<CluHeatRecord[]>([]);
   const [delays, setDelays] = useState<CluDelayRecord[]>([]);
