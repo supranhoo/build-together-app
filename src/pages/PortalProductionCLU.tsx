@@ -392,6 +392,24 @@ export default function PortalProductionCLU() {
         onClose={() => setSheetOpen(false)}
         onChanged={() => setReloadKey((k) => k + 1)}
       />
+
+      <CluSopEditDialog
+        open={sopDialogOpen}
+        onClose={() => setSopDialogOpen(false)}
+        onSaved={() => setReloadKey((k) => k + 1)}
+        profitCenterId={activeProfitCenter.id}
+        userId={userId}
+        sop={editSop}
+      />
+
+      <CluDelayLogDialog
+        open={delayDialogOpen}
+        onClose={() => setDelayDialogOpen(false)}
+        onSaved={() => setReloadKey((k) => k + 1)}
+        profitCenterId={activeProfitCenter.id}
+        userId={userId}
+        heats={heats}
+      />
     </div>
   );
 }
