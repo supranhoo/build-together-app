@@ -182,9 +182,14 @@ export default function PortalProductionCLU() {
           </div>
 
           <Card className="border-border bg-card shadow-panel">
-            <CardHeader>
-              <CardTitle>Recent delays</CardTitle>
-              <CardDescription>Latest 100 logged delays for this workspace.</CardDescription>
+            <CardHeader className="flex flex-row items-start justify-between gap-4">
+              <div>
+                <CardTitle>Recent delays</CardTitle>
+                <CardDescription>Latest 100 logged delays for this workspace.</CardDescription>
+              </div>
+              <Button size="sm" variant="outline" onClick={() => setDelayDialogOpen(true)}>
+                <Timer className="mr-1 h-4 w-4" /> Log delay
+              </Button>
             </CardHeader>
             <CardContent>
               {loading ? (
