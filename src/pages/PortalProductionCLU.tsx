@@ -11,7 +11,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Badge } from "@/components/ui/badge";
-import { AlertTriangle, FlaskConical, Loader2, Plus } from "lucide-react";
+import { AlertTriangle, FlaskConical, Loader2, Plus, Pencil, Sparkles, Timer } from "lucide-react";
 import { Button } from "@/components/ui/button";
 
 import { useWorkspace } from "@/hooks/use-workspace";
@@ -27,8 +27,9 @@ import {
   type CluSopRecord,
 } from "@/lib/clu-production";
 import { CluHeatEntrySheet } from "@/components/clu/CluHeatEntrySheet";
+import { CluSopEditDialog } from "@/components/clu/CluSopEditDialog";
+import { CluDelayLogDialog } from "@/components/clu/CluDelayLogDialog";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Sparkles } from "lucide-react";
 
 const fmtDate = (iso: string) => new Date(iso).toLocaleDateString();
 const fmtDateTime = (iso: string) => new Date(iso).toLocaleString();
@@ -46,8 +47,12 @@ const statusVariant: Record<CluHeatRecord["status"], "default" | "secondary" | "
 export default function PortalProductionCLU() {
   const { activeProfitCenter } = useWorkspace();
   const { toast } = useToast();
-  const { profile } = useAuth();
+  const { profile, session } = useAuth();
   const isAdmin = profile?.role === "admin" || profile?.role === "super_admin";
+  const userId = session?.user.id ?? "";
+  const [sopDialogOpen, setSopDialogOpen] = useState(false);
+  const [editSop, setEditSop] = useState<CluSopRecord | null>(null);
+  const [delayDialogOpen, setDelayDialogOpen] = useState(false);
 
   const [heats, setHeats] = useState<CluHeatRecord[]>([]);
   const [delays, setDelays] = useState<CluDelayRecord[]>([]);
@@ -177,9 +182,14 @@ export default function PortalProductionCLU() {
           </div>
 
           <Card className="border-border bg-card shadow-panel">
-            <CardHeader>
-              <CardTitle>Recent delays</CardTitle>
-              <CardDescription>Latest 100 logged delays for this workspace.</CardDescription>
+            <CardHeader className="flex flex-row items-start justify-between gap-4">
+              <div>
+                <CardTitle>Recent delays</CardTitle>
+                <CardDescription>Latest 100 logged delays for this workspace.</CardDescription>
+              </div>
+              <Button size="sm" variant="outline" onClick={() => setDelayDialogOpen(true)}>
+                <Timer className="mr-1 h-4 w-4" /> Log delay
+              </Button>
             </CardHeader>
             <CardContent>
               {loading ? (
@@ -252,9 +262,16 @@ export default function PortalProductionCLU() {
 
         <TabsContent value="sop">
           <Card className="border-border bg-card shadow-panel">
-            <CardHeader>
-              <CardTitle>SOP master</CardTitle>
-              <CardDescription>Per-grade target ranges. Editable in a future release.</CardDescription>
+            <CardHeader className="flex flex-row items-start justify-between gap-4">
+              <div>
+                <CardTitle>SOP master</CardTitle>
+                <CardDescription>Per-grade target ranges drive heat-entry guidance and AI analysis.</CardDescription>
+              </div>
+              {isAdmin && (
+                <Button size="sm" onClick={() => { setEditSop(null); setSopDialogOpen(true); }}>
+                  <Plus className="mr-1 h-4 w-4" /> Add SOP
+                </Button>
+              )}
             </CardHeader>
             <CardContent>
               {loading ? (
@@ -272,6 +289,7 @@ export default function PortalProductionCLU() {
                       <TableHead className="text-right">Flux qty</TableHead>
                       <TableHead className="text-right">Temp °C</TableHead>
                       <TableHead>Active</TableHead>
+                      {isAdmin && <TableHead className="w-10" />}
                     </TableRow>
                   </TableHeader>
                   <TableBody>
@@ -292,6 +310,18 @@ export default function PortalProductionCLU() {
                             {s.isActive ? "Active" : "Inactive"}
                           </Badge>
                         </TableCell>
+                        {isAdmin && (
+                          <TableCell>
+                            <Button
+                              size="icon"
+                              variant="ghost"
+                              onClick={() => { setEditSop(s); setSopDialogOpen(true); }}
+                              aria-label={`Edit SOP ${s.grade}`}
+                            >
+                              <Pencil className="h-4 w-4" />
+                            </Button>
+                          </TableCell>
+                        )}
                       </TableRow>
                     ))}
                   </TableBody>
@@ -361,6 +391,24 @@ export default function PortalProductionCLU() {
         isAdmin={isAdmin}
         onClose={() => setSheetOpen(false)}
         onChanged={() => setReloadKey((k) => k + 1)}
+      />
+
+      <CluSopEditDialog
+        open={sopDialogOpen}
+        onClose={() => setSopDialogOpen(false)}
+        onSaved={() => setReloadKey((k) => k + 1)}
+        profitCenterId={activeProfitCenter.id}
+        userId={userId}
+        sop={editSop}
+      />
+
+      <CluDelayLogDialog
+        open={delayDialogOpen}
+        onClose={() => setDelayDialogOpen(false)}
+        onSaved={() => setReloadKey((k) => k + 1)}
+        profitCenterId={activeProfitCenter.id}
+        userId={userId}
+        heats={heats}
       />
     </div>
   );

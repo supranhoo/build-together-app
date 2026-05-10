@@ -224,6 +224,64 @@ export async function fetchSopMaster(profitCenterId: string): Promise<CluSopReco
   return (data ?? []).map(toSop);
 }
 
+export interface UpsertSopInput {
+  id?: string;
+  profitCenterId: string;
+  grade: string;
+  carbonFrom?: number | null;
+  carbonTo?: number | null;
+  blowingTimeTargetMin?: number | null;
+  oxygenFlowTarget?: number | null;
+  fluxQtyTarget?: number | null;
+  tempTarget?: number | null;
+  notes?: string | null;
+  isActive?: boolean;
+  createdBy: string;
+}
+
+export function validateSopInput(input: UpsertSopInput): string | null {
+  if (!input.grade || input.grade.trim().length < 1) return "Grade is required";
+  if (
+    input.carbonFrom !== null && input.carbonFrom !== undefined &&
+    input.carbonTo !== null && input.carbonTo !== undefined &&
+    input.carbonFrom > input.carbonTo
+  ) {
+    return "Carbon 'from' must be ≤ 'to'";
+  }
+  return null;
+}
+
+export async function upsertSop(input: UpsertSopInput): Promise<string> {
+  const err = validateSopInput(input);
+  if (err) throw new Error(err);
+  const payload = {
+    profit_center_id: input.profitCenterId,
+    grade: input.grade.trim(),
+    carbon_from: input.carbonFrom ?? null,
+    carbon_to: input.carbonTo ?? null,
+    blowing_time_target_min: input.blowingTimeTargetMin ?? null,
+    oxygen_flow_target: input.oxygenFlowTarget ?? null,
+    flux_qty_target: input.fluxQtyTarget ?? null,
+    temp_target: input.tempTarget ?? null,
+    notes: input.notes ?? null,
+    is_active: input.isActive ?? true,
+    created_by: input.createdBy,
+  };
+  if (input.id) {
+    const { error } = await client.from("clu_sop_master").update(payload).eq("id", input.id);
+    if (error) throw error;
+    return input.id;
+  }
+  const { data, error } = await client.from("clu_sop_master").insert(payload).select("id").single();
+  if (error) throw error;
+  return data.id as string;
+}
+
+export async function deleteSop(id: string): Promise<void> {
+  const { error } = await client.from("clu_sop_master").delete().eq("id", id);
+  if (error) throw error;
+}
+
 // ---------- Heats ----------
 export async function fetchHeats(profitCenterId: string, limit = 200): Promise<CluHeatRecord[]> {
   const { data, error } = await client

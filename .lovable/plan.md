@@ -1,7 +1,7 @@
 # CLU Production Module — Staged Port
 
 ## Status
-**PR1 + PR2 + PR3 + PR4 complete (2026-05-10)** — schema/RLS/calc/persistence + page scaffold + 21-step heat-entry sheet with status transitions + AI analysis tab backed by `clu-heat-analysis` edge function (Lovable AI Gateway, `google/gemini-2.5-pro`), persisting `metadata.last_ai_analysis`.
+**PR1 + PR2 + PR3 + PR4 + PR5 complete (2026-05-10)** — schema/RLS/calc/persistence + page scaffold + 21-step heat-entry sheet with status transitions + AI analysis tab backed by `clu-heat-analysis` edge function (Lovable AI Gateway, `google/gemini-2.5-pro`), persisting `metadata.last_ai_analysis` + SOP master editor (admin) and delay log dialog wired into the dashboard.
 
 ## Goal
 
@@ -33,6 +33,13 @@ Bring CLU process management to `/portal/production/clu`, adapted to our stack (
 - `runHeatAnalysis` helper in `src/lib/clu-production.ts` invokes via `supabase.functions.invoke`.
 - AI Analysis tab in `PortalProductionCLU.tsx`: heat picker + Run analysis + summary panel; persists `metadata.last_ai_analysis` and shows "Last run" timestamp.
 - 429 / 402 propagated as toast errors; rendered as plain markdown inside `<pre>` (no `react-markdown` dependency).
+
+### PR5 — SOP master editor + Delay logging UI (DONE)
+- `upsertSop` / `deleteSop` / `validateSopInput` added to `src/lib/clu-production.ts`. Validation rejects empty grade and inverted carbon ranges.
+- `src/components/clu/CluSopEditDialog.tsx` — admin-only create/edit dialog (grade, carbon range, blowing/O₂/flux/temp targets, notes, active toggle).
+- `src/components/clu/CluDelayLogDialog.tsx` — operator-facing delay capture (category, start/end, optional heat link, reason ≥3 chars). Server computes `duration_min`.
+- `PortalProductionCLU.tsx`: "Add SOP" + per-row edit (admin only) on SOP tab; "Log delay" on dashboard's Recent Delays card.
+- `src/test/clu-sop-validation.test.ts` — 5 cases for `validateSopInput`.
 
 ## Out of scope (deliberately dropped from upload)
 - `react-markdown` import in component code (use existing helpers / plain `<pre>` until PR4)
