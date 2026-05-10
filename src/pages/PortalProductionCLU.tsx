@@ -161,6 +161,7 @@ export default function PortalProductionCLU() {
           <TabsTrigger value="planning">Planning</TabsTrigger>
           <TabsTrigger value="history">History</TabsTrigger>
           <TabsTrigger value="sop">SOP Master</TabsTrigger>
+          <TabsTrigger value="ai">AI Analysis</TabsTrigger>
         </TabsList>
 
         <TabsContent value="dashboard" className="space-y-4">
