@@ -32,6 +32,11 @@ import {
   type HeatApprovalStatus,
   type HeatLogApproval,
 } from "@/lib/finance";
+import {
+  fetchProductionApprovals,
+  type ProductionApproval,
+} from "@/lib/production-approvals";
+import { transitionHeat, type CluHeatStatus } from "@/lib/clu-production";
 
 const statusBadge: Record<HeatApprovalStatus, { label: string; variant: "default" | "secondary" | "destructive" | "outline" }> = {
   pending: { label: "Pending", variant: "secondary" },
@@ -56,18 +61,21 @@ export default function PortalHeatApprovals() {
   const [approvals, setApprovals] = useState<HeatLogApproval[]>([]);
   const [reasonByHeat, setReasonByHeat] = useState<Record<string, string>>({});
   const [busyId, setBusyId] = useState<string | null>(null);
+  const [cluRows, setCluRows] = useState<ProductionApproval[]>([]);
 
   const reload = async () => {
     if (!activeProfitCenter) return;
     try {
-      const [f, h, a] = await Promise.all([
+      const [f, h, a, clu] = await Promise.all([
         fetchFurnaces(activeProfitCenter.id),
         fetchHeatLogs(activeProfitCenter.id, {}),
         fetchHeatApprovals(activeProfitCenter.id),
+        fetchProductionApprovals(activeProfitCenter.id, { source: "clu_heat" }),
       ]);
       setFurnaces(f);
       setHeats(h.filter((x) => !x.isVoided && x.tapTime.slice(0, 10) >= from && x.tapTime.slice(0, 10) <= to));
       setApprovals(a);
+      setCluRows(clu);
     } catch (e) {
       toast({
         title: "Failed to load approvals",
@@ -149,6 +157,42 @@ export default function PortalHeatApprovals() {
         description: heatLabel,
       });
       setReasonByHeat((s) => ({ ...s, [noteKey]: "" }));
+      await reload();
+    } catch (e) {
+      toast({
+        title: "Decision failed",
+        description: e instanceof Error ? e.message : "",
+        variant: "destructive",
+      });
+    } finally {
+      setBusyId(null);
+    }
+  };
+
+  const handleCluDecide = async (
+    row: ProductionApproval,
+    decision: "approve" | "reject",
+  ) => {
+    if (!userId) return;
+    const reason = (reasonByHeat[row.id] ?? "").trim();
+    if (decision === "reject" && reason.length < 3) {
+      toast({ title: "Rejection reason required (min 3 chars)", variant: "destructive" });
+      return;
+    }
+    setBusyId(row.id);
+    try {
+      await transitionHeat({
+        heatId: row.entityId,
+        currentStatus: "pending_approval" as CluHeatStatus,
+        transition: decision,
+        reason: reason || undefined,
+        actorUserId: userId,
+      });
+      toast({
+        title: decision === "approve" ? "CLU heat approved" : "CLU heat rejected",
+        description: `Heat ${row.heatNumber}`,
+      });
+      setReasonByHeat((s) => ({ ...s, [row.id]: "" }));
       await reload();
     } catch (e) {
       toast({
@@ -284,6 +328,101 @@ export default function PortalHeatApprovals() {
                 <TableRow>
                   <TableCell colSpan={8} className="text-muted-foreground">
                     No heats match the current filter.
+                  </TableCell>
+                </TableRow>
+              )}
+            </TableBody>
+          </Table>
+        </CardContent>
+      </Card>
+
+      <Card className="border-border bg-card shadow-panel">
+        <CardHeader className="space-y-1">
+          <div className="flex flex-wrap items-center gap-2">
+            <CardTitle>CLU Heats</CardTitle>
+            <Badge variant="outline">Polymorphic queue</Badge>
+            <Badge variant="secondary">
+              <Clock className="mr-1 h-3 w-3" />
+              {cluRows.filter((r) => r.status === "pending").length} pending
+            </Badge>
+          </div>
+          <CardDescription>
+            CLU heats submitted from <code>/portal/production/clu</code>. Decisions here
+            update <code>clu_heats.status</code> and append to its transition audit trail.
+          </CardDescription>
+        </CardHeader>
+        <CardContent>
+          <Table>
+            <TableHeader>
+              <TableRow>
+                <TableHead>Heat #</TableHead>
+                <TableHead>Submitted</TableHead>
+                <TableHead>Status</TableHead>
+                <TableHead className="w-[280px]">Notes / decision</TableHead>
+                <TableHead className="text-right">Action</TableHead>
+              </TableRow>
+            </TableHeader>
+            <TableBody>
+              {cluRows.map((row) => {
+                const isBusy = busyId === row.id;
+                const noteVal = reasonByHeat[row.id] ?? "";
+                return (
+                  <TableRow key={row.id}>
+                    <TableCell className="font-medium">{row.heatNumber}</TableCell>
+                    <TableCell>
+                      {row.submittedAt ? new Date(row.submittedAt).toLocaleString() : "—"}
+                    </TableCell>
+                    <TableCell>
+                      <Badge variant={statusBadge[row.status].variant}>
+                        {statusBadge[row.status].label}
+                      </Badge>
+                    </TableCell>
+                    <TableCell>
+                      {row.status === "pending" ? (
+                        <Textarea
+                          placeholder="Optional note / required for reject"
+                          value={noteVal}
+                          rows={2}
+                          onChange={(e) =>
+                            setReasonByHeat((s) => ({ ...s, [row.id]: e.target.value }))
+                          }
+                        />
+                      ) : (
+                        <span className="text-xs text-muted-foreground">{row.notes ?? "—"}</span>
+                      )}
+                    </TableCell>
+                    <TableCell className="text-right">
+                      {row.status === "pending" ? (
+                        <div className="flex justify-end gap-2">
+                          <Button
+                            size="sm"
+                            variant="outline"
+                            disabled={isBusy}
+                            onClick={() => handleCluDecide(row, "reject")}
+                          >
+                            <ThumbsDown className="mr-1 h-4 w-4" /> Reject
+                          </Button>
+                          <Button
+                            size="sm"
+                            disabled={isBusy}
+                            onClick={() => handleCluDecide(row, "approve")}
+                          >
+                            <ThumbsUp className="mr-1 h-4 w-4" /> Approve
+                          </Button>
+                        </div>
+                      ) : (
+                        <span className="text-xs text-muted-foreground">
+                          {row.decidedAt ? new Date(row.decidedAt).toLocaleString() : "—"}
+                        </span>
+                      )}
+                    </TableCell>
+                  </TableRow>
+                );
+              })}
+              {cluRows.length === 0 && (
+                <TableRow>
+                  <TableCell colSpan={5} className="text-muted-foreground">
+                    No CLU heats submitted for approval yet.
                   </TableCell>
                 </TableRow>
               )}

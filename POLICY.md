@@ -469,3 +469,11 @@ max_level     = daily × max_cover_days       (default 30)
 - SOP rows are unique per `(profit_center_id, grade)`. Only `admin` / `super_admin` may create or edit SOPs from the portal UI; all PC members can read.
 - `validateSopInput` rejects an empty grade and any range where `carbon_from > carbon_to`. The same guard runs both client-side (button disable + dialog error) and inside `upsertSop` so direct lib callers cannot bypass it.
 - Delay rows always require a reason of at least 3 characters. `duration_min` is computed from `started_at`/`ended_at`; an open delay (`ended_at = null`) stores `null` duration and may be closed in a follow-up edit (UI for editing open delays not yet shipped — out of scope until requested).
+
+## Polymorphic approval queue (PR6, 2026-05-11)
+- The page `/portal/heat-approvals` is the single approval queue for production. It now renders two sections:
+  1. **EAF heats** — backed by `heat_log_approvals` (unchanged behaviour, unchanged RLS, unchanged finance pipeline gating `ferro_cost_sheets`).
+  2. **CLU heats** — sourced from the read-only view `production_approvals_v` (UNION of `heat_log_approvals` + `clu_heats` where status ≠ `draft`).
+- The view is declared `WITH (security_invoker = true)` so RLS on the underlying tables (`has_profit_center_access`, `can_manage_profit_center`) continues to enforce who can see which row. No new permission grant is introduced.
+- Approve/Reject from the unified queue calls the existing source-specific writers: EAF via `decideHeatApproval`, CLU via `transitionHeat`. Audit trails (`heat_log_approvals.decided_*` and `clu_heats.metadata.transitions`) are unchanged.
+- Operators may still submit/decide CLU heats from `/portal/production/clu` directly; both paths converge on the same DB rows.
