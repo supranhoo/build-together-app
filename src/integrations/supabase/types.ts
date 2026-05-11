@@ -5074,7 +5074,24 @@ export type Database = {
       }
     }
     Views: {
-      [_ in never]: never
+      production_approvals_v: {
+        Row: {
+          decided_at: string | null
+          decided_by: string | null
+          entity_id: string | null
+          event_time: string | null
+          heat_number: string | null
+          id: string | null
+          notes: string | null
+          profit_center_id: string | null
+          source: string | null
+          source_row_id: string | null
+          status: string | null
+          submitted_at: string | null
+          submitted_by: string | null
+        }
+        Relationships: []
+      }
     }
     Functions: {
       _compute_kpi_aggregate: {
