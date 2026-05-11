@@ -911,3 +911,25 @@ Happy path, zero-input edge case (no NaN/Infinity), performance tagging, custom 
 - 2026-05-09 (CLU PR3): 21-step heat-entry sheet (`src/components/clu/CluHeatEntrySheet.tsx`) + `src/lib/clu-lifecycle.ts`. Status transitions (`draft → pending_approval → approved/rejected → voided`) implemented via `transitionHeat` with reason validation; appended to `metadata.transitions` for audit. Approve/Reject/Void buttons gated to admin/super_admin via `useAuth().profile.role`. 7 transition tests added (`src/test/clu-production-actions.test.ts`).
 - 2026-05-10 (CLU PR4): AI heat analysis tab + `clu-heat-analysis` edge function (Lovable AI Gateway, `google/gemini-2.5-pro`). Persists `metadata.last_ai_analysis`; rate/credit errors surfaced via toast.
 - 2026-05-10 (CLU PR5): SOP master editor (`CluSopEditDialog`) and delay logger (`CluDelayLogDialog`) with shared `upsertSop` / `validateSopInput` / `logDelay` helpers. SOP create/edit gated to admin/super_admin. 5 validation tests added (`src/test/clu-sop-validation.test.ts`).
+
+## Polymorphic approvals view (PR6, 2026-05-11)
+
+`public.production_approvals_v` (security_invoker view):
+
+| column           | type          | source                                                              |
+|------------------|---------------|---------------------------------------------------------------------|
+| id               | text          | `'<source>:<source_row_id>'` — stable React key                      |
+| source           | text          | `'heat_log'` \| `'clu_heat'`                                         |
+| source_row_id    | uuid          | `heat_log_approvals.id` or `clu_heats.id`                            |
+| entity_id        | uuid          | `heat_log_id` or `clu_heat_id`                                       |
+| profit_center_id | uuid          | from source row                                                      |
+| status           | text          | normalized: `pending` / `approved` / `rejected`                      |
+| heat_number      | text          | from `heat_logs.heat_number` or `clu_heats.heat_number`              |
+| event_time       | timestamptz   | `heat_logs.tap_time` or `clu_heats.heat_date::timestamptz`           |
+| submitted_by     | uuid          | EAF: `submitted_by`; CLU: `created_by`                               |
+| submitted_at     | timestamptz   | EAF: `submitted_at`; CLU: latest transition into `pending_approval`  |
+| decided_by       | uuid          | EAF: `decided_by`; CLU: actor of latest decision transition          |
+| decided_at       | timestamptz   | EAF: `decided_at`; CLU: `at` of latest decision transition           |
+| notes            | text          | EAF: `notes`; CLU: latest `reason` from transition log               |
+
+Read via `fetchProductionApprovals(profitCenterId, { source?, status? })` in `src/lib/production-approvals.ts`. Write paths are unchanged: `submitHeatForApproval`/`decideHeatApproval` for EAF, `transitionHeat` for CLU.
