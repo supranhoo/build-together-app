@@ -32,6 +32,11 @@ import {
   type HeatApprovalStatus,
   type HeatLogApproval,
 } from "@/lib/finance";
+import {
+  fetchProductionApprovals,
+  type ProductionApproval,
+} from "@/lib/production-approvals";
+import { transitionHeat, type CluHeatStatus } from "@/lib/clu-production";
 
 const statusBadge: Record<HeatApprovalStatus, { label: string; variant: "default" | "secondary" | "destructive" | "outline" }> = {
   pending: { label: "Pending", variant: "secondary" },
