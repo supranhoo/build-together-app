@@ -169,6 +169,42 @@ export default function PortalHeatApprovals() {
     }
   };
 
+  const handleCluDecide = async (
+    row: ProductionApproval,
+    decision: "approve" | "reject",
+  ) => {
+    if (!userId) return;
+    const reason = (reasonByHeat[row.id] ?? "").trim();
+    if (decision === "reject" && reason.length < 3) {
+      toast({ title: "Rejection reason required (min 3 chars)", variant: "destructive" });
+      return;
+    }
+    setBusyId(row.id);
+    try {
+      await transitionHeat({
+        heatId: row.entityId,
+        currentStatus: "pending_approval" as CluHeatStatus,
+        transition: decision,
+        reason: reason || undefined,
+        actorUserId: userId,
+      });
+      toast({
+        title: decision === "approve" ? "CLU heat approved" : "CLU heat rejected",
+        description: `Heat ${row.heatNumber}`,
+      });
+      setReasonByHeat((s) => ({ ...s, [row.id]: "" }));
+      await reload();
+    } catch (e) {
+      toast({
+        title: "Decision failed",
+        description: e instanceof Error ? e.message : "",
+        variant: "destructive",
+      });
+    } finally {
+      setBusyId(null);
+    }
+  };
+
   if (!activeProfitCenter) {
     return (
       <Card>
