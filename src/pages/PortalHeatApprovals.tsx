@@ -61,18 +61,21 @@ export default function PortalHeatApprovals() {
   const [approvals, setApprovals] = useState<HeatLogApproval[]>([]);
   const [reasonByHeat, setReasonByHeat] = useState<Record<string, string>>({});
   const [busyId, setBusyId] = useState<string | null>(null);
+  const [cluRows, setCluRows] = useState<ProductionApproval[]>([]);
 
   const reload = async () => {
     if (!activeProfitCenter) return;
     try {
-      const [f, h, a] = await Promise.all([
+      const [f, h, a, clu] = await Promise.all([
         fetchFurnaces(activeProfitCenter.id),
         fetchHeatLogs(activeProfitCenter.id, {}),
         fetchHeatApprovals(activeProfitCenter.id),
+        fetchProductionApprovals(activeProfitCenter.id, { source: "clu_heat" }),
       ]);
       setFurnaces(f);
       setHeats(h.filter((x) => !x.isVoided && x.tapTime.slice(0, 10) >= from && x.tapTime.slice(0, 10) <= to));
       setApprovals(a);
+      setCluRows(clu);
     } catch (e) {
       toast({
         title: "Failed to load approvals",
