@@ -24,8 +24,8 @@ vi.mock("@/integrations/supabase/client", () => {
 });
 
 import { fetchProductionApprovals, summariseApprovals } from "@/lib/production-approvals";
-// eslint-disable-next-line @typescript-eslint/no-var-requires
-const { __state } = require("@/integrations/supabase/client");
+import * as clientModule from "@/integrations/supabase/client";
+const __state = (clientModule as unknown as { __state: { rows: any[]; lastFilters: Record<string, unknown> } }).__state;
 
 beforeEach(() => {
   __state.rows = [];
