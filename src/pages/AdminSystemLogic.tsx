@@ -47,6 +47,14 @@ export default function AdminSystemLogic() {
   const [mappings, setMappings] = useState<Record<string, Record<string, boolean>>>({});
   const [mappingsLoading, setMappingsLoading] = useState(true);
   const [savingCell, setSavingCell] = useState<string | null>(null);
+  // Confirmation state for disable actions (single toggle or row bulk-disable).
+  // Disable is destructive (hides modules from the workspace nav), so we require
+  // an explicit confirm to prevent accidental clicks. Enable stays one-click.
+  const [pendingDisable, setPendingDisable] = useState<
+    | { kind: "single"; pcId: string; pcName: string; moduleId: string; moduleLabel: string }
+    | { kind: "bulk"; pcId: string; pcName: string; count: number }
+    | null
+  >(null);
 
   const activePCs = useMemo(
     () => allProfitCenters.filter((pc) => pc.isActive).sort((a, b) => a.name.localeCompare(b.name)),
