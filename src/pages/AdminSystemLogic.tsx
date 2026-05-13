@@ -163,6 +163,45 @@ export default function AdminSystemLogic() {
     }
   };
 
+  // Lifted bulk-disable runner so the confirm dialog (which lives outside the
+  // row .map) can trigger the same code path used by the row's "Disable all" button.
+  const runBulkDisable = async (pcId: string) => {
+    if (!session?.user) return;
+    const rowMappings: ModuleMapping[] = sortedModules.map((m) => ({
+      profitCenterId: pcId,
+      moduleId: m.id,
+      isEnabled: isEnabled(pcId, m.id),
+      updatedAt: "",
+      updatedBy: null,
+    }));
+    const desired = sortedModules.map((m) => ({ moduleId: m.id, isEnabled: false }));
+    const changes = diffMappings(rowMappings, desired);
+    if (changes.length === 0) {
+      toast({ title: "No changes" });
+      return;
+    }
+    try {
+      const direct = await applyBulkMappings({ profitCenterId: pcId, changes, actorUserId: session.user.id });
+      await createAuditLog({
+        actorUserId: session.user.id,
+        profitCenterId: pcId,
+        entityType: "module_mapping",
+        action: direct ? "module.bulk_applied" : "module.bulk_queued",
+        changeSummary: { changeCount: changes.length, target: false },
+      });
+      toast({ title: direct ? `Updated ${changes.length} modules` : `Queued ${changes.length} changes for approval` });
+      if (direct) {
+        setMappings((current) => {
+          const next = { ...current, [pcId]: { ...(current[pcId] ?? {}) } };
+          for (const c of changes) next[pcId][c.moduleId] = c.isEnabled;
+          return next;
+        });
+      }
+    } catch (e) {
+      toast({ title: "Bulk save failed", description: (e as Error).message, variant: "destructive" });
+    }
+  };
+
   return (
     <div className="space-y-6">
       <Card>
