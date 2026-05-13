@@ -864,6 +864,8 @@ Tab resolution defaults, invalid-input fallback, valid round-trip, and the canon
 
 New `pending_approvals` table queues sensitive admin actions. Edge function `admin-approve-action` executes approved payloads server-side using the service role; `admin-create-user` powers the invite flow. Frontend libs: `src/lib/approvals.ts`, `src/lib/user-roles.ts`, `src/lib/module-bulk.ts`. New page `AdminApprovals` is registered as an Approvals tab in both `AdminSettings` and `AdminSystemControl`. `AdminUsers` gains Invite + Delete (queued); `AdminRoles` gains a per-user role-assignment card; `AdminSystemLogic` gains per-row Enable-all / Disable-all bulk actions. RLS adds write policies to `user_roles` (admins → non-privileged roles; super_admins → all). Tests: `src/test/admin-approvals.test.ts` (7 cases — self-approval guard, privileged-role detection, mapping diff, bulk threshold).
 
+**2026-05-13 — Disable confirmation.** `AdminSystemLogic` now intercepts disable actions on per-PC module toggles (single Switch *and* row "Disable all") and routes them through an `AlertDialog` confirm naming the Profit Center and module(s). Enabling stays one-click. Triggered by an incident where a stray click on the Steel Melting Shop Sales toggle silently persisted (toggles save immediately by design).
+
 ## Min/Max Threshold Derivation (2026-05-03)
 
 `src/lib/inventory-min-max.ts → computeThresholdsFromPlan()` is the SSOT.
