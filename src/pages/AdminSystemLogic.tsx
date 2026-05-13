@@ -328,7 +328,19 @@ export default function AdminSystemLogic() {
                               <Switch
                                 checked={isEnabled(pc.id, m.id)}
                                 disabled={savingCell === cellKey}
-                                onCheckedChange={(v) => void handleToggle(pc.id, m.id, v)}
+                                onCheckedChange={(v) => {
+                                  if (v) {
+                                    void handleToggle(pc.id, m.id, true);
+                                  } else {
+                                    setPendingDisable({
+                                      kind: "single",
+                                      pcId: pc.id,
+                                      pcName: pc.name,
+                                      moduleId: m.id,
+                                      moduleLabel: m.defaultLabel,
+                                    });
+                                  }
+                                }}
                               />
                             </TableCell>
                           );
