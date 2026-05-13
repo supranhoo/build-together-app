@@ -393,6 +393,40 @@ export default function AdminSystemLogic() {
           )}
         </CardContent>
       </Card>
+
+      <AlertDialog open={pendingDisable !== null} onOpenChange={(open) => { if (!open) setPendingDisable(null); }}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>
+              {pendingDisable?.kind === "bulk"
+                ? `Disable ${pendingDisable.count} modules for ${pendingDisable.pcName}?`
+                : pendingDisable
+                  ? `Disable ${pendingDisable.moduleLabel} for ${pendingDisable.pcName}?`
+                  : ""}
+            </AlertDialogTitle>
+            <AlertDialogDescription>
+              Disabling hides the module(s) from the workspace navigation for everyone working in this Profit Center. This action is audited and can be re-enabled at any time.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancel</AlertDialogCancel>
+            <AlertDialogAction
+              onClick={() => {
+                const p = pendingDisable;
+                setPendingDisable(null);
+                if (!p) return;
+                if (p.kind === "single") {
+                  void handleToggle(p.pcId, p.moduleId, false);
+                } else {
+                  void runBulkDisable(p.pcId);
+                }
+              }}
+            >
+              Disable
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   );
 }
