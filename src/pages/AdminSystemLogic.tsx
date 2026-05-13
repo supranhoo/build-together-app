@@ -308,7 +308,13 @@ export default function AdminSystemLogic() {
                             <Button
                               size="sm"
                               variant="outline"
-                              onClick={() => void handleBulk(false)}
+                              onClick={() => {
+                                if (disableChanges.length === 0) {
+                                  toast({ title: "No changes" });
+                                  return;
+                                }
+                                setPendingDisable({ kind: "bulk", pcId: pc.id, pcName: pc.name, count: disableChanges.length });
+                              }}
                               title={requiresApproval(disableChanges) ? "Requires approval" : undefined}
                             >
                               Disable all{requiresApproval(disableChanges) ? " *" : ""}
