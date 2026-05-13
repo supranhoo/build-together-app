@@ -6,6 +6,16 @@ import { Label } from "@/components/ui/label";
 import { Switch } from "@/components/ui/switch";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { ShieldAlert, Sliders, LayoutGrid } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
@@ -37,6 +47,14 @@ export default function AdminSystemLogic() {
   const [mappings, setMappings] = useState<Record<string, Record<string, boolean>>>({});
   const [mappingsLoading, setMappingsLoading] = useState(true);
   const [savingCell, setSavingCell] = useState<string | null>(null);
+  // Confirmation state for disable actions (single toggle or row bulk-disable).
+  // Disable is destructive (hides modules from the workspace nav), so we require
+  // an explicit confirm to prevent accidental clicks. Enable stays one-click.
+  const [pendingDisable, setPendingDisable] = useState<
+    | { kind: "single"; pcId: string; pcName: string; moduleId: string; moduleLabel: string }
+    | { kind: "bulk"; pcId: string; pcName: string; count: number }
+    | null
+  >(null);
 
   const activePCs = useMemo(
     () => allProfitCenters.filter((pc) => pc.isActive).sort((a, b) => a.name.localeCompare(b.name)),
@@ -142,6 +160,45 @@ export default function AdminSystemLogic() {
       toast({ title: "Mapping save failed", description: (e as Error).message, variant: "destructive" });
     } finally {
       setSavingCell(null);
+    }
+  };
+
+  // Lifted bulk-disable runner so the confirm dialog (which lives outside the
+  // row .map) can trigger the same code path used by the row's "Disable all" button.
+  const runBulkDisable = async (pcId: string) => {
+    if (!session?.user) return;
+    const rowMappings: ModuleMapping[] = sortedModules.map((m) => ({
+      profitCenterId: pcId,
+      moduleId: m.id,
+      isEnabled: isEnabled(pcId, m.id),
+      updatedAt: "",
+      updatedBy: null,
+    }));
+    const desired = sortedModules.map((m) => ({ moduleId: m.id, isEnabled: false }));
+    const changes = diffMappings(rowMappings, desired);
+    if (changes.length === 0) {
+      toast({ title: "No changes" });
+      return;
+    }
+    try {
+      const direct = await applyBulkMappings({ profitCenterId: pcId, changes, actorUserId: session.user.id });
+      await createAuditLog({
+        actorUserId: session.user.id,
+        profitCenterId: pcId,
+        entityType: "module_mapping",
+        action: direct ? "module.bulk_applied" : "module.bulk_queued",
+        changeSummary: { changeCount: changes.length, target: false },
+      });
+      toast({ title: direct ? `Updated ${changes.length} modules` : `Queued ${changes.length} changes for approval` });
+      if (direct) {
+        setMappings((current) => {
+          const next = { ...current, [pcId]: { ...(current[pcId] ?? {}) } };
+          for (const c of changes) next[pcId][c.moduleId] = c.isEnabled;
+          return next;
+        });
+      }
+    } catch (e) {
+      toast({ title: "Bulk save failed", description: (e as Error).message, variant: "destructive" });
     }
   };
 
@@ -290,7 +347,13 @@ export default function AdminSystemLogic() {
                             <Button
                               size="sm"
                               variant="outline"
-                              onClick={() => void handleBulk(false)}
+                              onClick={() => {
+                                if (disableChanges.length === 0) {
+                                  toast({ title: "No changes" });
+                                  return;
+                                }
+                                setPendingDisable({ kind: "bulk", pcId: pc.id, pcName: pc.name, count: disableChanges.length });
+                              }}
                               title={requiresApproval(disableChanges) ? "Requires approval" : undefined}
                             >
                               Disable all{requiresApproval(disableChanges) ? " *" : ""}
@@ -304,7 +367,19 @@ export default function AdminSystemLogic() {
                               <Switch
                                 checked={isEnabled(pc.id, m.id)}
                                 disabled={savingCell === cellKey}
-                                onCheckedChange={(v) => void handleToggle(pc.id, m.id, v)}
+                                onCheckedChange={(v) => {
+                                  if (v) {
+                                    void handleToggle(pc.id, m.id, true);
+                                  } else {
+                                    setPendingDisable({
+                                      kind: "single",
+                                      pcId: pc.id,
+                                      pcName: pc.name,
+                                      moduleId: m.id,
+                                      moduleLabel: m.defaultLabel,
+                                    });
+                                  }
+                                }}
                               />
                             </TableCell>
                           );
@@ -318,6 +393,40 @@ export default function AdminSystemLogic() {
           )}
         </CardContent>
       </Card>
+
+      <AlertDialog open={pendingDisable !== null} onOpenChange={(open) => { if (!open) setPendingDisable(null); }}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>
+              {pendingDisable?.kind === "bulk"
+                ? `Disable ${pendingDisable.count} modules for ${pendingDisable.pcName}?`
+                : pendingDisable
+                  ? `Disable ${pendingDisable.moduleLabel} for ${pendingDisable.pcName}?`
+                  : ""}
+            </AlertDialogTitle>
+            <AlertDialogDescription>
+              Disabling hides the module(s) from the workspace navigation for everyone working in this Profit Center. This action is audited and can be re-enabled at any time.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancel</AlertDialogCancel>
+            <AlertDialogAction
+              onClick={() => {
+                const p = pendingDisable;
+                setPendingDisable(null);
+                if (!p) return;
+                if (p.kind === "single") {
+                  void handleToggle(p.pcId, p.moduleId, false);
+                } else {
+                  void runBulkDisable(p.pcId);
+                }
+              }}
+            >
+              Disable
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   );
 }
