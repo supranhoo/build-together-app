@@ -950,3 +950,8 @@ Read via `fetchProductionApprovals(profitCenterId, { source?, status? })` in `sr
   - `heat_log_approvals` (1), `heat_log_events` (1).
 - Executed as a single atomic block with a post-delete zero-row assertion. One `audit_logs` row written with `action='data_cleanup'`, capturing pre-delete counts and table list.
 - Out of scope (untouched): master data tables not listed (`material_groups`, `stock_locations`, `furnaces`, `shifts`, `spec_templates`, `item_property_definitions`, `item_group_property_map`, `picker_contexts`), auth/roles/workspaces, prior audit logs.
+
+## Version History — 2026-05-16: Multi-role profile resolution
+- `fetchEmployeeProfile` (`src/lib/auth.ts`) previously fetched a single `user_roles` row via `.limit(1).maybeSingle()`. When a user held multiple role rows (e.g. the bootstrap super_admin who also has the default `user` row inserted by `handle_new_user_profile`), Postgres returned an arbitrary row, sometimes degrading the session to `user`.
+- Fix: fetch all `user_roles` rows for the user and pick the highest-privilege role using a fixed priority list: `super_admin > admin > manager > analyst > operator > user`.
+- Visible impact: `/admin/system-control?tab=users` now lists all profiles for the bootstrap super_admin (previously showed only the current user). No schema or RLS change.
