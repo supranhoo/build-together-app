@@ -80,10 +80,21 @@ export function onAuthStateChange(callback: (session: Session | null) => void) {
   });
 }
 
+// Highest-privilege role wins when a user holds multiple role rows
+// (e.g. the bootstrap super_admin who also has the default `user` row).
+const ROLE_PRIORITY = ["super_admin", "admin", "manager", "analyst", "operator", "user"] as const;
+
+function pickHighestRole(roles: string[]): string {
+  for (const candidate of ROLE_PRIORITY) {
+    if (roles.includes(candidate)) return candidate;
+  }
+  return roles[0] ?? "user";
+}
+
 export async function fetchEmployeeProfile(user: User): Promise<EmployeeProfile | null> {
-  const [profileResult, roleResult] = await Promise.all([
+  const [profileResult, rolesResult] = await Promise.all([
     supabase.from("profiles").select("*").eq("user_id", user.id).maybeSingle(),
-    supabase.from("user_roles").select("role").eq("user_id", user.id).limit(1).maybeSingle(),
+    supabase.from("user_roles").select("role").eq("user_id", user.id),
   ]);
 
   if (profileResult.error) {
@@ -94,8 +105,10 @@ export async function fetchEmployeeProfile(user: User): Promise<EmployeeProfile 
     return null;
   }
 
+  const roles = (rolesResult.data ?? []).map((r: { role: string }) => r.role);
+
   return {
     ...profileResult.data,
-    role: roleResult.data?.role ?? "user",
+    role: pickHighestRole(roles),
   };
 }
