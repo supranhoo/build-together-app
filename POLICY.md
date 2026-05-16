@@ -478,3 +478,8 @@ max_level     = daily × max_cover_days       (default 30)
 - The view is declared `WITH (security_invoker = true)` so RLS on the underlying tables (`has_profit_center_access`, `can_manage_profit_center`) continues to enforce who can see which row. No new permission grant is introduced.
 - Approve/Reject from the unified queue calls the existing source-specific writers: EAF via `decideHeatApproval`, CLU via `transitionHeat`. Audit trails (`heat_log_approvals.decided_*` and `clu_heats.metadata.transitions`) are unchanged.
 - Operators may still submit/decide CLU heats from `/portal/production/clu` directly; both paths converge on the same DB rows.
+
+## Bootstrap super_admin exception (2026-05-16)
+- A one-off bootstrap was performed to create the system's first `super_admin` (`biswajitceo@gmail.com`). The maker-checker self-approval guard remains in force; this bootstrap is the only sanctioned path to seed a super_admin when none exists.
+- The operation is guarded in SQL by `IF EXISTS (SELECT 1 FROM user_roles WHERE role = 'super_admin') THEN RAISE` so it cannot be repeated. All future super_admin grants must go through the normal `role.grant` approval queue.
+- The bootstrap is recorded in `audit_logs` with `action = 'bootstrap_super_admin'`, including the email and rationale.

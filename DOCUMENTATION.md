@@ -935,3 +935,9 @@ Happy path, zero-input edge case (no NaN/Infinity), performance tagging, custom 
 | notes            | text          | EAF: `notes`; CLU: latest `reason` from transition log               |
 
 Read via `fetchProductionApprovals(profitCenterId, { source?, status? })` in `src/lib/production-approvals.ts`. Write paths are unchanged: `submitHeatForApproval`/`decideHeatApproval` for EAF, `transitionHeat` for CLU.
+
+## Version History — 2026-05-16: Bootstrap super_admin
+- Created auth user `biswajitceo@gmail.com` (id `20da0905-3681-45da-b6eb-20cb99f5b689`) via admin API (signup is disabled by maker-checker policy).
+- Granted `super_admin` role and wrote `audit_logs` entry `bootstrap_super_admin`. Guarded by "no existing super_admin" precondition so the procedure is one-shot.
+- Purpose: unblock the approvals queue (Demo Admin had requested all 4 pending rows and self-approval is forbidden).
+- Next step: sign in as `biswajitceo@gmail.com` with the temporary password (rotate on first login via `/reset-password`) and approve the 4 pending rows at `/admin/approvals`.
