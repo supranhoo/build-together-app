@@ -291,8 +291,8 @@ export function WorkspaceProvider({ children }: { children: ReactNode }) {
       auditLogsHasMore,
       auditLogsNextOffset,
       defaultModule: getDefaultModule(modules),
-      isAdmin: profile?.role === "admin" || profile?.role === "super_admin",
-      isSuperAdmin: profile?.role === "super_admin",
+      isAdmin,
+      isSuperAdmin,
       selectProfitCenter: (profitCenterId) => {
         if (!profitCenterId) {
           setActiveProfitCenterId(null);
