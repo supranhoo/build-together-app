@@ -15,7 +15,15 @@ function getWorkspaceTarget(routeSegment?: string) {
 export default function ProfitCenterSelector() {
   const navigate = useNavigate();
   const { logout } = useAuth();
-  const { loading, assignments, activeProfitCenterId, defaultModule, selectProfitCenter } = useWorkspace();
+  const {
+    loading,
+    assignments,
+    selectableProfitCenters,
+    activeProfitCenterId,
+    defaultModule,
+    selectProfitCenter,
+    isSuperAdmin,
+  } = useWorkspace();
 
   if (loading) {
     return (
