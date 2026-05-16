@@ -1,63 +1,64 @@
-# Bootstrap super_admin for biswajitceo@gmail.com
+# Clean Test Data — 8 Tables
 
-## Context
+## Goal
+Delete all rows from the 8 tables you listed, in an FK-safe order, inside a single migration so it either fully succeeds or fully rolls back. An audit entry is written for traceability. No schema changes. No code changes.
 
-- The approvals queue is stuck because Demo Admin (`38cb4ff7…`) requested every pending row, and the `admin-approve-action` edge function blocks self-approval (maker-checker SoD).
-- There is currently **no super_admin** in the system; three pending `role.grant` rows are Demo Admin trying to grant super_admin to themselves.
-- Resolution: bootstrap a single super_admin on a **different** account (`biswajitceo@gmail.com`), who then approves Demo Admin's queue from the normal UI.
+## Scope (row counts today)
+| Table | Rows |
+|---|---|
+| cost_rates | 4 |
+| ferro_cost_sheets | 3 |
+| materials | 3 |
+| bunker_feed_tests | 1 |
+| heat_logs | 1 |
+| heat_metallurgy | 1 |
+| inventory_ledger | 1 |
+| material_consumption | 1 |
 
-## What will happen
+## Dependency check
+Foreign keys pointing into these tables were scanned. The only dependent table with data is:
 
-1. **You sign up** `biswajitceo@gmail.com` at `/login` (the account must exist in auth before a role can be attached to it — we cannot create auth users from SQL).
-2. **One-off migration** runs and, in a single transaction:
-   - Looks up the `user_id` for `biswajitceo@gmail.com` in `auth.users`.
-   - Aborts with a clear error if the account doesn't exist yet.
-   - Aborts if any `super_admin` already exists (idempotency guard — bootstrap is a one-shot).
-   - Inserts `(user_id, 'super_admin')` into `public.user_roles`.
-   - Writes an `audit_logs` row: `action='bootstrap_super_admin'`, `entity_type='user_roles'`, `change_summary` includes the email, the actor (`NULL` — system migration), and a rationale string. This is the documented bypass.
-3. **You log in as that account** and approve the 4 pending rows from `/admin/approvals` in the normal UI (no code change needed — the existing approve button now works because the caller is no longer the requester).
-4. After Demo Admin receives `super_admin` via that approval, both accounts will be super_admins. You can later revoke either via the normal role flow.
+- `heat_log_events` — 1 row (auto-generated audit row for the single heat log).
 
-## What this plan does NOT change
+All other dependents (`purchase_requisition_lines`, `purchase_order_lines`, `pc_transfers`, `material_planning_policy`, `clu_additions`, `standard_cost_bom`) are empty, so deleting `materials` and `inventory_ledger` will not violate any FK.
 
-- No edge function changes, no UI changes, no POLICY.md changes (the bypass is a one-shot bootstrap, not a recurring exemption).
-- The self-approval guard stays exactly as it is.
-- Demo Admin's pending requests are not auto-approved by the migration — you approve them through the UI so the audit trail shows a real checker.
-
-## Files touched
-
-- New migration: `supabase/migrations/<timestamp>_bootstrap_super_admin.sql`
-- `DOCUMENTATION.md`: short Version History entry noting the one-off bootstrap and the email used.
-- `POLICY.md`: append a single line under audit/maker-checker noting the dated bootstrap exception (one-shot, guarded by "no existing super_admin" check) so the audit log entry is traceable to policy.
-
-## Technical detail
-
-Migration SQL outline:
-
-```sql
-DO $$
-DECLARE v_uid uuid;
-BEGIN
-  IF EXISTS (SELECT 1 FROM public.user_roles WHERE role = 'super_admin') THEN
-    RAISE EXCEPTION 'super_admin_already_exists';
-  END IF;
-
-  SELECT id INTO v_uid FROM auth.users WHERE lower(email) = lower('biswajitceo@gmail.com');
-  IF v_uid IS NULL THEN
-    RAISE EXCEPTION 'bootstrap_user_not_found: sign up biswajitceo@gmail.com first';
-  END IF;
-
-  INSERT INTO public.user_roles (user_id, role) VALUES (v_uid, 'super_admin')
-    ON CONFLICT (user_id, role) DO NOTHING;
-
-  INSERT INTO public.audit_logs (actor_user_id, entity_type, entity_id, action, change_summary)
-  VALUES (NULL, 'user_roles', v_uid, 'bootstrap_super_admin',
-          jsonb_build_object('email','biswajitceo@gmail.com',
-                             'reason','one-off bootstrap to unblock approvals queue',
-                             'source','migration'));
-END $$;
+## Deletion order (FK-safe)
+```text
+1. heat_log_approvals          (FK → heat_logs)
+2. heat_metallurgy             (FK → heat_logs)
+3. material_consumption        (FK → heat_logs, materials, inventory_ledger)
+4. heat_log_events             (FK → heat_logs; 1 audit row)
+5. heat_logs
+6. inventory_ledger            (FK → materials)
+7. bunker_feed_tests
+8. ferro_cost_sheets
+9. cost_rates                  (FK → materials)
+10. materials
 ```
 
-## Action required from you before I run the migration
+Steps 1, 2, 4 are not in your list but **must** be cleared first because they directly reference `heat_logs` (FK without CASCADE). Without them the `heat_logs` delete fails. They contain only data derived from the single heat log being removed, so clearing them is consistent with your intent.
 
-Confirm you have signed up `biswajitceo@gmail.com` at `/login` (any password is fine — you can reset later). If the account doesn't exist when the migration runs, it will safely abort.
+## Safeguards
+- Wrapped in a single transaction via migration → atomic.
+- Row-count assertion after deletion (all 8 tables = 0); raises and rolls back if any row remains.
+- One `audit_logs` entry recording `entity_type='data_cleanup'`, the table list, and pre-delete counts.
+- No `TRUNCATE`, no `CASCADE`, no schema change, no RLS change.
+
+## Out of scope
+- Master data not listed: `material_groups`, `stock_locations`, `furnaces`, `shifts`, `spec_templates`, `item_property_definitions`, `item_group_property_map`, `picker_contexts` — untouched.
+- Auth users, profiles, roles, workspaces, audit logs (existing entries), test_data_batches/settings — untouched.
+- No code changes; UI will simply show empty lists in Inventory, Heat Logs, Cost Rates, Ferro Cost Sheet, Bunker Feed QC.
+
+## Documentation updates (same response as migration)
+- `DOCUMENTATION.md` — Version History entry: 2026-05-16 data cleanup of 8 listed tables, pre-counts, audit log id.
+- `POLICY.md` — note one-off operator-approved cleanup; standard maker-checker remains in force for future deletions.
+
+## Verification after apply
+- `SELECT count(*)` on each of the 8 tables → 0.
+- `SELECT count(*)` on `heat_log_events`, `heat_log_approvals`, `heat_metallurgy` → 0.
+- New row in `audit_logs` with `action='data_cleanup'`.
+
+## Confirmation required
+This is destructive and irreversible. Please confirm:
+1. Proceed with deleting all rows from the 8 tables **plus** the 3 dependent rows in `heat_log_events`, `heat_log_approvals`, `heat_metallurgy` (required for FK integrity).
+2. You accept that `materials` will be empty — any new inventory/heat log entry will require re-creating material master records first.
