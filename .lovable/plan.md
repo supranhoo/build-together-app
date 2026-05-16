@@ -1,43 +1,63 @@
-# Why the screen looks like this — not bugs
+# Plan: Let super_admin enter the application without explicit workspace assignment
 
-You are currently signed in as **Demo Admin** (role = `admin`), not as the bootstrap super_admin. Both observations below are the system behaving as the existing RLS + UI rules dictate.
+## Assumptions
 
-## 1. Why Demo Admin sees only itself in "User role assignments"
+- The logged-in account `biswajitceo@gmail.com` is the bootstrap super_admin.
+- A super_admin should have global access to all active workspaces, even if there is no row in `user_profit_centers`.
+- Normal users/admins should still require explicit active workspace assignment.
+- No database data should be modified as part of this fix unless you explicitly ask for a data-only workaround.
 
-The list comes from `manageableProfiles`, which queries `public.profiles` under this RLS policy:
+## Root cause
 
-```
-can_view_profile(viewer, target) =
-    viewer = target
-    OR viewer has role 'super_admin'
-    OR (viewer has role 'admin'
-        AND viewer and target share an ACTIVE user_profit_centers row
-        AND viewer can_manage that profit center)
-```
+Database check shows:
 
-DB state right now:
-- 6 profiles exist (Bootstrap Super Admin, Demo Admin, Demo Analyst, Demo Manager, Demo Operator, Demo User).
-- Demo Admin has role `admin` — **not** `super_admin`.
-- Demo Admin shares **no** active `user_profit_centers` assignment with the other 5 demo users. So `can_view_profile` returns false for them, and the policy filters them out.
+- `biswajitceo@gmail.com` has roles: `user` and `super_admin`.
+- There are 5 active profit centers.
+- There are 0 `user_profit_centers` assignment rows for this user.
 
-This is a **scope-of-control** rule, not a bug. An `admin` is intentionally limited to users inside the profit centers they manage. To see every user, sign in as the bootstrap super_admin (`biswajitceo@gmail.com`), or assign Demo Admin and the other demo users to the same profit center via PC Dashboard → assignments.
+The code already allows super_admin to switch to any active profit center in `selectProfitCenter`, but the Workspace Selector page only renders `assignments`. Since the super_admin has no explicit assignments, the page shows **No workspace assigned**.
 
-## 2. Why "admin" is missing from the Select Role dropdown
+So the issue is not missing workspaces; it is a UI/workspace-loading gap for global super_admin access.
 
-`AdminRoles.tsx` builds the dropdown with:
+## Data Impact
 
-```ts
-ALL_APP_ROLES.filter((r) => !roles.includes(r))
-```
+- No schema change.
+- No RLS broadening planned.
+- No existing data will be inserted, updated, deleted, or masked.
+- Historical workspace assignment data remains unchanged.
 
-Demo Admin already holds the `admin` role (the blue chip in the "Current roles" column). So `admin` is correctly omitted — there is nothing to grant. If you revoke the existing `admin` chip (×), `admin` will reappear in the dropdown.
+## Workflow Impact
 
-This is the intended de-duplication; granting the same role twice would violate the `(user_id, role)` unique constraint.
+- Super_admin: will see all active profit centers on the workspace selector and can enter any workspace.
+- Admin/user/manager/operator/analyst: unchanged; they only see explicitly assigned workspaces.
+- Existing admin panels remain protected by current role checks.
 
-## What to do
+## UI/UX Impact
 
-- **No code change is recommended.** Both behaviors enforce the documented policy.
-- If the desired outcome is "Demo Admin sees all users", that is a **policy decision** to broaden `admin` visibility, which I should not make unilaterally. Tell me which of these you want and I'll plan it:
-  - **A.** Sign in as the bootstrap super_admin — full visibility, no change needed.
-  - **B.** Assign Demo Admin + the other demo users to a shared profit center — visibility unlocks via existing RLS.
-  - **C.** Change the policy so any `admin` sees every profile (broadens privilege; needs POLICY.md update and audit-log entry).
+- On `/profit-centers`, super_admin will see active workspaces even without explicit assignments.
+- The “No workspace assigned” message remains for non-super-admin users with no assignments.
+- The existing workspace card design should be reused; no visual redesign.
+
+## Regression Risk
+
+- Risk: `RequireWorkspace` may still redirect super_admin users if it only checks `assignments.length`.
+- Risk: `refreshWorkspace` may incorrectly clear a super_admin-selected workspace if it only validates explicit assignments.
+- Risk: workspace selector currently expects `ProfitCenterAssignment` rows, while super_admin global access comes from `allProfitCenters`.
+
+## Mitigation Plan
+
+1. Update workspace context to expose a computed list of selectable workspaces for super_admin.
+   - Verification: super_admin gets all active profit centers; normal users get assigned profit centers only.
+2. Update `ProfitCenterSelector` to render the computed selectable workspace list.
+   - Verification: `biswajitceo@gmail.com` no longer sees “No workspace assigned” while active profit centers exist.
+3. Update `RequireWorkspace` / refresh validation so super_admin can keep an active workspace selected even without assignment rows.
+   - Verification: selecting a workspace allows entry into `/portal/...`.
+4. Add/update unit tests and mock data for:
+   - super_admin with no explicit assignments sees active workspaces;
+   - non-super-admin with no assignments still sees no workspace;
+   - already-assigned users remain unchanged.
+5. Update `DOCUMENTATION.md` and `POLICY.md` in the same implementation to document super_admin global workspace access.
+
+## Simpler workaround if you do not want code change
+
+Insert one or more active `user_profit_centers` rows for `biswajitceo@gmail.com`. This is a data workaround, but it duplicates what super_admin should already be allowed to do globally.
