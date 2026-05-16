@@ -483,3 +483,8 @@ max_level     = daily × max_cover_days       (default 30)
 - A one-off bootstrap was performed to create the system's first `super_admin` (`biswajitceo@gmail.com`). The maker-checker self-approval guard remains in force; this bootstrap is the only sanctioned path to seed a super_admin when none exists.
 - The operation is guarded in SQL by `IF EXISTS (SELECT 1 FROM user_roles WHERE role = 'super_admin') THEN RAISE` so it cannot be repeated. All future super_admin grants must go through the normal `role.grant` approval queue.
 - The bootstrap is recorded in `audit_logs` with `action = 'bootstrap_super_admin'`, including the email and rationale.
+
+## 2026-05-16 — Test data cleanup (8 tables)
+- One-off operator-approved deletion of all rows from the 8 listed tables plus their FK dependents (`heat_log_approvals`, `heat_log_events`). Recorded in `audit_logs`.
+- Standard maker-checker policy remains in force for all future destructive operations on production data. This was a sanctioned cleanup of test/dummy data prior to go-live.
+- New inventory or heat-log activity now requires re-creation of `materials` master records first.

@@ -941,3 +941,12 @@ Read via `fetchProductionApprovals(profitCenterId, { source?, status? })` in `sr
 - Granted `super_admin` role and wrote `audit_logs` entry `bootstrap_super_admin`. Guarded by "no existing super_admin" precondition so the procedure is one-shot.
 - Purpose: unblock the approvals queue (Demo Admin had requested all 4 pending rows and self-approval is forbidden).
 - Next step: sign in as `biswajitceo@gmail.com` with the temporary password (rotate on first login via `/reset-password`) and approve the 4 pending rows at `/admin/approvals`.
+
+## Version History — 2026-05-16: Test data cleanup (8 tables)
+- Operator-approved one-off cleanup of test/dummy data. Cleared (pre-counts in parens):
+  - `cost_rates` (4), `ferro_cost_sheets` (3), `materials` (3), `bunker_feed_tests` (1),
+  - `heat_logs` (1), `heat_metallurgy` (1), `inventory_ledger` (1), `material_consumption` (1).
+- FK-dependent rows also cleared to preserve referential integrity:
+  - `heat_log_approvals` (1), `heat_log_events` (1).
+- Executed as a single atomic block with a post-delete zero-row assertion. One `audit_logs` row written with `action='data_cleanup'`, capturing pre-delete counts and table list.
+- Out of scope (untouched): master data tables not listed (`material_groups`, `stock_locations`, `furnaces`, `shifts`, `spec_templates`, `item_property_definitions`, `item_group_property_map`, `picker_contexts`), auth/roles/workspaces, prior audit logs.
