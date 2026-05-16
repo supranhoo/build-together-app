@@ -3,7 +3,7 @@ import { useWorkspace } from "@/hooks/use-workspace";
 
 export function RequireWorkspace() {
   const location = useLocation();
-  const { loading, assignments, activeProfitCenter } = useWorkspace();
+  const { loading, selectableProfitCenters, activeProfitCenter } = useWorkspace();
 
   if (loading) {
     return (
@@ -16,7 +16,11 @@ export function RequireWorkspace() {
     );
   }
 
-  if (assignments.length === 0 || !activeProfitCenter) {
+  // A user can enter the portal once they have at least one selectable
+  // workspace AND have actively chosen one. Super admins get every active
+  // profit center in `selectableProfitCenters` without needing an explicit
+  // assignment row.
+  if (selectableProfitCenters.length === 0 || !activeProfitCenter) {
     return <Navigate to="/profit-centers" replace state={{ from: location }} />;
   }
 

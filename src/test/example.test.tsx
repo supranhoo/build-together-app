@@ -38,8 +38,9 @@ const authState = {
   profile: { display_name: "Arjun Rao", department: "Operations", role: "admin" },
 };
 
-const workspaceState = {
+const workspaceState: any = {
   loading: false,
+  selectableProfitCenters: [],
   assignments: [
     {
       id: "a1",
@@ -122,6 +123,7 @@ const workspaceState = {
   selectProfitCenter: vi.fn(),
   refreshWorkspace: vi.fn(),
 };
+workspaceState.selectableProfitCenters = workspaceState.assignments.map((a: any) => a.profitCenter);
 
 vi.mock("@/hooks/use-auth", () => ({
   useAuth: () => ({

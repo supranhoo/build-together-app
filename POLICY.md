@@ -488,3 +488,8 @@ max_level     = daily × max_cover_days       (default 30)
 - One-off operator-approved deletion of all rows from the 8 listed tables plus their FK dependents (`heat_log_approvals`, `heat_log_events`). Recorded in `audit_logs`.
 - Standard maker-checker policy remains in force for all future destructive operations on production data. This was a sanctioned cleanup of test/dummy data prior to go-live.
 - New inventory or heat-log activity now requires re-creation of `materials` master records first.
+
+## 2026-05-16 — Super_admin global workspace access
+- Super admins have implicit access to every active profit center for the purpose of workspace entry; an explicit `user_profit_centers` row is not required.
+- All other roles (admin, manager, analyst, operator, user) continue to require explicit, active `user_profit_centers` assignment to enter a workspace.
+- This rule is enforced in the application's workspace selector and route guard; underlying RLS for data tables remains unchanged and continues to govern read/write authorization per workspace.

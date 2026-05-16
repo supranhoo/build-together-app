@@ -28,6 +28,12 @@ import {
 interface WorkspaceContextValue {
   loading: boolean;
   assignments: ProfitCenterAssignment[];
+  /**
+   * Workspaces the current user may enter from the selector.
+   * - Super admins: every active profit center (no explicit assignment required).
+   * - Everyone else: their assigned profit centers.
+   */
+  selectableProfitCenters: ProfitCenter[];
   activeProfitCenter: ProfitCenter | null;
   activeProfitCenterId: string | null;
   modules: ConfiguredModule[];
@@ -246,12 +252,33 @@ export function WorkspaceProvider({ children }: { children: ReactNode }) {
   }, [activeProfitCenterId, authLoading, profile?.role, session?.user]);
 
   const value = useMemo<WorkspaceContextValue>(() => {
+    const isSuperAdmin = profile?.role === "super_admin";
+    const isAdmin = profile?.role === "admin" || isSuperAdmin;
+
+    // Super admins have global workspace access without explicit
+    // user_profit_centers rows. Their selector lists every active profit
+    // center; everyone else stays scoped to their assignments.
+    const selectableProfitCenters: ProfitCenter[] = isSuperAdmin
+      ? allProfitCenters.filter((pc) => pc.isActive)
+      : assignments
+          .filter((a) => a.isActive && a.profitCenter.isActive)
+          .map((a) => a.profitCenter);
+
     const activeAssignment = assignments.find((assignment) => assignment.profitCenterId === activeProfitCenterId) ?? null;
-    const activeProfitCenter = activeAssignment?.profitCenter ?? null;
+    // Resolve from assignments first, then fall back to the global active list
+    // so super_admin selections work even without an explicit assignment row.
+    const activeProfitCenter: ProfitCenter | null =
+      activeAssignment?.profitCenter
+      ?? (activeProfitCenterId
+        ? selectableProfitCenters.find((pc) => pc.id === activeProfitCenterId)
+          ?? allProfitCenters.find((pc) => pc.id === activeProfitCenterId)
+          ?? null
+        : null);
 
     return {
       loading: authLoading || loading,
       assignments,
+      selectableProfitCenters,
       activeProfitCenter,
       activeProfitCenterId,
       modules,
@@ -264,8 +291,8 @@ export function WorkspaceProvider({ children }: { children: ReactNode }) {
       auditLogsHasMore,
       auditLogsNextOffset,
       defaultModule: getDefaultModule(modules),
-      isAdmin: profile?.role === "admin" || profile?.role === "super_admin",
-      isSuperAdmin: profile?.role === "super_admin",
+      isAdmin,
+      isSuperAdmin,
       selectProfitCenter: (profitCenterId) => {
         if (!profitCenterId) {
           setActiveProfitCenterId(null);
@@ -293,8 +320,16 @@ export function WorkspaceProvider({ children }: { children: ReactNode }) {
         const nextAssignments = await fetchAssignedProfitCenters(session.user.id);
         setAssignments(nextAssignments);
 
-        const isActiveStillValid = activeProfitCenterId && nextAssignments.some((assignment) => assignment.profitCenterId === activeProfitCenterId);
-        const nextActiveId = isActiveStillValid ? activeProfitCenterId : chooseInitialProfitCenter(nextAssignments);
+        const isAssigned = activeProfitCenterId && nextAssignments.some((assignment) => assignment.profitCenterId === activeProfitCenterId);
+        // Preserve super_admin selections even when no assignment row exists,
+        // as long as the chosen workspace is still active globally.
+        const isSuperAdminActive =
+          isSuperAdmin &&
+          activeProfitCenterId &&
+          allProfitCenters.some((pc) => pc.id === activeProfitCenterId && pc.isActive);
+        const nextActiveId = (isAssigned || isSuperAdminActive)
+          ? activeProfitCenterId
+          : chooseInitialProfitCenter(nextAssignments);
 
         setActiveProfitCenterId(nextActiveId);
 
