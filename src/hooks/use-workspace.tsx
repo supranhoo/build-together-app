@@ -278,6 +278,7 @@ export function WorkspaceProvider({ children }: { children: ReactNode }) {
     return {
       loading: authLoading || loading,
       assignments,
+      selectableProfitCenters,
       activeProfitCenter,
       activeProfitCenterId,
       modules,
