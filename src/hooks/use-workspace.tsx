@@ -28,6 +28,12 @@ import {
 interface WorkspaceContextValue {
   loading: boolean;
   assignments: ProfitCenterAssignment[];
+  /**
+   * Workspaces the current user may enter from the selector.
+   * - Super admins: every active profit center (no explicit assignment required).
+   * - Everyone else: their assigned profit centers.
+   */
+  selectableProfitCenters: ProfitCenter[];
   activeProfitCenter: ProfitCenter | null;
   activeProfitCenterId: string | null;
   modules: ConfiguredModule[];
