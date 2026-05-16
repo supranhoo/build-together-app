@@ -123,6 +123,7 @@ const workspaceState: any = {
   selectProfitCenter: vi.fn(),
   refreshWorkspace: vi.fn(),
 };
+workspaceState.selectableProfitCenters = workspaceState.assignments.map((a: any) => a.profitCenter);
 
 vi.mock("@/hooks/use-auth", () => ({
   useAuth: () => ({
