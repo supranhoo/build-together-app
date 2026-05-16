@@ -320,8 +320,16 @@ export function WorkspaceProvider({ children }: { children: ReactNode }) {
         const nextAssignments = await fetchAssignedProfitCenters(session.user.id);
         setAssignments(nextAssignments);
 
-        const isActiveStillValid = activeProfitCenterId && nextAssignments.some((assignment) => assignment.profitCenterId === activeProfitCenterId);
-        const nextActiveId = isActiveStillValid ? activeProfitCenterId : chooseInitialProfitCenter(nextAssignments);
+        const isAssigned = activeProfitCenterId && nextAssignments.some((assignment) => assignment.profitCenterId === activeProfitCenterId);
+        // Preserve super_admin selections even when no assignment row exists,
+        // as long as the chosen workspace is still active globally.
+        const isSuperAdminActive =
+          isSuperAdmin &&
+          activeProfitCenterId &&
+          allProfitCenters.some((pc) => pc.id === activeProfitCenterId && pc.isActive);
+        const nextActiveId = (isAssigned || isSuperAdminActive)
+          ? activeProfitCenterId
+          : chooseInitialProfitCenter(nextAssignments);
 
         setActiveProfitCenterId(nextActiveId);
 
