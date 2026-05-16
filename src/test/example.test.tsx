@@ -38,8 +38,9 @@ const authState = {
   profile: { display_name: "Arjun Rao", department: "Operations", role: "admin" },
 };
 
-const workspaceState = {
+const workspaceState: any = {
   loading: false,
+  selectableProfitCenters: [],
   assignments: [
     {
       id: "a1",
