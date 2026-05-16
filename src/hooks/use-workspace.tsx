@@ -252,8 +252,28 @@ export function WorkspaceProvider({ children }: { children: ReactNode }) {
   }, [activeProfitCenterId, authLoading, profile?.role, session?.user]);
 
   const value = useMemo<WorkspaceContextValue>(() => {
+    const isSuperAdmin = profile?.role === "super_admin";
+    const isAdmin = profile?.role === "admin" || isSuperAdmin;
+
+    // Super admins have global workspace access without explicit
+    // user_profit_centers rows. Their selector lists every active profit
+    // center; everyone else stays scoped to their assignments.
+    const selectableProfitCenters: ProfitCenter[] = isSuperAdmin
+      ? allProfitCenters.filter((pc) => pc.isActive)
+      : assignments
+          .filter((a) => a.isActive && a.profitCenter.isActive)
+          .map((a) => a.profitCenter);
+
     const activeAssignment = assignments.find((assignment) => assignment.profitCenterId === activeProfitCenterId) ?? null;
-    const activeProfitCenter = activeAssignment?.profitCenter ?? null;
+    // Resolve from assignments first, then fall back to the global active list
+    // so super_admin selections work even without an explicit assignment row.
+    const activeProfitCenter: ProfitCenter | null =
+      activeAssignment?.profitCenter
+      ?? (activeProfitCenterId
+        ? selectableProfitCenters.find((pc) => pc.id === activeProfitCenterId)
+          ?? allProfitCenters.find((pc) => pc.id === activeProfitCenterId)
+          ?? null
+        : null);
 
     return {
       loading: authLoading || loading,
