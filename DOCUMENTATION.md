@@ -955,3 +955,11 @@ Read via `fetchProductionApprovals(profitCenterId, { source?, status? })` in `sr
 - `fetchEmployeeProfile` (`src/lib/auth.ts`) previously fetched a single `user_roles` row via `.limit(1).maybeSingle()`. When a user held multiple role rows (e.g. the bootstrap super_admin who also has the default `user` row inserted by `handle_new_user_profile`), Postgres returned an arbitrary row, sometimes degrading the session to `user`.
 - Fix: fetch all `user_roles` rows for the user and pick the highest-privilege role using a fixed priority list: `super_admin > admin > manager > analyst > operator > user`.
 - Visible impact: `/admin/system-control?tab=users` now lists all profiles for the bootstrap super_admin (previously showed only the current user). No schema or RLS change.
+
+## Version History — 2026-05-16: Super_admin workspace selector visibility
+- Problem: the bootstrap super_admin (`biswajitceo@gmail.com`) landed on `/profit-centers` and saw "No workspace assigned" because the page rendered only explicit `user_profit_centers` rows, and the super_admin had none.
+- Fix: `WorkspaceProvider` now exposes a derived `selectableProfitCenters` list. Super admins receive every active profit center; other roles continue to see only their assigned, active workspaces. No schema or RLS change.
+- `ProfitCenterSelector` renders `selectableProfitCenters`. When a workspace is shown to a super_admin without an explicit assignment row, a "Global access" badge is displayed in place of "Default".
+- `RequireWorkspace` now gates on `selectableProfitCenters.length` instead of `assignments.length`, allowing super_admin entry into `/portal/*` without explicit assignment rows.
+- `WorkspaceProvider.refreshWorkspace` preserves a super_admin's active selection as long as the chosen workspace is still active globally, even with no assignment row.
+- Unit tests: `src/test/workspace-selectable.test.ts` covers super_admin global access, non-super-admin without assignments, and assignment scoping for other roles.
