@@ -1,39 +1,63 @@
-# CLU Production Module — Staged Port
+# Bootstrap super_admin for biswajitceo@gmail.com
 
-## Status
-**PR1–PR6 complete (2026-05-11)** — schema/RLS/calc/persistence + page scaffold + 21-step heat-entry sheet + AI analysis + SOP/delay editors + **polymorphic approvals queue** unifying EAF and CLU heats under `/portal/heat-approvals` via the read-only view `production_approvals_v`.
+## Context
 
-## Goal
-Bring CLU process management to `/portal/production/clu`, adapted to our stack (Supabase + RLS, useWorkspace, semantic tokens, Lovable AI Gateway).
+- The approvals queue is stuck because Demo Admin (`38cb4ff7…`) requested every pending row, and the `admin-approve-action` edge function blocks self-approval (maker-checker SoD).
+- There is currently **no super_admin** in the system; three pending `role.grant` rows are Demo Admin trying to grant super_admin to themselves.
+- Resolution: bootstrap a single super_admin on a **different** account (`biswajitceo@gmail.com`), who then approves Demo Admin's queue from the normal UI.
 
-## Delivered
+## What will happen
 
-### PR1 — Schema + RLS + lib (DONE)
-7 tables, RLS, `update_updated_at_column` triggers, `clu-calc.ts` (12 tests), `clu-production.ts` typed CRUD.
+1. **You sign up** `biswajitceo@gmail.com` at `/login` (the account must exist in auth before a role can be attached to it — we cannot create auth users from SQL).
+2. **One-off migration** runs and, in a single transaction:
+   - Looks up the `user_id` for `biswajitceo@gmail.com` in `auth.users`.
+   - Aborts with a clear error if the account doesn't exist yet.
+   - Aborts if any `super_admin` already exists (idempotency guard — bootstrap is a one-shot).
+   - Inserts `(user_id, 'super_admin')` into `public.user_roles`.
+   - Writes an `audit_logs` row: `action='bootstrap_super_admin'`, `entity_type='user_roles'`, `change_summary` includes the email, the actor (`NULL` — system migration), and a rationale string. This is the documented bypass.
+3. **You log in as that account** and approve the 4 pending rows from `/admin/approvals` in the normal UI (no code change needed — the existing approve button now works because the caller is no longer the requester).
+4. After Demo Admin receives `super_admin` via that approval, both accounts will be super_admins. You can later revoke either via the normal role flow.
 
-### PR2 — Page scaffold (DONE)
-`PortalProductionCLU.tsx`, route, NavLink driven by `processProfile` containing "CLU".
+## What this plan does NOT change
 
-### PR3 — Heat Entry lifecycle (DONE)
-`clu-lifecycle.ts` (21 steps, 9 phases), `CluHeatEntrySheet.tsx`, `transitionHeat` workflow with audit trail in `metadata.transitions`, 7 transition tests.
+- No edge function changes, no UI changes, no POLICY.md changes (the bypass is a one-shot bootstrap, not a recurring exemption).
+- The self-approval guard stays exactly as it is.
+- Demo Admin's pending requests are not auto-approved by the migration — you approve them through the UI so the audit trail shows a real checker.
 
-### PR4 — AI Analysis tab (DONE)
-Edge function `clu-heat-analysis` (Lovable AI Gateway, `google/gemini-2.5-pro`), `runHeatAnalysis` helper, summary panel persisting `metadata.last_ai_analysis`.
+## Files touched
 
-### PR5 — SOP master + Delay logging (DONE)
-`upsertSop` / `deleteSop` / `validateSopInput`, `CluSopEditDialog`, `CluDelayLogDialog`, 5 validation tests.
+- New migration: `supabase/migrations/<timestamp>_bootstrap_super_admin.sql`
+- `DOCUMENTATION.md`: short Version History entry noting the one-off bootstrap and the email used.
+- `POLICY.md`: append a single line under audit/maker-checker noting the dated bootstrap exception (one-shot, guarded by "no existing super_admin" check) so the audit log entry is traceable to policy.
 
-### PR6 — Polymorphic approvals (DONE)
-- DB: read-only view `public.production_approvals_v` (security_invoker) UNIONing `heat_log_approvals` + `clu_heats` (status ≠ draft) under one normalized shape (`source`, `entity_id`, `status`, `submitted_at`, `decided_at`, `notes`). No data migration; existing finance.ts code untouched.
-- Lib: `src/lib/production-approvals.ts` exposes `fetchProductionApprovals(pc, {source, status})` + `summariseApprovals` helper.
-- UI: `PortalHeatApprovals` adds a "CLU Heats" card listing CLU rows from the view; Approve / Reject buttons call existing `transitionHeat` (which already updates `clu_heats.status` + appends to `metadata.transitions`). EAF behaviour unchanged.
-- Tests: `src/test/production-approvals.test.ts` (6 cases) + existing CLU/finance suites still green.
+## Technical detail
 
-#### Deviation from approved plan
-The approved plan proposed a new `production_approvals` physical table + `heat_log_approvals` view-shim. That would have required INSTEAD-OF triggers to keep `submitHeatForApproval`/`decideHeatApproval` working on the shim. Per the "Simplicity first" + "Surgical changes only" rules, we shipped the simpler equivalent: a UNION view that delivers the unified queue without touching either source table or any existing call site. Consequence: there is no central writable approvals table, but every consumer the user actually has today reads through the same view, so the user-visible behaviour matches the plan goal. If/when a non-production entity (PR, sales order) needs approvals, we can extend the view or graduate to the table.
+Migration SQL outline:
 
-## Out of scope (deliberately dropped from upload)
-- `react-markdown` import in component code
-- Raw color classes → semantic tokens
-- `alert()` calls → `useToast`
-- Hardcoded `mnoToMnFactor = 1.29` → workspace setting
+```sql
+DO $$
+DECLARE v_uid uuid;
+BEGIN
+  IF EXISTS (SELECT 1 FROM public.user_roles WHERE role = 'super_admin') THEN
+    RAISE EXCEPTION 'super_admin_already_exists';
+  END IF;
+
+  SELECT id INTO v_uid FROM auth.users WHERE lower(email) = lower('biswajitceo@gmail.com');
+  IF v_uid IS NULL THEN
+    RAISE EXCEPTION 'bootstrap_user_not_found: sign up biswajitceo@gmail.com first';
+  END IF;
+
+  INSERT INTO public.user_roles (user_id, role) VALUES (v_uid, 'super_admin')
+    ON CONFLICT (user_id, role) DO NOTHING;
+
+  INSERT INTO public.audit_logs (actor_user_id, entity_type, entity_id, action, change_summary)
+  VALUES (NULL, 'user_roles', v_uid, 'bootstrap_super_admin',
+          jsonb_build_object('email','biswajitceo@gmail.com',
+                             'reason','one-off bootstrap to unblock approvals queue',
+                             'source','migration'));
+END $$;
+```
+
+## Action required from you before I run the migration
+
+Confirm you have signed up `biswajitceo@gmail.com` at `/login` (any password is fine — you can reset later). If the account doesn't exist when the migration runs, it will safely abort.
