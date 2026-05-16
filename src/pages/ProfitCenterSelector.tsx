@@ -36,9 +36,14 @@ export default function ProfitCenterSelector() {
     );
   }
 
-  if (assignments.length === 1 && activeProfitCenterId) {
+  if (selectableProfitCenters.length === 1 && activeProfitCenterId) {
     return <Navigate to={getWorkspaceTarget(defaultModule?.routeSegment)} replace />;
   }
+
+  // Map assignment metadata (default flag) onto the displayed list so the
+  // explicit-assignment chips remain meaningful while super_admin can also
+  // see every active workspace without explicit assignment rows.
+  const assignmentByPcId = new Map(assignments.map((a) => [a.profitCenterId, a]));
 
   return (
     <main className="min-h-screen bg-background text-foreground">
@@ -50,7 +55,9 @@ export default function ProfitCenterSelector() {
               <p className="text-[11px] font-semibold uppercase tracking-[0.22em] text-primary">Workspace selector</p>
               <h1 className="mt-3 text-4xl">Choose your operating workspace</h1>
               <p className="mt-2 max-w-2xl text-sm leading-6 text-muted-foreground">
-                Access is assigned by administrators. Each workspace can expose different modules, naming, and process settings.
+                {isSuperAdmin
+                  ? "Super admin access: every active workspace is listed below."
+                  : "Access is assigned by administrators. Each workspace can expose different modules, naming, and process settings."}
               </p>
             </div>
           </div>
@@ -61,7 +68,7 @@ export default function ProfitCenterSelector() {
 
         <div className="grid flex-1 gap-6 py-8 xl:grid-cols-[1.4fr_0.8fr]">
           <section className="space-y-4">
-            {assignments.length === 0 ? (
+            {selectableProfitCenters.length === 0 ? (
               <Card className="border-border bg-card shadow-panel">
                 <CardHeader>
                   <CardTitle>No workspace assigned</CardTitle>
@@ -72,14 +79,15 @@ export default function ProfitCenterSelector() {
               </Card>
             ) : (
               <div className="grid gap-4 md:grid-cols-2">
-                {assignments.map((assignment) => {
-                  const isActive = assignment.profitCenterId === activeProfitCenterId;
+                {selectableProfitCenters.map((profitCenter) => {
+                  const isActive = profitCenter.id === activeProfitCenterId;
+                  const assignment = assignmentByPcId.get(profitCenter.id) ?? null;
 
                   return (
                     <button
-                      key={assignment.id}
+                      key={profitCenter.id}
                       type="button"
-                      onClick={() => selectProfitCenter(assignment.profitCenterId)}
+                      onClick={() => selectProfitCenter(profitCenter.id)}
                       className={cn(
                         "rounded-md border text-left transition-colors",
                         isActive ? "border-primary bg-primary/10" : "border-border bg-card hover:border-primary/50 hover:bg-panel",
@@ -92,25 +100,26 @@ export default function ProfitCenterSelector() {
                               <Factory className="h-5 w-5" />
                             </div>
                             <div className="flex flex-wrap gap-2">
-                              {assignment.isDefault && <Badge>Default</Badge>}
-                              <Badge variant="outline">{assignment.profitCenter.code}</Badge>
+                              {assignment?.isDefault && <Badge>Default</Badge>}
+                              {!assignment && isSuperAdmin && <Badge variant="secondary">Global access</Badge>}
+                              <Badge variant="outline">{profitCenter.code}</Badge>
                             </div>
                           </div>
                           <div>
-                            <CardTitle className="text-2xl">{assignment.profitCenter.name}</CardTitle>
+                            <CardTitle className="text-2xl">{profitCenter.name}</CardTitle>
                             <CardDescription className="mt-2 leading-6">
-                              {assignment.profitCenter.description || "Configurable workspace for plant operations and reporting."}
+                              {profitCenter.description || "Configurable workspace for plant operations and reporting."}
                             </CardDescription>
                           </div>
                         </CardHeader>
                         <CardContent className="space-y-3 text-sm text-muted-foreground">
                           <div className="flex items-center gap-2">
                             <MapPin className="h-4 w-4 text-primary" />
-                            <span>{assignment.profitCenter.locationName || "Location will be configured by admin"}</span>
+                            <span>{profitCenter.locationName || "Location will be configured by admin"}</span>
                           </div>
                           <div className="flex items-center gap-2">
                             <Building2 className="h-4 w-4 text-primary" />
-                            <span>{assignment.profitCenter.processProfile || "Process profile will be configured per workspace"}</span>
+                            <span>{profitCenter.processProfile || "Process profile will be configured per workspace"}</span>
                           </div>
                         </CardContent>
                       </Card>
