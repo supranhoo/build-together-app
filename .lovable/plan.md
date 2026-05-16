@@ -1,26 +1,43 @@
-# Why the user list still shows only Demo Admin
+# Why the screen looks like this — not bugs
 
-## What's happening
-The code fix from the previous turn is deployed (`__lovable_sha=681e2ba8` in your URL confirms the new build). But the page in your browser is still rendering with the **old session state** that was loaded before the fix.
+You are currently signed in as **Demo Admin** (role = `admin`), not as the bootstrap super_admin. Both observations below are the system behaving as the existing RLS + UI rules dictate.
 
-`fetchEmployeeProfile` runs only when:
-- the app first mounts, or
-- Supabase fires an `onAuthStateChange` event (sign-in / sign-out / token refresh).
+## 1. Why Demo Admin sees only itself in "User role assignments"
 
-A plain in-app navigation does **not** re-run it. Your `profile.role` is still cached as `"user"` from the pre-fix load, so `refreshAdminState` early-returns and `manageableProfiles` stays empty (only Demo Admin shows because that's the row coming through a different code path).
+The list comes from `manageableProfiles`, which queries `public.profiles` under this RLS policy:
 
-## Verification done
-- DB: `biswajitceo@gmail.com` holds **two** rows in `user_roles` (`user`, `super_admin`). Confirmed.
-- New code in `src/lib/auth.ts` fetches all roles and picks the highest-priority one. Confirmed deployed.
-- No RLS change needed — the existing `can_view_profile` policy already grants super_admin full visibility.
+```
+can_view_profile(viewer, target) =
+    viewer = target
+    OR viewer has role 'super_admin'
+    OR (viewer has role 'admin'
+        AND viewer and target share an ACTIVE user_profit_centers row
+        AND viewer can_manage that profit center)
+```
 
-## Action required (no code change)
-Do one of the following — both force `fetchEmployeeProfile` to run again with the new code:
+DB state right now:
+- 6 profiles exist (Bootstrap Super Admin, Demo Admin, Demo Analyst, Demo Manager, Demo Operator, Demo User).
+- Demo Admin has role `admin` — **not** `super_admin`.
+- Demo Admin shares **no** active `user_profit_centers` assignment with the other 5 demo users. So `can_view_profile` returns false for them, and the policy filters them out.
 
-1. **Hard refresh** the browser tab (Ctrl/Cmd + Shift + R), or
-2. **Sign out and sign back in** as `biswajitceo@gmail.com`.
+This is a **scope-of-control** rule, not a bug. An `admin` is intentionally limited to users inside the profit centers they manage. To see every user, sign in as the bootstrap super_admin (`biswajitceo@gmail.com`), or assign Demo Admin and the other demo users to the same profit center via PC Dashboard → assignments.
 
-After that, the Users tab will list all 6 profiles.
+## 2. Why "admin" is missing from the Select Role dropdown
 
-## Nothing to build
-This is not a code defect anymore. No migration, no edit. If after a hard refresh you still see only one row, I'll add a console log to `fetchEmployeeProfile` so we can confirm which role it resolved on your next message.
+`AdminRoles.tsx` builds the dropdown with:
+
+```ts
+ALL_APP_ROLES.filter((r) => !roles.includes(r))
+```
+
+Demo Admin already holds the `admin` role (the blue chip in the "Current roles" column). So `admin` is correctly omitted — there is nothing to grant. If you revoke the existing `admin` chip (×), `admin` will reappear in the dropdown.
+
+This is the intended de-duplication; granting the same role twice would violate the `(user_id, role)` unique constraint.
+
+## What to do
+
+- **No code change is recommended.** Both behaviors enforce the documented policy.
+- If the desired outcome is "Demo Admin sees all users", that is a **policy decision** to broaden `admin` visibility, which I should not make unilaterally. Tell me which of these you want and I'll plan it:
+  - **A.** Sign in as the bootstrap super_admin — full visibility, no change needed.
+  - **B.** Assign Demo Admin + the other demo users to a shared profit center — visibility unlocks via existing RLS.
+  - **C.** Change the policy so any `admin` sees every profile (broadens privilege; needs POLICY.md update and audit-log entry).
