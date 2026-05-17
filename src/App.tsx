@@ -38,7 +38,7 @@ import PortalFinance from "./pages/PortalFinance";
 import PortalSales from "./pages/PortalSales";
 import PortalMaintenance from "./pages/PortalMaintenance";
 import ModulePlaceholder from "./pages/ModulePlaceholder";
-import PortalProduction from "./pages/PortalProduction";
+import PortalProductionDispatcher from "./pages/PortalProductionDispatcher";
 import PortalProductionFAD from "./pages/PortalProductionFAD";
 import PortalProductionCLU from "./pages/PortalProductionCLU";
 import PortalInventory from "./pages/PortalInventory";
@@ -78,7 +78,7 @@ const App = () => (
                   <Route path="/portal" element={<PortalShell />}>
                     <Route index element={<PortalOverview />} />
                     <Route path="command-deck" element={<PortalCommandDeck />} />
-                    <Route path="production" element={<PortalProduction />} />
+                    <Route path="production" element={<PortalProductionDispatcher />} />
                     <Route path="production-fad" element={<PortalProductionFAD />} />
                     <Route path="production/clu" element={<PortalProductionCLU />} />
                     <Route path="inventory" element={<PortalInventory />}>

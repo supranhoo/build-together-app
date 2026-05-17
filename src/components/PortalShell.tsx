@@ -13,6 +13,7 @@ import { NavLink } from "@/components/NavLink";
 import { useAuth } from "@/hooks/use-auth";
 import { useTheme } from "@/hooks/use-theme";
 import { useWorkspace } from "@/hooks/use-workspace";
+import { getProfileConfig, resolveProcessProfile } from "@/lib/workspace-profiles";
 
 const iconMap = {
   inventory: Warehouse,
@@ -52,24 +53,29 @@ export function PortalShell() {
       .join("");
   }, [profile?.display_name]);
 
+  const profileKey = resolveProcessProfile(activeProfitCenter?.processProfile);
+  const profileCfg = getProfileConfig(profileKey);
+
   const navItems = useMemo(
     () => {
+      const hideKeys = new Set(profileCfg.hideModuleKeys);
       const base = [
         ...portalStaticNavItems.map((item) => ({ ...item, icon: LayoutDashboard })),
-        ...modules.map((module) => ({
-          label: module.navLabel,
-          to: `/portal/${module.routeSegment}`,
-          icon: iconMap[module.moduleKey as keyof typeof iconMap] ?? Factory,
-        })),
+        ...modules
+          .filter((module) => !hideKeys.has(module.moduleKey))
+          .map((module) => ({
+            label: module.moduleKey === "production" ? profileCfg.productionLabel : module.navLabel,
+            to: `/portal/${module.routeSegment}`,
+            icon: iconMap[module.moduleKey as keyof typeof iconMap] ?? Factory,
+          })),
       ];
-      // Surface CLU production for workspaces whose process profile mentions CLU.
-      const profile = (activeProfitCenter?.processProfile ?? "").toUpperCase();
-      if (profile.includes("CLU")) {
+      // CLU sub-route only when the active workspace is a refining unit.
+      if (profileKey === "refining") {
         base.push({ label: "CLU Production", to: "/portal/production/clu", icon: FlaskConical });
       }
       return base;
     },
-    [modules, activeProfitCenter?.processProfile],
+    [modules, profileCfg, profileKey],
   );
 
   const moduleLabelOverrides = useMemo(() => {
@@ -156,7 +162,7 @@ export function PortalShell() {
           <p className="text-[11px] font-semibold uppercase tracking-[0.22em] text-muted-foreground">Active workspace</p>
           <p className="mt-2 text-sm font-medium">{activeProfitCenter?.name || "No workspace selected"}</p>
           <p className="mt-1 text-xs text-muted-foreground">
-            {activeProfitCenter?.processProfile || "Modules, naming, and processes are driven by configuration."}
+            {profileCfg.longLabel} · {profileCfg.productionLabel}
           </p>
         </>
       )}

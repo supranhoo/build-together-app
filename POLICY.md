@@ -510,3 +510,9 @@ max_level     = daily × max_cover_days       (default 30)
 - FAD-specific functionality (heat charge mix, Mn/Si recovery, ferro cost sheet, electrode paste, FAD slag credit) is gated to `process_profile = 'ferro_alloy'` only.
 - Material Master, Stock Locations, and Inventory Ledger are strictly Profit Center-scoped. Cross-PC visibility is forbidden outside the explicit `pc_transfers` workflow.
 - See `WORKSPACE_PROFILES.md` for the full contract and acceptance criteria.
+
+## 2026-05-17 — Phase A enforcement
+- `profit_centers.process_profile` is mandatory and constrained to the 5 canonical codes. Creating or editing a workspace without a valid profile is rejected at the database layer.
+- The `/portal/production` route is profile-driven. Workspaces whose profile is not `ferro_alloy` MUST NOT render FAD heat entry, charge mix, Mn/Si recovery, or ferro cost sheet — even if a stale browser cache requests them.
+- The CLU production sub-link is shown only when the active workspace profile is `refining`.
+- Any nav item, screen, or report that depends on profile-specific behavior must read the profile via `resolveProcessProfile(activeProfitCenter?.processProfile)` and not by matching free-text descriptions.

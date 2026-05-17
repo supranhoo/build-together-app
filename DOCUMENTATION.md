@@ -982,3 +982,10 @@ Read via `fetchProductionApprovals(profitCenterId, { source?, status? })` in `sr
 - New SSOT: `WORKSPACE_PROFILES.md` defines the Process Profile model that fixes the "every PC behaves like FAD" defect.
 - Five profiles: `power` (CPP), `ferro_alloy` (FAD), `dri` (DRI), `refining` (CLU), `steel_melting` (SMS). Profile drives modules, navigation, screens, master data categories, validations, KPIs, approvals, and reports.
 - Phase A (schema + route dispatch) is the next implementable step. Code changes will land in subsequent migrations and must not contradict the spec.
+
+## 2026-05-17 — Phase A foundation implemented
+- Migration: `process_profile` on `profit_centers` normalized to the 5 canonical codes (`power | ferro_alloy | dri | refining | steel_melting`), made NOT NULL with a CHECK constraint, and backfilled by slug for CPP/FAD/DRI/CLU/SMS. Any prior free-text value is preserved in the new `process_description` column.
+- `src/lib/workspace-profiles.ts`: SSOT for profile metadata — `ProcessProfile` type, `resolveProcessProfile`, `getProfileConfig`, and the per-profile production label/tagline.
+- `src/pages/PortalProductionDispatcher.tsx`: `/portal/production` now dispatches by active profile. FAD keeps the existing `PortalProduction`; CPP/DRI/CLU/SMS render a Phase A placeholder until Phase B lands.
+- `src/components/PortalShell.tsx`: nav reads `processProfile`, relabels the production entry per profile, hides FAD-only modules listed in `hideModuleKeys`, and gates the CLU sub-link to `refining` workspaces only (no more string-matching on free-text).
+- Tests: `src/test/workspace-profiles.test.ts` covers profile detection, fallback behavior, and gating rules.
