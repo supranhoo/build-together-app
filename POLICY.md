@@ -522,3 +522,4 @@ max_level     = daily × max_cover_days       (default 30)
 - Metallization % and FeM % are constrained at the database layer to 0–100 inclusive. Any client form bypass is rejected by the CHECK constraint.
 - A kiln shift log is unique per (workspace, kiln, shift, log_date). Re-recording the same shift requires an UPDATE, not a duplicate INSERT.
 - DRI workspaces MUST NOT surface FAD heat entry, charge mix, Mn/Si recovery, or ferro cost sheet (enforced by `PortalProductionDispatcher`).
+- Kilns are master data managed only by workspace admins (Admin → Master Data → Kilns). The tab is hidden in non-DRI workspaces. Codes are unique per workspace; rated capacity (MT/day) must be ≥ 0 when supplied. Deactivating a kiln preserves history but blocks selection in new shift logs.
