@@ -233,15 +233,37 @@ export async function createShiftLog(input: KilnShiftLogInput, createdBy: string
   return toLog(data);
 }
 
-export async function createKiln(input: { profitCenterId: string; code: string; name: string; ratedCapacityMtPerDay?: number | null; }): Promise<Kiln> {
+export async function createKiln(input: { profitCenterId: string; code: string; name: string; ratedCapacityMtPerDay?: number | null; isActive?: boolean }): Promise<Kiln> {
   const { data, error } = await client.from("kilns").insert({
     profit_center_id: input.profitCenterId,
     code: input.code,
     name: input.name,
     rated_capacity_mt_per_day: input.ratedCapacityMtPerDay ?? null,
+    is_active: input.isActive ?? true,
   }).select("*").single();
   if (error) throw error;
   return toKiln(data);
+}
+
+export async function updateKiln(id: string, patch: { code?: string; name?: string; ratedCapacityMtPerDay?: number | null; isActive?: boolean }): Promise<Kiln> {
+  const payload: Record<string, unknown> = {};
+  if (patch.code !== undefined) payload.code = patch.code;
+  if (patch.name !== undefined) payload.name = patch.name;
+  if (patch.ratedCapacityMtPerDay !== undefined) payload.rated_capacity_mt_per_day = patch.ratedCapacityMtPerDay;
+  if (patch.isActive !== undefined) payload.is_active = patch.isActive;
+  const { data, error } = await client.from("kilns").update(payload).eq("id", id).select("*").single();
+  if (error) throw error;
+  return toKiln(data);
+}
+
+export function validateKilnInput(input: { code: string; name: string; ratedCapacityMtPerDay?: number | null }): ValidationError[] {
+  const errs: ValidationError[] = [];
+  if (!input.code || !input.code.trim()) errs.push({ field: "code", message: "Code is required." });
+  if (!input.name || !input.name.trim()) errs.push({ field: "name", message: "Name is required." });
+  if (input.ratedCapacityMtPerDay != null && input.ratedCapacityMtPerDay < 0) {
+    errs.push({ field: "ratedCapacityMtPerDay", message: "Capacity must be ≥ 0." });
+  }
+  return errs;
 }
 
 export async function createCampaign(input: { profitCenterId: string; kilnId: string; campaignNo: string; startedOn: string; notes?: string | null; }): Promise<KilnCampaign> {
