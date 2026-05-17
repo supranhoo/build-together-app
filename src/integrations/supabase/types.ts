@@ -1981,6 +1981,223 @@ export type Database = {
           },
         ]
       }
+      kiln_campaigns: {
+        Row: {
+          campaign_no: string
+          created_at: string
+          created_by: string | null
+          ended_on: string | null
+          id: string
+          is_test_data: boolean
+          kiln_id: string
+          notes: string | null
+          profit_center_id: string
+          started_on: string
+          status: string
+          test_batch_id: string | null
+          updated_at: string
+        }
+        Insert: {
+          campaign_no: string
+          created_at?: string
+          created_by?: string | null
+          ended_on?: string | null
+          id?: string
+          is_test_data?: boolean
+          kiln_id: string
+          notes?: string | null
+          profit_center_id: string
+          started_on: string
+          status?: string
+          test_batch_id?: string | null
+          updated_at?: string
+        }
+        Update: {
+          campaign_no?: string
+          created_at?: string
+          created_by?: string | null
+          ended_on?: string | null
+          id?: string
+          is_test_data?: boolean
+          kiln_id?: string
+          notes?: string | null
+          profit_center_id?: string
+          started_on?: string
+          status?: string
+          test_batch_id?: string | null
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "kiln_campaigns_kiln_id_fkey"
+            columns: ["kiln_id"]
+            isOneToOne: false
+            referencedRelation: "kilns"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "kiln_campaigns_profit_center_id_fkey"
+            columns: ["profit_center_id"]
+            isOneToOne: false
+            referencedRelation: "profit_centers"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      kiln_shift_logs: {
+        Row: {
+          campaign_day: number | null
+          campaign_id: string | null
+          char_mt: number
+          coal_mt: number
+          created_at: string
+          created_by: string | null
+          dolochar_mt: number
+          dolomite_mt: number
+          downtime_min: number
+          downtime_reason: string | null
+          fem_pct: number | null
+          id: string
+          iron_ore_mt: number
+          is_test_data: boolean
+          kiln_id: string
+          log_date: string
+          metallization_pct: number | null
+          notes: string | null
+          profit_center_id: string
+          shift_id: string
+          sponge_mt: number
+          test_batch_id: string | null
+          updated_at: string
+        }
+        Insert: {
+          campaign_day?: number | null
+          campaign_id?: string | null
+          char_mt?: number
+          coal_mt?: number
+          created_at?: string
+          created_by?: string | null
+          dolochar_mt?: number
+          dolomite_mt?: number
+          downtime_min?: number
+          downtime_reason?: string | null
+          fem_pct?: number | null
+          id?: string
+          iron_ore_mt?: number
+          is_test_data?: boolean
+          kiln_id: string
+          log_date: string
+          metallization_pct?: number | null
+          notes?: string | null
+          profit_center_id: string
+          shift_id: string
+          sponge_mt?: number
+          test_batch_id?: string | null
+          updated_at?: string
+        }
+        Update: {
+          campaign_day?: number | null
+          campaign_id?: string | null
+          char_mt?: number
+          coal_mt?: number
+          created_at?: string
+          created_by?: string | null
+          dolochar_mt?: number
+          dolomite_mt?: number
+          downtime_min?: number
+          downtime_reason?: string | null
+          fem_pct?: number | null
+          id?: string
+          iron_ore_mt?: number
+          is_test_data?: boolean
+          kiln_id?: string
+          log_date?: string
+          metallization_pct?: number | null
+          notes?: string | null
+          profit_center_id?: string
+          shift_id?: string
+          sponge_mt?: number
+          test_batch_id?: string | null
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "kiln_shift_logs_campaign_id_fkey"
+            columns: ["campaign_id"]
+            isOneToOne: false
+            referencedRelation: "kiln_campaigns"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "kiln_shift_logs_kiln_id_fkey"
+            columns: ["kiln_id"]
+            isOneToOne: false
+            referencedRelation: "kilns"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "kiln_shift_logs_profit_center_id_fkey"
+            columns: ["profit_center_id"]
+            isOneToOne: false
+            referencedRelation: "profit_centers"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "kiln_shift_logs_shift_id_fkey"
+            columns: ["shift_id"]
+            isOneToOne: false
+            referencedRelation: "shifts"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      kilns: {
+        Row: {
+          code: string
+          created_at: string
+          id: string
+          is_active: boolean
+          is_test_data: boolean
+          name: string
+          profit_center_id: string
+          rated_capacity_mt_per_day: number | null
+          test_batch_id: string | null
+          updated_at: string
+        }
+        Insert: {
+          code: string
+          created_at?: string
+          id?: string
+          is_active?: boolean
+          is_test_data?: boolean
+          name: string
+          profit_center_id: string
+          rated_capacity_mt_per_day?: number | null
+          test_batch_id?: string | null
+          updated_at?: string
+        }
+        Update: {
+          code?: string
+          created_at?: string
+          id?: string
+          is_active?: boolean
+          is_test_data?: boolean
+          name?: string
+          profit_center_id?: string
+          rated_capacity_mt_per_day?: number | null
+          test_batch_id?: string | null
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "kilns_profit_center_id_fkey"
+            columns: ["profit_center_id"]
+            isOneToOne: false
+            referencedRelation: "profit_centers"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       kpi_definitions: {
         Row: {
           created_at: string

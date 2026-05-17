@@ -516,3 +516,9 @@ max_level     = daily × max_cover_days       (default 30)
 - The `/portal/production` route is profile-driven. Workspaces whose profile is not `ferro_alloy` MUST NOT render FAD heat entry, charge mix, Mn/Si recovery, or ferro cost sheet — even if a stale browser cache requests them.
 - The CLU production sub-link is shown only when the active workspace profile is `refining`.
 - Any nav item, screen, or report that depends on profile-specific behavior must read the profile via `resolveProcessProfile(activeProfitCenter?.processProfile)` and not by matching free-text descriptions.
+
+## 2026-05-17 — DRI production policy
+- Kiln shift logs are immutable inputs to KPIs (sponge, metallization, FeM, coal rate, availability). They MUST NOT be created without (kiln, shift, log_date, feed total > 0). Deletes are restricted to PC admins; standard operators can only edit while their write permission allows.
+- Metallization % and FeM % are constrained at the database layer to 0–100 inclusive. Any client form bypass is rejected by the CHECK constraint.
+- A kiln shift log is unique per (workspace, kiln, shift, log_date). Re-recording the same shift requires an UPDATE, not a duplicate INSERT.
+- DRI workspaces MUST NOT surface FAD heat entry, charge mix, Mn/Si recovery, or ferro cost sheet (enforced by `PortalProductionDispatcher`).
