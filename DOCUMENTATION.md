@@ -989,3 +989,10 @@ Read via `fetchProductionApprovals(profitCenterId, { source?, status? })` in `sr
 - `src/pages/PortalProductionDispatcher.tsx`: `/portal/production` now dispatches by active profile. FAD keeps the existing `PortalProduction`; CPP/DRI/CLU/SMS render a Phase A placeholder until Phase B lands.
 - `src/components/PortalShell.tsx`: nav reads `processProfile`, relabels the production entry per profile, hides FAD-only modules listed in `hideModuleKeys`, and gates the CLU sub-link to `refining` workspaces only (no more string-matching on free-text).
 - Tests: `src/test/workspace-profiles.test.ts` covers profile detection, fallback behavior, and gating rules.
+
+## 2026-05-17 — Phase B (DRI) implemented
+- Migration: three new tables — `kilns` (equipment master), `kiln_campaigns` (campaign register), `kiln_shift_logs` (per-shift production capture: ore/coal/dolomite feed, sponge/char/dolochar output, metallization %, FeM %, downtime). All PC-scoped with RLS via `has_profit_center_access` + `can_manage_profit_center`; shift-log writes additionally require the existing `heat_log:update` permission. Every change is audited via `log_procurement_event`.
+- `src/lib/dri-production.ts`: typed CRUD, `validateShiftLog` enforcing the DRI rules from WORKSPACE_PROFILES.md §8 (feed > 0, sponge ≥ 0, metallization/FeM in 0–100, campaign day ≥ 1, downtime ≥ 0), and `rollupKilnKpis` (sponge today/month, avg metallization & FeM, coal rate = coal MT / sponge MT, availability % from downtime).
+- `src/pages/PortalKilnProduction.tsx`: profile-specific landing replacing the Phase A placeholder. KPI tiles, shift-log entry form (with inline validation list), recent logs table, and campaign register tab.
+- `src/pages/PortalProductionDispatcher.tsx`: now routes `dri` → `PortalKilnProduction`; other non-FAD profiles still show the Phase A placeholder until Phase B continues for them.
+- Tests: `src/test/dri-production.test.ts` — 10 cases covering validation rules and KPI rollups.
