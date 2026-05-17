@@ -3568,7 +3568,8 @@ export type Database = {
           is_active: boolean
           location_name: string | null
           name: string
-          process_profile: string | null
+          process_description: string | null
+          process_profile: string
           slug: string
           updated_at: string
         }
@@ -3580,7 +3581,8 @@ export type Database = {
           is_active?: boolean
           location_name?: string | null
           name: string
-          process_profile?: string | null
+          process_description?: string | null
+          process_profile?: string
           slug: string
           updated_at?: string
         }
@@ -3592,7 +3594,8 @@ export type Database = {
           is_active?: boolean
           location_name?: string | null
           name?: string
-          process_profile?: string | null
+          process_description?: string | null
+          process_profile?: string
           slug?: string
           updated_at?: string
         }
