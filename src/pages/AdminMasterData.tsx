@@ -6,6 +6,8 @@ import AdminItemCatalogue from "./AdminItemCatalogue";
 import AdminMaterialGroups from "./AdminMaterialGroups";
 import AdminSpecTemplates from "./AdminSpecTemplates";
 import AdminFurnaces from "./AdminFurnaces";
+import AdminKilns from "./AdminKilns";
+import { resolveProcessProfile } from "@/lib/workspace-profiles";
 import AdminCostRates from "./AdminCostRates";
 import AdminUomConversions from "./AdminUomConversions";
 import AdminStockLocations from "./AdminStockLocations";
@@ -27,6 +29,7 @@ export const MASTER_DATA_TABS = [
   { key: "pickers", label: "Picker Contexts", Component: AdminPickerContexts },
   { key: "specs", label: "Specifications", Component: AdminSpecTemplates },
   { key: "furnaces", label: "Furnace / Machine", Component: AdminFurnaces },
+  { key: "kilns", label: "Kilns (DRI)", Component: AdminKilns, profiles: ["dri"] as const },
   { key: "cost-rates", label: "Rate & Cost Pool", Component: AdminCostRates },
   { key: "uom", label: "UOM & Conversion", Component: AdminUomConversions },
   { key: "locations", label: "Location & Warehouse", Component: AdminStockLocations },
@@ -45,10 +48,15 @@ export function resolveMasterDataTab(raw: string | null | undefined): MasterData
 
 export default function AdminMasterData() {
   const [params, setParams] = useSearchParams();
-  const { isAdmin } = useWorkspace();
+  const { isAdmin, activeProfitCenter } = useWorkspace();
+  const profile = resolveProcessProfile(activeProfitCenter?.processProfile);
   const visibleTabs = useMemo(
-    () => MASTER_DATA_TABS.filter((t) => !("adminOnly" in t && t.adminOnly) || isAdmin),
-    [isAdmin],
+    () => MASTER_DATA_TABS.filter((t) => {
+      if ("adminOnly" in t && t.adminOnly && !isAdmin) return false;
+      if ("profiles" in t && t.profiles && !(t.profiles as readonly string[]).includes(profile)) return false;
+      return true;
+    }),
+    [isAdmin, profile],
   );
   const active = useMemo(() => {
     const raw = params.get("md");

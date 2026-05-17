@@ -996,3 +996,9 @@ Read via `fetchProductionApprovals(profitCenterId, { source?, status? })` in `sr
 - `src/pages/PortalKilnProduction.tsx`: profile-specific landing replacing the Phase A placeholder. KPI tiles, shift-log entry form (with inline validation list), recent logs table, and campaign register tab.
 - `src/pages/PortalProductionDispatcher.tsx`: now routes `dri` → `PortalKilnProduction`; other non-FAD profiles still show the Phase A placeholder until Phase B continues for them.
 - Tests: `src/test/dri-production.test.ts` — 10 cases covering validation rules and KPI rollups.
+
+## 2026-05-17 — Phase B (DRI) — Admin → Kilns master data
+- `src/pages/AdminKilns.tsx`: workspace-scoped CRUD for kilns (code, name, rated MT/day, active). Surfaced as a new tab in `AdminMasterData` (`Kilns (DRI)`) and gated to workspaces whose `process_profile = 'dri'` via the profiles allowlist on the tab definition.
+- `src/lib/dri-production.ts`: added `updateKiln`, `validateKilnInput`, and `isActive` support on `createKiln`. No schema change required — backed by the existing `kilns` table.
+- All saves write a `kiln.created` / `kiln.updated` audit log entry via `createAuditLog`.
+- Tests: `src/test/admin-kilns.test.ts` — 4 cases covering required fields, negative capacity, and happy path.
