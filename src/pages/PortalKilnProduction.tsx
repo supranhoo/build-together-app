@@ -423,14 +423,15 @@ function FormField({
 function FormSelect({
   label, value, onChange, options,
 }: { label: string; value: string; onChange: (v: string) => void; options: { value: string; label: string }[] }) {
+  const NONE = "__none__";
   return (
     <div className="space-y-1.5">
       <Label>{label}</Label>
-      <Select value={value} onValueChange={onChange}>
+      <Select value={value === "" ? NONE : value} onValueChange={(v) => onChange(v === NONE ? "" : v)}>
         <SelectTrigger><SelectValue placeholder="Select…" /></SelectTrigger>
         <SelectContent>
           {options.map((o) => (
-            <SelectItem key={o.value || "__none"} value={o.value || "__none__"}>{o.label}</SelectItem>
+            <SelectItem key={o.value || NONE} value={o.value === "" ? NONE : o.value}>{o.label}</SelectItem>
           ))}
         </SelectContent>
       </Select>
