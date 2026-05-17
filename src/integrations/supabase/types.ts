@@ -1013,6 +1013,147 @@ export type Database = {
           },
         ]
       }
+      cpp_generation_logs: {
+        Row: {
+          ash_mt: number | null
+          aux_mwh: number
+          cpp_unit_id: string
+          created_at: string
+          created_by: string | null
+          fuel_kg: number
+          fuel_type: string | null
+          gross_mwh: number
+          id: string
+          is_voided: boolean
+          log_date: string
+          net_mwh: number
+          outage_min: number
+          profit_center_id: string
+          remarks: string | null
+          run_min: number
+          shift_id: string
+          updated_at: string
+          void_reason: string | null
+          voided_at: string | null
+          voided_by: string | null
+        }
+        Insert: {
+          ash_mt?: number | null
+          aux_mwh?: number
+          cpp_unit_id: string
+          created_at?: string
+          created_by?: string | null
+          fuel_kg?: number
+          fuel_type?: string | null
+          gross_mwh?: number
+          id?: string
+          is_voided?: boolean
+          log_date: string
+          net_mwh?: number
+          outage_min?: number
+          profit_center_id: string
+          remarks?: string | null
+          run_min?: number
+          shift_id: string
+          updated_at?: string
+          void_reason?: string | null
+          voided_at?: string | null
+          voided_by?: string | null
+        }
+        Update: {
+          ash_mt?: number | null
+          aux_mwh?: number
+          cpp_unit_id?: string
+          created_at?: string
+          created_by?: string | null
+          fuel_kg?: number
+          fuel_type?: string | null
+          gross_mwh?: number
+          id?: string
+          is_voided?: boolean
+          log_date?: string
+          net_mwh?: number
+          outage_min?: number
+          profit_center_id?: string
+          remarks?: string | null
+          run_min?: number
+          shift_id?: string
+          updated_at?: string
+          void_reason?: string | null
+          voided_at?: string | null
+          voided_by?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "cpp_generation_logs_cpp_unit_id_fkey"
+            columns: ["cpp_unit_id"]
+            isOneToOne: false
+            referencedRelation: "cpp_units"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "cpp_generation_logs_profit_center_id_fkey"
+            columns: ["profit_center_id"]
+            isOneToOne: false
+            referencedRelation: "profit_centers"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "cpp_generation_logs_shift_id_fkey"
+            columns: ["shift_id"]
+            isOneToOne: false
+            referencedRelation: "shifts"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      cpp_units: {
+        Row: {
+          capacity_mw: number | null
+          code: string
+          created_at: string
+          heat_rate_kcal_per_kwh: number | null
+          id: string
+          is_active: boolean
+          name: string
+          profit_center_id: string
+          unit_type: string
+          updated_at: string
+        }
+        Insert: {
+          capacity_mw?: number | null
+          code: string
+          created_at?: string
+          heat_rate_kcal_per_kwh?: number | null
+          id?: string
+          is_active?: boolean
+          name: string
+          profit_center_id: string
+          unit_type?: string
+          updated_at?: string
+        }
+        Update: {
+          capacity_mw?: number | null
+          code?: string
+          created_at?: string
+          heat_rate_kcal_per_kwh?: number | null
+          id?: string
+          is_active?: boolean
+          name?: string
+          profit_center_id?: string
+          unit_type?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "cpp_units_profit_center_id_fkey"
+            columns: ["profit_center_id"]
+            isOneToOne: false
+            referencedRelation: "profit_centers"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       currencies: {
         Row: {
           code: string
