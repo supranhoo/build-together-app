@@ -4,6 +4,7 @@ import PortalProduction from "@/pages/PortalProduction";
 import PortalKilnProduction from "@/pages/PortalKilnProduction";
 import PortalSteelHeats from "@/pages/PortalSteelHeats";
 import PortalProductionCLU from "@/pages/PortalProductionCLU";
+import PortalPowerGeneration from "@/pages/PortalPowerGeneration";
 
 // Profile-driven landing for /portal/production.
 // FAD (ferro_alloy) keeps the existing PortalProduction experience.
@@ -47,6 +48,9 @@ export default function PortalProductionDispatcher() {
   }
   if (profile === "refining") {
     return <PortalProductionCLU />;
+  }
+  if (profile === "power") {
+    return <PortalPowerGeneration />;
   }
 
   const cfg = getProfileConfig(profile);

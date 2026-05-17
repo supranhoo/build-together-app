@@ -534,3 +534,12 @@ max_level     = daily × max_cover_days       (default 30)
 
 ## 2026-05-17 — CLU production wiring (Phase B Turn 1)
 - Workspaces with `process_profile = 'refining'` route `/portal/production` to the existing `PortalProductionCLU` screen. No schema or business-rule changes — CLU treatment policies remain governed by the existing CLU specifications and approval flows.
+
+## 2026-05-17 — CPP production policy (Phase B Turn 2)
+- CPP generation logs are the canonical record of plant output. They MUST NOT be created without (unit, shift, log_date), and one log is allowed per (workspace × unit × date × shift) — duplicates are rejected at the database layer.
+- Gross MWh and Aux MWh must be ≥ 0, and Aux MWh MUST NOT exceed Gross MWh. Net MWh is always derived (`gross - aux`) — the UI shows it disabled to prevent manual override.
+- Fuel consumption (kg) must be > 0 whenever Gross MWh > 0. Zero generation may be logged with zero fuel (e.g., full outage shift).
+- When a shift duration is supplied, Outage minutes + Run minutes MUST equal the shift duration. Outage hours roll up into the monthly outage KPI; PLF uses total installed GENERATOR capacity × month-days-with-logs × 24 h as the denominator.
+- Voided logs are excluded from KPI rollups (gross/net MWh, aux %, fuel kg/MWh, outage hours, PLF) but retained for audit. Voiding requires a reason ≥ 3 chars and is audited.
+- CPP workspaces MUST NOT surface FAD heat entry, kiln shift logs, steel heat entry, or refining treatment screens. Routing is enforced by `PortalProductionDispatcher` keyed on `process_profile = 'power'`.
+- CPP units are master data managed only by workspace admins (Admin → Master Data → CPP Units). The tab is hidden in non-power workspaces. Unit `code` is unique per workspace; `unit_type` must be one of BOILER, TURBINE, GENERATOR; capacity_mw and heat_rate_kcal_per_kwh must be ≥ 0 when supplied. Deactivating a unit preserves history but blocks selection in new logs.

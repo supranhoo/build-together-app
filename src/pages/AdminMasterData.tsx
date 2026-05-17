@@ -8,6 +8,7 @@ import AdminSpecTemplates from "./AdminSpecTemplates";
 import AdminFurnaces from "./AdminFurnaces";
 import AdminKilns from "./AdminKilns";
 import AdminSmsFurnaces from "./AdminSmsFurnaces";
+import AdminCppUnits from "./AdminCppUnits";
 import { resolveProcessProfile } from "@/lib/workspace-profiles";
 import AdminCostRates from "./AdminCostRates";
 import AdminUomConversions from "./AdminUomConversions";
@@ -32,6 +33,7 @@ export const MASTER_DATA_TABS = [
   { key: "furnaces", label: "Furnace / Machine", Component: AdminFurnaces },
   { key: "kilns", label: "Kilns (DRI)", Component: AdminKilns, profiles: ["dri"] as const },
   { key: "sms-furnaces", label: "SMS Furnaces", Component: AdminSmsFurnaces, profiles: ["steel_melting"] as const },
+  { key: "cpp-units", label: "CPP Units", Component: AdminCppUnits, profiles: ["power"] as const },
   { key: "cost-rates", label: "Rate & Cost Pool", Component: AdminCostRates },
   { key: "uom", label: "UOM & Conversion", Component: AdminUomConversions },
   { key: "locations", label: "Location & Warehouse", Component: AdminStockLocations },
