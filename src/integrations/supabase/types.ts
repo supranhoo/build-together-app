@@ -56,6 +56,56 @@ export type Database = {
         }
         Relationships: []
       }
+      approval_workflows: {
+        Row: {
+          condition: Json | null
+          created_at: string
+          created_by: string | null
+          description: string | null
+          id: string
+          is_enabled: boolean
+          name: string
+          profit_center_id: string | null
+          steps: Json
+          trigger_type: string
+          updated_at: string
+        }
+        Insert: {
+          condition?: Json | null
+          created_at?: string
+          created_by?: string | null
+          description?: string | null
+          id?: string
+          is_enabled?: boolean
+          name: string
+          profit_center_id?: string | null
+          steps?: Json
+          trigger_type: string
+          updated_at?: string
+        }
+        Update: {
+          condition?: Json | null
+          created_at?: string
+          created_by?: string | null
+          description?: string | null
+          id?: string
+          is_enabled?: boolean
+          name?: string
+          profit_center_id?: string | null
+          steps?: Json
+          trigger_type?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "approval_workflows_profit_center_id_fkey"
+            columns: ["profit_center_id"]
+            isOneToOne: false
+            referencedRelation: "profit_centers"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       audit_logs: {
         Row: {
           action: string
