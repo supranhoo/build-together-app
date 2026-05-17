@@ -7,6 +7,7 @@ import AdminMaterialGroups from "./AdminMaterialGroups";
 import AdminSpecTemplates from "./AdminSpecTemplates";
 import AdminFurnaces from "./AdminFurnaces";
 import AdminKilns from "./AdminKilns";
+import AdminSmsFurnaces from "./AdminSmsFurnaces";
 import { resolveProcessProfile } from "@/lib/workspace-profiles";
 import AdminCostRates from "./AdminCostRates";
 import AdminUomConversions from "./AdminUomConversions";
