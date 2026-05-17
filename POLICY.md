@@ -498,3 +498,9 @@ max_level     = daily × max_cover_days       (default 30)
 - The `user_profit_centers` table is protected by a BEFORE trigger that enforces "one default workspace per user" by updating the user's other rows.
 - Application code MUST NOT use PostgREST `.upsert` on this table; that combination produces SQLSTATE 21000 (`ON CONFLICT DO UPDATE command cannot affect row a second time`).
 - The sanctioned write path is: `SELECT` by `(user_id, profit_center_id)`, then `INSERT` when missing or `UPDATE` when present. Both writes remain subject to RLS (`can_manage_profit_center` / `super_admin`) and must be followed by an `audit_logs` entry for the assignment change.
+
+## 2026-05-17 — Dynamic Workflow Engine
+- Maker-Checker rules for sensitive actions (PR, PO, heat log void, inventory reversal, user create, role grant) are configuration, not code. They live in `approval_workflows`.
+- Only admins/super-admins may view or change workflow rules. Per-PC workflows require manage rights on that PC; global workflows (profit_center_id IS NULL) require super_admin.
+- Every workflow change is written to the audit log.
+- Runtime execution (Phase 2) MUST go through `pending_approvals` + `admin-approve-action` — never bypass the existing maker-checker rails.

@@ -970,3 +970,10 @@ Read via `fetchProductionApprovals(profitCenterId, { source?, status? })` in `sr
 - No schema, RLS, or trigger change. "One default workspace per user" remains enforced by the existing trigger.
 - UX: `src/pages/AdminAccess.tsx` now surfaces the real backend error message in the toast instead of "Please try again".
 - Tests: `src/test/workspace-assign.test.ts` locks in the new insert vs update routing and explicitly fails if `.upsert` is reintroduced for this table.
+
+## 2026-05-17 — Dynamic Workflow Engine (Phase 1: schema + admin CRUD)
+- New table `approval_workflows` (profit_center_id nullable for global, trigger_type, name, description, is_enabled, steps jsonb, condition jsonb). RLS: only admin/super_admin can read; per-PC mutations gated by `can_manage_profit_center`, global rows require `super_admin`. Audit via `log_procurement_event` trigger.
+- New module `src/lib/workflows.ts` exposes `listWorkflows`, `saveWorkflow`, `toggleWorkflow`, `deleteWorkflow`, and a pure `validateWorkflow`.
+- `src/pages/AdminWorkflows.tsx` rewritten from read-only mockup to full CRUD: list, enable/disable, create/edit dialog (name, trigger, description, condition `amountAbove`, ordered steps with actor + optional threshold), delete with confirm.
+- Tests: `src/test/workflows.test.ts` covers happy path + validation failure modes.
+- Phase 2 (not in this change): runtime resolver that, when a PR/PO/etc. is created, looks up the matching workflow, evaluates `condition`, and enqueues `pending_approvals` rows per step. Existing `admin-approve-action` edge function remains the executor.
