@@ -48,10 +48,15 @@ export function resolveMasterDataTab(raw: string | null | undefined): MasterData
 
 export default function AdminMasterData() {
   const [params, setParams] = useSearchParams();
-  const { isAdmin } = useWorkspace();
+  const { isAdmin, activeProfitCenter } = useWorkspace();
+  const profile = resolveProcessProfile(activeProfitCenter?.processProfile);
   const visibleTabs = useMemo(
-    () => MASTER_DATA_TABS.filter((t) => !("adminOnly" in t && t.adminOnly) || isAdmin),
-    [isAdmin],
+    () => MASTER_DATA_TABS.filter((t) => {
+      if ("adminOnly" in t && t.adminOnly && !isAdmin) return false;
+      if ("profiles" in t && t.profiles && !(t.profiles as readonly string[]).includes(profile)) return false;
+      return true;
+    }),
+    [isAdmin, profile],
   );
   const active = useMemo(() => {
     const raw = params.get("md");
