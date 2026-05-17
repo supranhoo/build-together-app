@@ -435,17 +435,49 @@ export async function assignUserToProfitCenter(input: {
   profitCenterId: string;
   isDefault: boolean;
 }) {
-  const { error } = await client
+  // NOTE: We intentionally do NOT use `.upsert()` here.
+  //
+  // The `user_profit_centers` table has a BEFORE INSERT/UPDATE trigger
+  // (`is_default_profit_center_allowed`) that, when a row is saved with
+  // `is_default = true`, runs an UPDATE on the user's OTHER assignment
+  // rows to clear their `is_default` flag. PostgREST translates `.upsert`
+  // to `INSERT ... ON CONFLICT DO UPDATE`, and Postgres rejects that
+  // combination with:
+  //   21000: ON CONFLICT DO UPDATE command cannot affect row a second time
+  //
+  // To stay compatible with the trigger and preserve "one default workspace
+  // per user", we look up the row first and then issue a plain INSERT or
+  // plain UPDATE — neither of which trips the ON CONFLICT rule.
+  const existingResult = await client
     .from("user_profit_centers")
-    .upsert(
-      {
-        user_id: input.userId,
-        profit_center_id: input.profitCenterId,
+    .select("id")
+    .eq("user_id", input.userId)
+    .eq("profit_center_id", input.profitCenterId)
+    .maybeSingle();
+
+  if (existingResult.error) throw existingResult.error;
+
+  if (existingResult.data?.id) {
+    const { error } = await client
+      .from("user_profit_centers")
+      .update({
         is_default: input.isDefault,
         is_active: true,
-      },
-      { onConflict: "user_id,profit_center_id" },
-    );
+      })
+      .eq("id", existingResult.data.id);
+
+    if (error) throw error;
+    return;
+  }
+
+  const { error } = await client
+    .from("user_profit_centers")
+    .insert({
+      user_id: input.userId,
+      profit_center_id: input.profitCenterId,
+      is_default: input.isDefault,
+      is_active: true,
+    });
 
   if (error) throw error;
 }
