@@ -42,6 +42,12 @@ export default function PortalProductionDispatcher() {
   if (profile === "dri") {
     return <PortalKilnProduction />;
   }
+  if (profile === "steel_melting") {
+    return <PortalSteelHeats />;
+  }
+  if (profile === "refining") {
+    return <PortalProductionCLU />;
+  }
 
   const cfg = getProfileConfig(profile);
   return (
