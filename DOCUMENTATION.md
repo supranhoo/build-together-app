@@ -963,3 +963,10 @@ Read via `fetchProductionApprovals(profitCenterId, { source?, status? })` in `sr
 - `RequireWorkspace` now gates on `selectableProfitCenters.length` instead of `assignments.length`, allowing super_admin entry into `/portal/*` without explicit assignment rows.
 - `WorkspaceProvider.refreshWorkspace` preserves a super_admin's active selection as long as the chosen workspace is still active globally, even with no assignment row.
 - Unit tests: `src/test/workspace-selectable.test.ts` covers super_admin global access, non-super-admin without assignments, and assignment scoping for other roles.
+
+## Version History — 2026-05-17: Profit center assignment save fix
+- Problem: Admin Settings → Access "Save assignment" returned `500: ON CONFLICT DO UPDATE command cannot affect row a second time` from PostgREST. Cause: `assignUserToProfitCenter` used `.upsert()` on `user_profit_centers`, but the table has a BEFORE INSERT/UPDATE trigger (`is_default_profit_center_allowed`) that updates the user's other rows when the saved row is marked default. Postgres rejects that combination with the ON CONFLICT rule.
+- Fix (`src/lib/workspace.ts`): replaced the `.upsert` with a select-then-insert-or-update flow. New rows go through plain `INSERT`; existing rows go through plain `UPDATE`. Neither path uses `ON CONFLICT`, so the default-clearing trigger runs cleanly.
+- No schema, RLS, or trigger change. "One default workspace per user" remains enforced by the existing trigger.
+- UX: `src/pages/AdminAccess.tsx` now surfaces the real backend error message in the toast instead of "Please try again".
+- Tests: `src/test/workspace-assign.test.ts` locks in the new insert vs update routing and explicitly fails if `.upsert` is reintroduced for this table.

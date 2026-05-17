@@ -43,7 +43,14 @@ export default function AdminAccess() {
       setSelectedUserId("");
       setIsDefault(false);
     } catch (error) {
-      toast({ title: "Assignment failed", description: error instanceof Error ? error.message : "Please try again.", variant: "destructive" });
+      // Surface the real backend error (RLS denial, trigger conflict, network)
+      // instead of a generic message so admins and support can act on it.
+      const description = error instanceof Error
+        ? error.message
+        : typeof error === "object" && error && "message" in error
+          ? String((error as { message: unknown }).message)
+          : "Please try again.";
+      toast({ title: "Assignment failed", description, variant: "destructive" });
     } finally {
       setSaving(false);
     }

@@ -493,3 +493,8 @@ max_level     = daily × max_cover_days       (default 30)
 - Super admins have implicit access to every active profit center for the purpose of workspace entry; an explicit `user_profit_centers` row is not required.
 - All other roles (admin, manager, analyst, operator, user) continue to require explicit, active `user_profit_centers` assignment to enter a workspace.
 - This rule is enforced in the application's workspace selector and route guard; underlying RLS for data tables remains unchanged and continues to govern read/write authorization per workspace.
+
+## 2026-05-17 — Profit center assignment writes must not use upsert
+- The `user_profit_centers` table is protected by a BEFORE trigger that enforces "one default workspace per user" by updating the user's other rows.
+- Application code MUST NOT use PostgREST `.upsert` on this table; that combination produces SQLSTATE 21000 (`ON CONFLICT DO UPDATE command cannot affect row a second time`).
+- The sanctioned write path is: `SELECT` by `(user_id, profit_center_id)`, then `INSERT` when missing or `UPDATE` when present. Both writes remain subject to RLS (`can_manage_profit_center` / `super_admin`) and must be followed by an `audit_logs` entry for the assignment change.
