@@ -1,6 +1,7 @@
 import { useWorkspace } from "@/hooks/use-workspace";
 import { getProfileConfig, resolveProcessProfile } from "@/lib/workspace-profiles";
 import PortalProduction from "@/pages/PortalProduction";
+import PortalKilnProduction from "@/pages/PortalKilnProduction";
 
 // Profile-driven landing for /portal/production.
 // FAD (ferro_alloy) keeps the existing PortalProduction experience.
@@ -35,6 +36,9 @@ export default function PortalProductionDispatcher() {
 
   if (profile === "ferro_alloy") {
     return <PortalProduction />;
+  }
+  if (profile === "dri") {
+    return <PortalKilnProduction />;
   }
 
   const cfg = getProfileConfig(profile);
