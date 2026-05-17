@@ -6,6 +6,8 @@ import AdminItemCatalogue from "./AdminItemCatalogue";
 import AdminMaterialGroups from "./AdminMaterialGroups";
 import AdminSpecTemplates from "./AdminSpecTemplates";
 import AdminFurnaces from "./AdminFurnaces";
+import AdminKilns from "./AdminKilns";
+import { resolveProcessProfile } from "@/lib/workspace-profiles";
 import AdminCostRates from "./AdminCostRates";
 import AdminUomConversions from "./AdminUomConversions";
 import AdminStockLocations from "./AdminStockLocations";
