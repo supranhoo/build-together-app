@@ -2,6 +2,8 @@ import { useWorkspace } from "@/hooks/use-workspace";
 import { getProfileConfig, resolveProcessProfile } from "@/lib/workspace-profiles";
 import PortalProduction from "@/pages/PortalProduction";
 import PortalKilnProduction from "@/pages/PortalKilnProduction";
+import PortalSteelHeats from "@/pages/PortalSteelHeats";
+import PortalProductionCLU from "@/pages/PortalProductionCLU";
 
 // Profile-driven landing for /portal/production.
 // FAD (ferro_alloy) keeps the existing PortalProduction experience.
