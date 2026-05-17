@@ -977,3 +977,8 @@ Read via `fetchProductionApprovals(profitCenterId, { source?, status? })` in `sr
 - `src/pages/AdminWorkflows.tsx` rewritten from read-only mockup to full CRUD: list, enable/disable, create/edit dialog (name, trigger, description, condition `amountAbove`, ordered steps with actor + optional threshold), delete with confirm.
 - Tests: `src/test/workflows.test.ts` covers happy path + validation failure modes.
 - Phase 2 (not in this change): runtime resolver that, when a PR/PO/etc. is created, looks up the matching workflow, evaluates `condition`, and enqueues `pending_approvals` rows per step. Existing `admin-approve-action` edge function remains the executor.
+
+## 2026-05-17 — Workspace Profiles spec published
+- New SSOT: `WORKSPACE_PROFILES.md` defines the Process Profile model that fixes the "every PC behaves like FAD" defect.
+- Five profiles: `power` (CPP), `ferro_alloy` (FAD), `dri` (DRI), `refining` (CLU), `steel_melting` (SMS). Profile drives modules, navigation, screens, master data categories, validations, KPIs, approvals, and reports.
+- Phase A (schema + route dispatch) is the next implementable step. Code changes will land in subsequent migrations and must not contradict the spec.

@@ -504,3 +504,9 @@ max_level     = daily × max_cover_days       (default 30)
 - Only admins/super-admins may view or change workflow rules. Per-PC workflows require manage rights on that PC; global workflows (profit_center_id IS NULL) require super_admin.
 - Every workflow change is written to the audit log.
 - Runtime execution (Phase 2) MUST go through `pending_approvals` + `admin-approve-action` — never bypass the existing maker-checker rails.
+
+## 2026-05-17 — Profit Center process profiles
+- Each Profit Center has exactly one `process_profile` (power, ferro_alloy, dri, refining, steel_melting). The profile is the authority for what modules, screens, fields, KPIs, approvals, and reports are available in that workspace.
+- FAD-specific functionality (heat charge mix, Mn/Si recovery, ferro cost sheet, electrode paste, FAD slag credit) is gated to `process_profile = 'ferro_alloy'` only.
+- Material Master, Stock Locations, and Inventory Ledger are strictly Profit Center-scoped. Cross-PC visibility is forbidden outside the explicit `pc_transfers` workflow.
+- See `WORKSPACE_PROFILES.md` for the full contract and acceptance criteria.
