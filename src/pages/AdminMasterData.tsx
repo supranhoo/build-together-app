@@ -31,6 +31,7 @@ export const MASTER_DATA_TABS = [
   { key: "specs", label: "Specifications", Component: AdminSpecTemplates },
   { key: "furnaces", label: "Furnace / Machine", Component: AdminFurnaces },
   { key: "kilns", label: "Kilns (DRI)", Component: AdminKilns, profiles: ["dri"] as const },
+  { key: "sms-furnaces", label: "SMS Furnaces", Component: AdminSmsFurnaces, profiles: ["steel_melting"] as const },
   { key: "cost-rates", label: "Rate & Cost Pool", Component: AdminCostRates },
   { key: "uom", label: "UOM & Conversion", Component: AdminUomConversions },
   { key: "locations", label: "Location & Warehouse", Component: AdminStockLocations },
