@@ -162,7 +162,7 @@ export function PortalShell() {
           <p className="text-[11px] font-semibold uppercase tracking-[0.22em] text-muted-foreground">Active workspace</p>
           <p className="mt-2 text-sm font-medium">{activeProfitCenter?.name || "No workspace selected"}</p>
           <p className="mt-1 text-xs text-muted-foreground">
-            {activeProfitCenter?.processProfile || "Modules, naming, and processes are driven by configuration."}
+            {profileCfg.longLabel} · {profileCfg.productionLabel}
           </p>
         </>
       )}
