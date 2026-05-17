@@ -29,6 +29,7 @@ export const MASTER_DATA_TABS = [
   { key: "pickers", label: "Picker Contexts", Component: AdminPickerContexts },
   { key: "specs", label: "Specifications", Component: AdminSpecTemplates },
   { key: "furnaces", label: "Furnace / Machine", Component: AdminFurnaces },
+  { key: "kilns", label: "Kilns (DRI)", Component: AdminKilns, profiles: ["dri"] as const },
   { key: "cost-rates", label: "Rate & Cost Pool", Component: AdminCostRates },
   { key: "uom", label: "UOM & Conversion", Component: AdminUomConversions },
   { key: "locations", label: "Location & Warehouse", Component: AdminStockLocations },
