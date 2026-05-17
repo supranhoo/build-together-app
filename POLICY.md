@@ -523,3 +523,14 @@ max_level     = daily × max_cover_days       (default 30)
 - A kiln shift log is unique per (workspace, kiln, shift, log_date). Re-recording the same shift requires an UPDATE, not a duplicate INSERT.
 - DRI workspaces MUST NOT surface FAD heat entry, charge mix, Mn/Si recovery, or ferro cost sheet (enforced by `PortalProductionDispatcher`).
 - Kilns are master data managed only by workspace admins (Admin → Master Data → Kilns). The tab is hidden in non-DRI workspaces. Codes are unique per workspace; rated capacity (MT/day) must be ≥ 0 when supplied. Deactivating a kiln preserves history but blocks selection in new shift logs.
+
+## 2026-05-17 — SMS production policy (Phase B Turn 1)
+- SMS heats are the canonical record of steel melting output. They MUST NOT be created without (furnace, shift, heat number, tap time, charge mix total > 0, liquid steel MT > 0). Charge mix = scrap + hot metal + DRI + ferro alloys.
+- Heat numbers are unique per workspace. Re-recording an existing heat number is rejected at the database layer; correct by editing or voiding the original.
+- Chemistry percentages (C, Mn, Si, S, P) are constrained to 0–100 inclusive when supplied. All MT fields must be ≥ 0.
+- Voided heats are excluded from KPI rollups (liquid steel, yield, metallic yield, energy/T) but retained for audit. Voiding requires a reason ≥ 3 chars and is audited.
+- SMS workspaces MUST NOT surface FAD heat entry, kiln shift logs, or refining treatment screens. Routing is enforced by `PortalProductionDispatcher` keyed on `process_profile = 'steel_melting'`.
+- SMS furnaces are master data managed only by workspace admins (Admin → Master Data → SMS Furnaces). The tab is hidden in non-SMS workspaces. Furnace `code` is unique per workspace; `furnace_type` must be one of EAF, LF, CCM; capacity_mt and power_rating_kw must be ≥ 0 when supplied. Deactivating a furnace preserves history but blocks selection in new heats.
+
+## 2026-05-17 — CLU production wiring (Phase B Turn 1)
+- Workspaces with `process_profile = 'refining'` route `/portal/production` to the existing `PortalProductionCLU` screen. No schema or business-rule changes — CLU treatment policies remain governed by the existing CLU specifications and approval flows.

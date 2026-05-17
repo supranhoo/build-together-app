@@ -4801,6 +4801,165 @@ export type Database = {
           },
         ]
       }
+      sms_furnaces: {
+        Row: {
+          capacity_mt: number | null
+          code: string
+          created_at: string
+          furnace_type: string
+          id: string
+          is_active: boolean
+          name: string
+          power_rating_kw: number | null
+          profit_center_id: string
+          updated_at: string
+        }
+        Insert: {
+          capacity_mt?: number | null
+          code: string
+          created_at?: string
+          furnace_type?: string
+          id?: string
+          is_active?: boolean
+          name: string
+          power_rating_kw?: number | null
+          profit_center_id: string
+          updated_at?: string
+        }
+        Update: {
+          capacity_mt?: number | null
+          code?: string
+          created_at?: string
+          furnace_type?: string
+          id?: string
+          is_active?: boolean
+          name?: string
+          power_rating_kw?: number | null
+          profit_center_id?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "sms_furnaces_profit_center_id_fkey"
+            columns: ["profit_center_id"]
+            isOneToOne: false
+            referencedRelation: "profit_centers"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      sms_heats: {
+        Row: {
+          billet_mt: number
+          c_pct: number | null
+          created_at: string
+          created_by: string | null
+          dri_mt: number
+          ferro_alloys_mt: number
+          heat_no: string
+          hot_metal_mt: number
+          id: string
+          ingot_mt: number
+          is_voided: boolean
+          liquid_steel_mt: number
+          mn_pct: number | null
+          notes: string | null
+          p_pct: number | null
+          power_mwh: number | null
+          profit_center_id: string
+          s_pct: number | null
+          scrap_mt: number
+          shift_id: string
+          si_pct: number | null
+          sms_furnace_id: string
+          tap_time: string
+          updated_at: string
+          void_reason: string | null
+          voided_at: string | null
+          voided_by: string | null
+        }
+        Insert: {
+          billet_mt?: number
+          c_pct?: number | null
+          created_at?: string
+          created_by?: string | null
+          dri_mt?: number
+          ferro_alloys_mt?: number
+          heat_no: string
+          hot_metal_mt?: number
+          id?: string
+          ingot_mt?: number
+          is_voided?: boolean
+          liquid_steel_mt?: number
+          mn_pct?: number | null
+          notes?: string | null
+          p_pct?: number | null
+          power_mwh?: number | null
+          profit_center_id: string
+          s_pct?: number | null
+          scrap_mt?: number
+          shift_id: string
+          si_pct?: number | null
+          sms_furnace_id: string
+          tap_time: string
+          updated_at?: string
+          void_reason?: string | null
+          voided_at?: string | null
+          voided_by?: string | null
+        }
+        Update: {
+          billet_mt?: number
+          c_pct?: number | null
+          created_at?: string
+          created_by?: string | null
+          dri_mt?: number
+          ferro_alloys_mt?: number
+          heat_no?: string
+          hot_metal_mt?: number
+          id?: string
+          ingot_mt?: number
+          is_voided?: boolean
+          liquid_steel_mt?: number
+          mn_pct?: number | null
+          notes?: string | null
+          p_pct?: number | null
+          power_mwh?: number | null
+          profit_center_id?: string
+          s_pct?: number | null
+          scrap_mt?: number
+          shift_id?: string
+          si_pct?: number | null
+          sms_furnace_id?: string
+          tap_time?: string
+          updated_at?: string
+          void_reason?: string | null
+          voided_at?: string | null
+          voided_by?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "sms_heats_profit_center_id_fkey"
+            columns: ["profit_center_id"]
+            isOneToOne: false
+            referencedRelation: "profit_centers"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "sms_heats_shift_id_fkey"
+            columns: ["shift_id"]
+            isOneToOne: false
+            referencedRelation: "shifts"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "sms_heats_sms_furnace_id_fkey"
+            columns: ["sms_furnace_id"]
+            isOneToOne: false
+            referencedRelation: "sms_furnaces"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       spec_templates: {
         Row: {
           created_at: string
