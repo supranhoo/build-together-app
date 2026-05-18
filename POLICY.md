@@ -543,3 +543,7 @@ max_level     = daily × max_cover_days       (default 30)
 - Voided logs are excluded from KPI rollups (gross/net MWh, aux %, fuel kg/MWh, outage hours, PLF) but retained for audit. Voiding requires a reason ≥ 3 chars and is audited.
 - CPP workspaces MUST NOT surface FAD heat entry, kiln shift logs, steel heat entry, or refining treatment screens. Routing is enforced by `PortalProductionDispatcher` keyed on `process_profile = 'power'`.
 - CPP units are master data managed only by workspace admins (Admin → Master Data → CPP Units). The tab is hidden in non-power workspaces. Unit `code` is unique per workspace; `unit_type` must be one of BOILER, TURBINE, GENERATOR; capacity_mw and heat_rate_kcal_per_kwh must be ≥ 0 when supplied. Deactivating a unit preserves history but blocks selection in new logs.
+
+## 2026-05-18 — KPI definition packs (Turn 3)
+- Global KPI definitions for DRI / SMS / CLU / CPP are seeded with `profit_center_id = NULL` and are visible to all workspaces by inheritance. Workspace admins may override any global key by creating a workspace-scoped row in `/admin/kpis` (existing fallback rule unchanged).
+- Until the SQL compute layer is extended for non-FAD sources, the seeded KPIs render as "—" with an informational error. This is by design and must not be hidden by client-side fallbacks that fabricate values.
