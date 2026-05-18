@@ -1018,3 +1018,12 @@ Read via `fetchProductionApprovals(profitCenterId, { source?, status? })` in `sr
 - `src/pages/AdminCppUnits.tsx`: workspace-scoped CRUD for CPP units. Surfaced as a new tab `CPP Units` in `AdminMasterData`, gated to workspaces whose `process_profile = 'power'`. All saves emit `cpp_unit.created` / `cpp_unit.updated` audit entries.
 - `src/pages/PortalProductionDispatcher.tsx`: now routes `power` → `PortalPowerGeneration`. Phase A placeholder is no longer reached by any of the 5 canonical profiles — all five (`power`, `ferro_alloy`, `dri`, `refining`, `steel_melting`) now render real production screens.
 - Tests: `src/test/cpp-production.test.ts` — 16 cases covering `validateGenerationLog` (7 incl. aux > gross, fuel > 0 when gross > 0, outage+run = shift_min), `validateUnitInput` (4), and `rollupCppKpis` (5 incl. PLF and monthly outage). All passing.
+
+## 2026-05-18 — Phase B Turn 3 (KPI definition packs seeded)
+- Data-only change (no migration, no schema): seeded 16 global KPI definitions in `kpi_definitions` (profit_center_id NULL) covering DRI, SMS, CLU and CPP profiles. Workspaces can still override per the existing global/workspace fallback in `compute_kpi`.
+  - DRI: `dri_production_mt`, `dri_metallization_pct`, `dri_fem_pct`, `dri_coal_rate`
+  - SMS: `sms_liquid_steel_mt`, `sms_metallic_yield_pct`, `sms_specific_power`, `sms_heats_per_day`
+  - CLU: `clu_treatments_count`, `clu_avg_cycle_min`, `clu_first_pass_yield_pct`
+  - CPP: `cpp_gross_mwh`, `cpp_net_mwh`, `cpp_aux_pct`, `cpp_plf_pct`, `cpp_specific_fuel`
+- Definitions appear in `/admin/kpis` (catalogue) and `/portal/reports` (cards). **Known limitation**: `_compute_kpi_aggregate` / `_compute_kpi_series` currently only understand `heat_logs` and `material_consumption` sources, so the new KPIs render with `null` value and `error: invalid_formula` (for ratios) or `null` series until a follow-up turn extends the compute functions to handle `dri_kiln_logs`, `sms_heats`, `clu_treatments`, and `cpp_generation_logs`. Seeded keys are stable and will start returning values automatically once the compute layer is extended — no UI changes will be needed.
+- Idempotency: insert uses `WHERE NOT EXISTS` on `(profit_center_id IS NULL, key)` so re-running is a no-op.
