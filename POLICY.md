@@ -547,3 +547,8 @@ max_level     = daily × max_cover_days       (default 30)
 ## 2026-05-18 — KPI definition packs (Turn 3)
 - Global KPI definitions for DRI / SMS / CLU / CPP are seeded with `profit_center_id = NULL` and are visible to all workspaces by inheritance. Workspace admins may override any global key by creating a workspace-scoped row in `/admin/kpis` (existing fallback rule unchanged).
 - Until the SQL compute layer is extended for non-FAD sources, the seeded KPIs render as "—" with an informational error. This is by design and must not be hidden by client-side fallbacks that fabricate values.
+
+## 2026-05-20 — Bulk GRN upload
+- Bulk CSV upload on the GRN (Inward) tab posts each row through the same `postGrn()` path as manual entry; no new write surface, no schema change. RLS (`has_profit_center_access`) and the inventory-ledger audit trigger apply unchanged.
+- Permission gate: `inventory.receipt` (same as the manual "New GRN" button). Operators without this grant see disabled buttons.
+- Master-data first: rows referencing an unknown or inactive `material_code` / `stock_location_code` for the active profit center are rejected at parse time — bulk upload never creates master records implicitly.
