@@ -121,6 +121,69 @@ export default function PortalInventoryGrn() {
     }
   };
 
+  const handleDownloadTemplate = () => {
+    const sample = {
+      materialCode: materials[0]?.code,
+      locationCode: locations.find((l) => l.isActive)?.code,
+    };
+    downloadCsv("grn-bulk-template.csv", toCsv(buildGrnTemplateRows(sample)));
+  };
+
+  const handleFilePicked = async (file: File) => {
+    if (!activeProfitCenter) return;
+    try {
+      const text = await file.text();
+      const raw = parseCsv(text);
+      const dataRows = Math.max(0, raw.length - 1);
+      if (dataRows > MAX_BULK_ROWS) {
+        toast({ title: `Too many rows`, description: `Limit is ${MAX_BULK_ROWS} per file (got ${dataRows}). Split the file and re-upload.`, variant: "destructive" });
+        return;
+      }
+      const parsed = parseGrnCsv(raw, { materials, locations });
+      setBulkRows(parsed.rows);
+      setBulkErrors(parsed.errors);
+      setBulkProgress(null);
+      setBulkOpen(true);
+    } catch (e) {
+      toast({ title: "Could not read CSV", description: e instanceof Error ? e.message : "", variant: "destructive" });
+    } finally {
+      if (fileInputRef.current) fileInputRef.current.value = "";
+    }
+  };
+
+  const handleConfirmBulk = async () => {
+    if (!activeProfitCenter || !session?.user || bulkRows.length === 0) return;
+    setBulkPosting(true);
+    const failed: { rowNumber: number; message: string }[] = [];
+    let done = 0;
+    setBulkProgress({ done: 0, total: bulkRows.length, failed: [] });
+    for (const row of bulkRows) {
+      try {
+        await postGrn({
+          profitCenterId: activeProfitCenter.id,
+          materialId: row.materialId,
+          stockLocationId: row.stockLocationId,
+          quantity: row.quantity,
+          unitCost: row.unitCost,
+          createdBy: session.user.id,
+          quality: row.quality,
+        });
+      } catch (e) {
+        failed.push({ rowNumber: row.rowNumber, message: e instanceof Error ? e.message : "Failed" });
+      }
+      done += 1;
+      setBulkProgress({ done, total: bulkRows.length, failed: [...failed] });
+    }
+    setBulkPosting(false);
+    const ok = bulkRows.length - failed.length;
+    toast({
+      title: failed.length === 0 ? "Bulk GRN posted" : `Posted ${ok} of ${bulkRows.length}`,
+      description: failed.length > 0 ? `${failed.length} row(s) failed — see details in the dialog.` : undefined,
+      variant: failed.length === 0 ? "default" : "destructive",
+    });
+    await reload();
+  };
+
   return (
     <Card className="border-border bg-card shadow-panel">
       <CardHeader className="flex flex-row items-center justify-between gap-4">
