@@ -1935,8 +1935,11 @@ export type Database = {
           created_at: string
           created_by: string
           id: string
+          is_migrated: boolean
           is_test_data: boolean
+          legacy_ref: string | null
           material_id: string
+          migration_batch_id: string | null
           movement_type: string
           notes: string | null
           profit_center_id: string
@@ -1951,8 +1954,11 @@ export type Database = {
           created_at?: string
           created_by: string
           id?: string
+          is_migrated?: boolean
           is_test_data?: boolean
+          legacy_ref?: string | null
           material_id: string
+          migration_batch_id?: string | null
           movement_type: string
           notes?: string | null
           profit_center_id: string
@@ -1967,8 +1973,11 @@ export type Database = {
           created_at?: string
           created_by?: string
           id?: string
+          is_migrated?: boolean
           is_test_data?: boolean
+          legacy_ref?: string | null
           material_id?: string
+          migration_batch_id?: string | null
           movement_type?: string
           notes?: string | null
           profit_center_id?: string
@@ -3366,6 +3375,127 @@ export type Database = {
             columns: ["test_batch_id"]
             isOneToOne: false
             referencedRelation: "test_data_batches"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      migration_batches: {
+        Row: {
+          commit_summary: Json | null
+          committed_at: string | null
+          committed_by: string | null
+          created_at: string
+          created_by: string
+          domain: string
+          dry_run_report: Json | null
+          id: string
+          label: string
+          profit_center_id: string
+          rollback_reason: string | null
+          rolled_back_at: string | null
+          rolled_back_by: string | null
+          source: string | null
+          status: string
+          validated_at: string | null
+        }
+        Insert: {
+          commit_summary?: Json | null
+          committed_at?: string | null
+          committed_by?: string | null
+          created_at?: string
+          created_by: string
+          domain: string
+          dry_run_report?: Json | null
+          id?: string
+          label: string
+          profit_center_id: string
+          rollback_reason?: string | null
+          rolled_back_at?: string | null
+          rolled_back_by?: string | null
+          source?: string | null
+          status?: string
+          validated_at?: string | null
+        }
+        Update: {
+          commit_summary?: Json | null
+          committed_at?: string | null
+          committed_by?: string | null
+          created_at?: string
+          created_by?: string
+          domain?: string
+          dry_run_report?: Json | null
+          id?: string
+          label?: string
+          profit_center_id?: string
+          rollback_reason?: string | null
+          rolled_back_at?: string | null
+          rolled_back_by?: string | null
+          source?: string | null
+          status?: string
+          validated_at?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "migration_batches_profit_center_id_fkey"
+            columns: ["profit_center_id"]
+            isOneToOne: false
+            referencedRelation: "profit_centers"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      migration_staging_opening_stock: {
+        Row: {
+          batch_id: string
+          created_at: string
+          id: string
+          legacy_ref: string | null
+          material_code: string | null
+          notes: string | null
+          quantity: number | null
+          resolved_material_id: string | null
+          resolved_stock_location_id: string | null
+          row_no: number
+          stock_location_code: string | null
+          unit_cost: number | null
+          validation_errors: Json
+        }
+        Insert: {
+          batch_id: string
+          created_at?: string
+          id?: string
+          legacy_ref?: string | null
+          material_code?: string | null
+          notes?: string | null
+          quantity?: number | null
+          resolved_material_id?: string | null
+          resolved_stock_location_id?: string | null
+          row_no: number
+          stock_location_code?: string | null
+          unit_cost?: number | null
+          validation_errors?: Json
+        }
+        Update: {
+          batch_id?: string
+          created_at?: string
+          id?: string
+          legacy_ref?: string | null
+          material_code?: string | null
+          notes?: string | null
+          quantity?: number | null
+          resolved_material_id?: string | null
+          resolved_stock_location_id?: string | null
+          row_no?: number
+          stock_location_code?: string | null
+          unit_cost?: number | null
+          validation_errors?: Json
+        }
+        Relationships: [
+          {
+            foreignKeyName: "migration_staging_opening_stock_batch_id_fkey"
+            columns: ["batch_id"]
+            isOneToOne: false
+            referencedRelation: "migration_batches"
             referencedColumns: ["id"]
           },
         ]
@@ -5772,6 +5902,22 @@ export type Database = {
         Returns: boolean
       }
       is_test_data_enabled: { Args: { _pc: string }; Returns: boolean }
+      migration_commit_opening_stock: {
+        Args: { _as_of?: string; _batch_id: string }
+        Returns: Json
+      }
+      migration_create_opening_stock_batch: {
+        Args: { _label: string; _profit_center_id: string; _rows: Json }
+        Returns: Json
+      }
+      migration_rollback_batch: {
+        Args: { _batch_id: string; _reason: string }
+        Returns: Json
+      }
+      migration_validate_opening_stock: {
+        Args: { _batch_id: string }
+        Returns: Json
+      }
       permission_allows: {
         Args: {
           _action: string
