@@ -17,6 +17,7 @@ import AdminKpis from "./AdminKpis";
 import AdminItemProperties from "./AdminItemProperties";
 import AdminPickerContexts from "./AdminPickerContexts";
 import AdminTestData from "./AdminTestData";
+import AdminMigration from "./AdminMigration";
 import { useWorkspace } from "@/hooks/use-workspace";
 
 /**
@@ -39,6 +40,7 @@ export const MASTER_DATA_TABS = [
   { key: "locations", label: "Location & Warehouse", Component: AdminStockLocations },
   { key: "kpis", label: "Master KPIs", Component: AdminKpis },
   { key: "test-data", label: "Test Data", Component: AdminTestData, adminOnly: true },
+  { key: "migration", label: "Data Migration", Component: AdminMigration, adminOnly: true },
 ] as const;
 
 export type MasterDataTabKey = (typeof MASTER_DATA_TABS)[number]["key"];

@@ -552,3 +552,10 @@ max_level     = daily × max_cover_days       (default 30)
 - Bulk CSV upload on the GRN (Inward) tab posts each row through the same `postGrn()` path as manual entry; no new write surface, no schema change. RLS (`has_profit_center_access`) and the inventory-ledger audit trigger apply unchanged.
 - Permission gate: `inventory.receipt` (same as the manual "New GRN" button). Operators without this grant see disabled buttons.
 - Master-data first: rows referencing an unknown or inactive `material_code` / `stock_location_code` for the active profit center are rejected at parse time — bulk upload never creates master records implicitly.
+
+## Data migration (go-live)
+- Admin / super-admin only. RPCs additionally require `has_profit_center_access` for the target workspace.
+- Opening stock posts as `opening_balance` movements — never as receipts — so procurement KPIs, vendor analytics, and quality records stay free of synthetic data.
+- Every migrated row carries `migration_batch_id` + `legacy_ref` and is reversible via `migration_rollback_batch` until the workspace is explicitly marked go-live (future flag; today rollback is always available to admins).
+- All commits and rollbacks write an `audit_logs` entry with domain, batch id, and counts.
+- Hard cap: 5000 rows per batch. Larger legacy datasets must be split.
