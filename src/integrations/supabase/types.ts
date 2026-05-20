@@ -3444,6 +3444,172 @@ export type Database = {
           },
         ]
       }
+      migration_staging_open_po: {
+        Row: {
+          batch_id: string
+          created_at: string
+          currency_code: string | null
+          expected_delivery_date: string | null
+          header_notes: string | null
+          id: string
+          legacy_ref: string | null
+          line_no: number | null
+          line_notes: string | null
+          material_code: string | null
+          payment_terms: string | null
+          po_number: string | null
+          po_status: string | null
+          qty_ordered: number | null
+          qty_received: number | null
+          resolved_material_id: string | null
+          resolved_supplier_id: string | null
+          row_no: number
+          supplier_code: string | null
+          unit_cost: number | null
+          uom: string | null
+          validation_errors: Json
+        }
+        Insert: {
+          batch_id: string
+          created_at?: string
+          currency_code?: string | null
+          expected_delivery_date?: string | null
+          header_notes?: string | null
+          id?: string
+          legacy_ref?: string | null
+          line_no?: number | null
+          line_notes?: string | null
+          material_code?: string | null
+          payment_terms?: string | null
+          po_number?: string | null
+          po_status?: string | null
+          qty_ordered?: number | null
+          qty_received?: number | null
+          resolved_material_id?: string | null
+          resolved_supplier_id?: string | null
+          row_no: number
+          supplier_code?: string | null
+          unit_cost?: number | null
+          uom?: string | null
+          validation_errors?: Json
+        }
+        Update: {
+          batch_id?: string
+          created_at?: string
+          currency_code?: string | null
+          expected_delivery_date?: string | null
+          header_notes?: string | null
+          id?: string
+          legacy_ref?: string | null
+          line_no?: number | null
+          line_notes?: string | null
+          material_code?: string | null
+          payment_terms?: string | null
+          po_number?: string | null
+          po_status?: string | null
+          qty_ordered?: number | null
+          qty_received?: number | null
+          resolved_material_id?: string | null
+          resolved_supplier_id?: string | null
+          row_no?: number
+          supplier_code?: string | null
+          unit_cost?: number | null
+          uom?: string | null
+          validation_errors?: Json
+        }
+        Relationships: [
+          {
+            foreignKeyName: "migration_staging_open_po_batch_id_fkey"
+            columns: ["batch_id"]
+            isOneToOne: false
+            referencedRelation: "migration_batches"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      migration_staging_open_so: {
+        Row: {
+          batch_id: string
+          created_at: string
+          currency_code: string | null
+          customer_code: string | null
+          fx_rate: number | null
+          grade: string | null
+          id: string
+          incoterms: string | null
+          is_export: boolean
+          legacy_ref: string | null
+          notes: string | null
+          open_qty_mt: number | null
+          order_date: string | null
+          port_of_discharge: string | null
+          port_of_loading: string | null
+          price_per_mt: number | null
+          product: string | null
+          resolved_customer_id: string | null
+          row_no: number
+          so_number: string | null
+          so_status: string | null
+          validation_errors: Json
+        }
+        Insert: {
+          batch_id: string
+          created_at?: string
+          currency_code?: string | null
+          customer_code?: string | null
+          fx_rate?: number | null
+          grade?: string | null
+          id?: string
+          incoterms?: string | null
+          is_export?: boolean
+          legacy_ref?: string | null
+          notes?: string | null
+          open_qty_mt?: number | null
+          order_date?: string | null
+          port_of_discharge?: string | null
+          port_of_loading?: string | null
+          price_per_mt?: number | null
+          product?: string | null
+          resolved_customer_id?: string | null
+          row_no: number
+          so_number?: string | null
+          so_status?: string | null
+          validation_errors?: Json
+        }
+        Update: {
+          batch_id?: string
+          created_at?: string
+          currency_code?: string | null
+          customer_code?: string | null
+          fx_rate?: number | null
+          grade?: string | null
+          id?: string
+          incoterms?: string | null
+          is_export?: boolean
+          legacy_ref?: string | null
+          notes?: string | null
+          open_qty_mt?: number | null
+          order_date?: string | null
+          port_of_discharge?: string | null
+          port_of_loading?: string | null
+          price_per_mt?: number | null
+          product?: string | null
+          resolved_customer_id?: string | null
+          row_no?: number
+          so_number?: string | null
+          so_status?: string | null
+          validation_errors?: Json
+        }
+        Relationships: [
+          {
+            foreignKeyName: "migration_staging_open_so_batch_id_fkey"
+            columns: ["batch_id"]
+            isOneToOne: false
+            referencedRelation: "migration_batches"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       migration_staging_opening_stock: {
         Row: {
           batch_id: string
@@ -4094,8 +4260,11 @@ export type Database = {
           created_at: string
           currency_code: string
           id: string
+          is_migrated: boolean
           is_test_data: boolean
+          legacy_ref: string | null
           material_id: string
+          migration_batch_id: string | null
           notes: string | null
           po_id: string
           profit_center_id: string
@@ -4110,8 +4279,11 @@ export type Database = {
           created_at?: string
           currency_code?: string
           id?: string
+          is_migrated?: boolean
           is_test_data?: boolean
+          legacy_ref?: string | null
           material_id: string
+          migration_batch_id?: string | null
           notes?: string | null
           po_id: string
           profit_center_id: string
@@ -4126,8 +4298,11 @@ export type Database = {
           created_at?: string
           currency_code?: string
           id?: string
+          is_migrated?: boolean
           is_test_data?: boolean
+          legacy_ref?: string | null
           material_id?: string
+          migration_batch_id?: string | null
           notes?: string | null
           po_id?: string
           profit_center_id?: string
@@ -4144,6 +4319,13 @@ export type Database = {
             columns: ["material_id"]
             isOneToOne: false
             referencedRelation: "materials"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "purchase_order_lines_migration_batch_id_fkey"
+            columns: ["migration_batch_id"]
+            isOneToOne: false
+            referencedRelation: "migration_batches"
             referencedColumns: ["id"]
           },
           {
@@ -4187,7 +4369,10 @@ export type Database = {
           currency_code: string
           expected_delivery_date: string | null
           id: string
+          is_migrated: boolean
           is_test_data: boolean
+          legacy_ref: string | null
+          migration_batch_id: string | null
           notes: string | null
           payment_terms: string | null
           po_number: string
@@ -4209,7 +4394,10 @@ export type Database = {
           currency_code?: string
           expected_delivery_date?: string | null
           id?: string
+          is_migrated?: boolean
           is_test_data?: boolean
+          legacy_ref?: string | null
+          migration_batch_id?: string | null
           notes?: string | null
           payment_terms?: string | null
           po_number: string
@@ -4231,7 +4419,10 @@ export type Database = {
           currency_code?: string
           expected_delivery_date?: string | null
           id?: string
+          is_migrated?: boolean
           is_test_data?: boolean
+          legacy_ref?: string | null
+          migration_batch_id?: string | null
           notes?: string | null
           payment_terms?: string | null
           po_number?: string
@@ -4244,6 +4435,13 @@ export type Database = {
           updated_at?: string
         }
         Relationships: [
+          {
+            foreignKeyName: "purchase_orders_migration_batch_id_fkey"
+            columns: ["migration_batch_id"]
+            isOneToOne: false
+            referencedRelation: "migration_batches"
+            referencedColumns: ["id"]
+          },
           {
             foreignKeyName: "purchase_orders_profit_center_id_fkey"
             columns: ["profit_center_id"]
@@ -4859,7 +5057,10 @@ export type Database = {
           incoterms: string | null
           inquiry_id: string | null
           is_export: boolean
+          is_migrated: boolean
           is_test_data: boolean
+          legacy_ref: string | null
+          migration_batch_id: string | null
           notes: string | null
           order_date: string
           port_of_discharge: string | null
@@ -4885,7 +5086,10 @@ export type Database = {
           incoterms?: string | null
           inquiry_id?: string | null
           is_export?: boolean
+          is_migrated?: boolean
           is_test_data?: boolean
+          legacy_ref?: string | null
+          migration_batch_id?: string | null
           notes?: string | null
           order_date?: string
           port_of_discharge?: string | null
@@ -4911,7 +5115,10 @@ export type Database = {
           incoterms?: string | null
           inquiry_id?: string | null
           is_export?: boolean
+          is_migrated?: boolean
           is_test_data?: boolean
+          legacy_ref?: string | null
+          migration_batch_id?: string | null
           notes?: string | null
           order_date?: string
           port_of_discharge?: string | null
@@ -4939,6 +5146,13 @@ export type Database = {
             columns: ["inquiry_id"]
             isOneToOne: false
             referencedRelation: "sales_inquiries"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "sales_orders_migration_batch_id_fkey"
+            columns: ["migration_batch_id"]
+            isOneToOne: false
+            referencedRelation: "migration_batches"
             referencedColumns: ["id"]
           },
           {
@@ -5902,8 +6116,18 @@ export type Database = {
         Returns: boolean
       }
       is_test_data_enabled: { Args: { _pc: string }; Returns: boolean }
+      migration_commit_open_po: { Args: { _batch_id: string }; Returns: Json }
+      migration_commit_open_so: { Args: { _batch_id: string }; Returns: Json }
       migration_commit_opening_stock: {
         Args: { _as_of?: string; _batch_id: string }
+        Returns: Json
+      }
+      migration_create_open_po_batch: {
+        Args: { _label: string; _profit_center_id: string; _rows: Json }
+        Returns: Json
+      }
+      migration_create_open_so_batch: {
+        Args: { _label: string; _profit_center_id: string; _rows: Json }
         Returns: Json
       }
       migration_create_opening_stock_batch: {
@@ -5914,6 +6138,8 @@ export type Database = {
         Args: { _batch_id: string; _reason: string }
         Returns: Json
       }
+      migration_validate_open_po: { Args: { _batch_id: string }; Returns: Json }
+      migration_validate_open_so: { Args: { _batch_id: string }; Returns: Json }
       migration_validate_opening_stock: {
         Args: { _batch_id: string }
         Returns: Json
