@@ -559,3 +559,6 @@ max_level     = daily × max_cover_days       (default 30)
 - Every migrated row carries `migration_batch_id` + `legacy_ref` and is reversible via `migration_rollback_batch` until the workspace is explicitly marked go-live (future flag; today rollback is always available to admins).
 - All commits and rollbacks write an `audit_logs` entry with domain, batch id, and counts.
 - Hard cap: 5000 rows per batch. Larger legacy datasets must be split.
+- Open POs (domain `open_po`): allowed statuses on import are `draft`, `sent`, `acknowledged`, `partially_received`. `closed` / `cancelled` POs are not migrated as "open". One PO per `po_number`; multiple rows with the same `po_number` are grouped into header + N lines on commit (header taken from the first row).
+- Open SOs (domain `open_so`): allowed statuses are `draft`, `confirmed`, `in_production`, `ready_for_dispatch`. `open_qty_mt` represents the remaining (un-dispatched) balance only — original SO total is preserved in `legacy_ref` / `notes`, never in operating qty. Export rows in non-INR currency require `fx_rate`.
+- Rollback semantics by domain: opening_stock → deletes ledger rows; open_po → deletes PO lines then headers; open_so → deletes SO rows. All scoped to `migration_batch_id` and the workspace.
