@@ -269,6 +269,7 @@ export default function PortalInventoryGrn() {
             </DialogFooter>
           </DialogContent>
         </Dialog>
+        </div>
       </CardHeader>
       <CardContent>
         <Table>
