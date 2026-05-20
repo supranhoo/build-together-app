@@ -302,6 +302,83 @@ export default function PortalInventoryGrn() {
           </TableBody>
         </Table>
       </CardContent>
+
+      <Dialog open={bulkOpen} onOpenChange={(o) => { if (!bulkPosting) setBulkOpen(o); }}>
+        <DialogContent className="max-w-3xl">
+          <DialogHeader>
+            <DialogTitle>Bulk GRN preview</DialogTitle>
+          </DialogHeader>
+          <div className="space-y-3 text-sm">
+            <div className="flex flex-wrap gap-4">
+              <span className="text-foreground">Valid rows: <strong>{bulkRows.length}</strong></span>
+              <span className="text-destructive">Errors: <strong>{bulkErrors.length}</strong></span>
+              {bulkProgress && (
+                <span className="text-muted-foreground">Posted: {bulkProgress.done} / {bulkProgress.total} ({bulkProgress.failed.length} failed)</span>
+              )}
+            </div>
+
+            {bulkErrors.length > 0 && (
+              <div className="max-h-40 overflow-auto rounded border border-destructive/40 bg-destructive/5 p-2">
+                <div className="mb-1 font-medium text-destructive">Validation errors</div>
+                <ul className="space-y-0.5 text-xs">
+                  {bulkErrors.map((e, i) => (
+                    <li key={i}>Row {e.rowNumber}: {e.message}</li>
+                  ))}
+                </ul>
+              </div>
+            )}
+
+            {bulkRows.length > 0 && (
+              <div className="max-h-64 overflow-auto rounded border border-border">
+                <Table>
+                  <TableHeader>
+                    <TableRow>
+                      <TableHead>Row</TableHead>
+                      <TableHead>Material</TableHead>
+                      <TableHead>Location</TableHead>
+                      <TableHead className="text-right">Qty</TableHead>
+                      <TableHead className="text-right">Unit cost</TableHead>
+                      <TableHead>Vendor</TableHead>
+                    </TableRow>
+                  </TableHeader>
+                  <TableBody>
+                    {bulkRows.map((r) => (
+                      <TableRow key={r.rowNumber}>
+                        <TableCell>{r.rowNumber}</TableCell>
+                        <TableCell>{r.materialCode}</TableCell>
+                        <TableCell>{r.stockLocationCode}</TableCell>
+                        <TableCell className="text-right">{r.quantity}</TableCell>
+                        <TableCell className="text-right">{r.unitCost ?? "—"}</TableCell>
+                        <TableCell>{r.quality.vendor ?? "—"}</TableCell>
+                      </TableRow>
+                    ))}
+                  </TableBody>
+                </Table>
+              </div>
+            )}
+
+            {bulkProgress && bulkProgress.failed.length > 0 && (
+              <div className="max-h-40 overflow-auto rounded border border-destructive/40 bg-destructive/5 p-2">
+                <div className="mb-1 font-medium text-destructive">Post failures</div>
+                <ul className="space-y-0.5 text-xs">
+                  {bulkProgress.failed.map((f, i) => (
+                    <li key={i}>Row {f.rowNumber}: {f.message}</li>
+                  ))}
+                </ul>
+              </div>
+            )}
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setBulkOpen(false)} disabled={bulkPosting}>Close</Button>
+            <Button
+              onClick={() => void handleConfirmBulk()}
+              disabled={bulkPosting || bulkRows.length === 0 || (bulkProgress?.done === bulkRows.length)}
+            >
+              {bulkPosting ? `Posting ${bulkProgress?.done ?? 0}/${bulkRows.length}…` : `Post ${bulkRows.length} GRN${bulkRows.length === 1 ? "" : "s"}`}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </Card>
   );
 }
