@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -19,6 +19,10 @@ import {
 } from "@/lib/inventory";
 import { fetchPermissionGrants, userRoleAllows, type PermissionGrant } from "@/lib/permissions";
 import { fetchGrnLogs, postGrn, type GrnRecord } from "@/lib/grn";
+import { parseGrnCsv, buildGrnTemplateRows, type ParsedGrnRow, type ParsedGrnError } from "@/lib/grn-csv";
+import { parseCsv, toCsv, downloadCsv } from "@/lib/csv";
+
+const MAX_BULK_ROWS = 500;
 
 interface FormState {
   materialId: string;
