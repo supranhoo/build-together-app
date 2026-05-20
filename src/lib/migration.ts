@@ -306,3 +306,111 @@ export async function rollbackMigrationBatch(batchId: string, reason: string) {
   if (!data?.ok) throw new Error(data?.error ?? "rollback_failed");
   return data as { ok: true; rows_deleted: number };
 }
+
+// ============================================================
+// P3 — Historical GRN
+// ============================================================
+export interface CreateGrnHistoryBatchInput {
+  profitCenterId: string;
+  label: string;
+  rows: Array<Record<string, unknown>>;
+}
+
+export async function createGrnHistoryBatch(input: CreateGrnHistoryBatchInput) {
+  const { data, error } = await client.rpc("migration_create_grn_batch", {
+    _profit_center_id: input.profitCenterId,
+    _label: input.label,
+    _rows: input.rows,
+  });
+  if (error) throw error;
+  if (!data?.ok) throw new Error(data?.error ?? "create_failed");
+  return { batchId: data.batch_id as string, stagedRows: data.staged_rows as number };
+}
+
+export async function validateGrnHistoryBatch(batchId: string) {
+  const { data, error } = await client.rpc("migration_validate_grn", { _batch_id: batchId });
+  if (error) throw error;
+  if (!data?.ok) throw new Error(data?.error ?? "validate_failed");
+  return data;
+}
+
+export async function commitGrnHistoryBatch(batchId: string) {
+  const { data, error } = await client.rpc("migration_commit_grn", { _batch_id: batchId });
+  if (error) throw error;
+  if (!data?.ok) throw new Error(data?.error ?? "commit_failed");
+  return data;
+}
+
+// ============================================================
+// P3 — Historical Heats (header + consumption)
+// ============================================================
+export interface CreateHeatHistoryBatchInput {
+  profitCenterId: string;
+  label: string;
+  heats: Array<Record<string, unknown>>;
+  consumption: Array<Record<string, unknown>>;
+}
+
+export async function createHeatHistoryBatch(input: CreateHeatHistoryBatchInput) {
+  const { data, error } = await client.rpc("migration_create_heat_batch", {
+    _profit_center_id: input.profitCenterId,
+    _label: input.label,
+    _heats: input.heats,
+    _consumption: input.consumption,
+  });
+  if (error) throw error;
+  if (!data?.ok) throw new Error(data?.error ?? "create_failed");
+  return {
+    batchId: data.batch_id as string,
+    stagedHeats: data.staged_heats as number,
+    stagedConsumption: data.staged_consumption as number,
+  };
+}
+
+export async function validateHeatHistoryBatch(batchId: string) {
+  const { data, error } = await client.rpc("migration_validate_heat", { _batch_id: batchId });
+  if (error) throw error;
+  if (!data?.ok) throw new Error(data?.error ?? "validate_failed");
+  return data;
+}
+
+export async function commitHeatHistoryBatch(batchId: string) {
+  const { data, error } = await client.rpc("migration_commit_heat", { _batch_id: batchId });
+  if (error) throw error;
+  if (!data?.ok) throw new Error(data?.error ?? "commit_failed");
+  return data;
+}
+
+// ============================================================
+// P3 — Inventory adjustments
+// ============================================================
+export interface CreateAdjustmentBatchInput {
+  profitCenterId: string;
+  label: string;
+  rows: Array<Record<string, unknown>>;
+}
+
+export async function createAdjustmentBatch(input: CreateAdjustmentBatchInput) {
+  const { data, error } = await client.rpc("migration_create_adjustment_batch", {
+    _profit_center_id: input.profitCenterId,
+    _label: input.label,
+    _rows: input.rows,
+  });
+  if (error) throw error;
+  if (!data?.ok) throw new Error(data?.error ?? "create_failed");
+  return { batchId: data.batch_id as string, stagedRows: data.staged_rows as number };
+}
+
+export async function validateAdjustmentBatch(batchId: string) {
+  const { data, error } = await client.rpc("migration_validate_adjustment", { _batch_id: batchId });
+  if (error) throw error;
+  if (!data?.ok) throw new Error(data?.error ?? "validate_failed");
+  return data;
+}
+
+export async function commitAdjustmentBatch(batchId: string) {
+  const { data, error } = await client.rpc("migration_commit_adjustment", { _batch_id: batchId });
+  if (error) throw error;
+  if (!data?.ok) throw new Error(data?.error ?? "commit_failed");
+  return data;
+}
