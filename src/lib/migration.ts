@@ -11,7 +11,13 @@ const client = supabase as unknown as {
   rpc: (n: string, args: any) => any;
 };
 
-export type MigrationDomain = "opening_stock" | "open_po" | "open_so";
+export type MigrationDomain =
+  | "opening_stock"
+  | "open_po"
+  | "open_so"
+  | "grn_history"
+  | "heat_history"
+  | "inv_adjustment";
 export type MigrationStatus =
   | "draft"
   | "validated"
@@ -50,6 +56,9 @@ const STAGING_TABLE: Record<MigrationDomain, string> = {
   opening_stock: "migration_staging_opening_stock",
   open_po: "migration_staging_open_po",
   open_so: "migration_staging_open_so",
+  grn_history: "migration_staging_grn",
+  heat_history: "migration_staging_heat",
+  inv_adjustment: "migration_staging_adjustment",
 };
 
 function batchFromRow(row: any): MigrationBatch {
