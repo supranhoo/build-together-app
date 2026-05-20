@@ -736,3 +736,535 @@ function DomainPanel({
     </>
   );
 }
+
+function HeatHistoryPanel({ pcId }: { pcId: string }) {
+  const { toast } = useToast();
+  const [batches, setBatches] = useState<MigrationBatch[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [busy, setBusy] = useState(false);
+
+  const headerFileRef = useRef<HTMLInputElement>(null);
+  const consumptionFileRef = useRef<HTMLInputElement>(null);
+  const [parsedHeats, setParsedHeats] = useState<any[]>([]);
+  const [heatErrors, setHeatErrors] = useState<Array<{ rowNumber: number; message: string }>>([]);
+  const [parsedConsumption, setParsedConsumption] = useState<any[]>([]);
+  const [consumptionErrors, setConsumptionErrors] = useState<
+    Array<{ rowNumber: number; message: string }>
+  >([]);
+  const [batchLabel, setBatchLabel] = useState("Heat history — back-load");
+
+  const [activeBatch, setActiveBatch] = useState<MigrationBatch | null>(null);
+  const [stagingRows, setStagingRows] = useState<MigrationStagingRow[]>([]);
+  const [rollbackReason, setRollbackReason] = useState("");
+
+  const refresh = useCallback(async () => {
+    setLoading(true);
+    try {
+      setBatches(await listMigrationBatches(pcId, "heat_history"));
+    } catch (e) {
+      toast({
+        title: "Failed to load batches",
+        description: (e as Error).message,
+        variant: "destructive",
+      });
+    } finally {
+      setLoading(false);
+    }
+  }, [pcId, toast]);
+
+  useEffect(() => {
+    void refresh();
+  }, [refresh]);
+
+  const handleHeaderFile = async (file: File) => {
+    try {
+      const raw = parseCsv(await file.text());
+      if (raw.length - 1 > 2000) {
+        toast({
+          title: "Too many heats",
+          description: `Limit is 2000 heats per batch (got ${raw.length - 1}).`,
+          variant: "destructive",
+        });
+        return;
+      }
+      const r = parseHeatHeaderCsv(raw);
+      setParsedHeats(r.rows);
+      setHeatErrors(r.errors);
+      toast({
+        title: `Heat CSV parsed`,
+        description: `${r.rows.length} valid · ${r.errors.length} error(s)`,
+      });
+    } catch (e) {
+      toast({
+        title: "Could not read CSV",
+        description: (e as Error).message,
+        variant: "destructive",
+      });
+    } finally {
+      if (headerFileRef.current) headerFileRef.current.value = "";
+    }
+  };
+
+  const handleConsumptionFile = async (file: File) => {
+    try {
+      const raw = parseCsv(await file.text());
+      if (raw.length - 1 > 20000) {
+        toast({
+          title: "Too many consumption rows",
+          description: `Limit is 20,000 rows per batch.`,
+          variant: "destructive",
+        });
+        return;
+      }
+      const r = parseHeatConsumptionCsv(raw);
+      setParsedConsumption(r.rows);
+      setConsumptionErrors(r.errors);
+      toast({
+        title: `Consumption CSV parsed`,
+        description: `${r.rows.length} valid · ${r.errors.length} error(s)`,
+      });
+    } catch (e) {
+      toast({
+        title: "Could not read CSV",
+        description: (e as Error).message,
+        variant: "destructive",
+      });
+    } finally {
+      if (consumptionFileRef.current) consumptionFileRef.current.value = "";
+    }
+  };
+
+  const handleStage = async () => {
+    if (parsedHeats.length === 0) {
+      toast({ title: "Upload the heat header CSV first", variant: "destructive" });
+      return;
+    }
+    if (heatErrors.length > 0 || consumptionErrors.length > 0) {
+      toast({
+        title: "Fix parse errors first",
+        description: `${heatErrors.length} heat · ${consumptionErrors.length} consumption`,
+        variant: "destructive",
+      });
+      return;
+    }
+    setBusy(true);
+    try {
+      const heats = parsedHeats.map((r) => ({
+        heat_number: r.heatNumber,
+        tap_time: r.tapTime,
+        furnace_code: r.furnaceCode,
+        shift_code: r.shiftCode,
+        weight_mt: r.weightMt,
+        power_mwh: r.powerMwh,
+        product: r.product,
+        grade: r.grade,
+        tapping_no: r.tappingNo,
+        batch_no: r.batchNo,
+        fg_mn_pct: r.fgMnPct,
+        slag_qty_mt: r.slagQtyMt,
+        slag_mno_pct: r.slagMnoPct,
+        dust_qty_mt: r.dustQtyMt,
+        dust_mn_pct: r.dustMnPct,
+        tapping_power_mwh: r.tappingPowerMwh,
+        furnace_power_mwh: r.furnacePowerMwh,
+        aux_power_mwh: r.auxPowerMwh,
+        avg_power_factor: r.avgPowerFactor,
+        heat_status: r.heatStatus,
+        notes: r.notes,
+        legacy_ref: r.legacyRef,
+      }));
+      const consumption = parsedConsumption.map((r) => ({
+        heat_number: r.heatNumber,
+        material_code: r.materialCode,
+        stock_location_code: r.stockLocationCode,
+        quantity: r.quantity,
+        unit_cost: r.unitCost,
+        notes: r.notes,
+        legacy_ref: r.legacyRef,
+      }));
+      const { batchId, stagedHeats, stagedConsumption } = await createHeatHistoryBatch({
+        profitCenterId: pcId,
+        label: batchLabel,
+        heats,
+        consumption,
+      });
+      const report = await validateHeatHistoryBatch(batchId);
+      toast({
+        title: `Staged ${stagedHeats} heat(s) + ${stagedConsumption} consumption row(s)`,
+        description: `${report.valid_rows ?? 0} valid · ${report.invalid_rows ?? 0} invalid`,
+      });
+      setParsedHeats([]);
+      setParsedConsumption([]);
+      await refresh();
+    } catch (e) {
+      toast({
+        title: "Staging failed",
+        description: (e as Error).message,
+        variant: "destructive",
+      });
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  const openBatch = async (b: MigrationBatch) => {
+    setActiveBatch(b);
+    setRollbackReason("");
+    try {
+      setStagingRows(await listStagingRows("heat_history", b.id));
+    } catch (e) {
+      toast({
+        title: "Failed to load batch rows",
+        description: (e as Error).message,
+        variant: "destructive",
+      });
+    }
+  };
+
+  const handleRevalidate = async () => {
+    if (!activeBatch) return;
+    setBusy(true);
+    try {
+      await validateHeatHistoryBatch(activeBatch.id);
+      toast({ title: "Re-validated" });
+      await refresh();
+      setStagingRows(await listStagingRows("heat_history", activeBatch.id));
+      const next = (await listMigrationBatches(pcId, "heat_history")).find(
+        (x) => x.id === activeBatch.id,
+      );
+      if (next) setActiveBatch(next);
+    } catch (e) {
+      toast({
+        title: "Validate failed",
+        description: (e as Error).message,
+        variant: "destructive",
+      });
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  const handleCommit = async () => {
+    if (!activeBatch) return;
+    if (
+      !window.confirm(
+        `Commit ${activeBatch.dryRunReport?.heats_valid ?? 0} heat(s) and ${activeBatch.dryRunReport?.consumption_valid ?? 0} consumption row(s)?`,
+      )
+    )
+      return;
+    setBusy(true);
+    try {
+      const res = await commitHeatHistoryBatch(activeBatch.id);
+      toast({ title: "Committed", description: JSON.stringify(res) });
+      setActiveBatch(null);
+      await refresh();
+    } catch (e) {
+      toast({
+        title: "Commit failed",
+        description: (e as Error).message,
+        variant: "destructive",
+      });
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  const handleRollback = async () => {
+    if (!activeBatch) return;
+    if (rollbackReason.trim().length < 3) {
+      toast({ title: "Reason required (min 3 chars)", variant: "destructive" });
+      return;
+    }
+    if (!window.confirm("Roll back all heats, consumption, ledger and metallurgy from this batch?"))
+      return;
+    setBusy(true);
+    try {
+      const res = await rollbackMigrationBatch(activeBatch.id, rollbackReason);
+      toast({ title: `Rolled back ${res.rows_deleted} row(s)` });
+      setActiveBatch(null);
+      await refresh();
+    } catch (e) {
+      toast({
+        title: "Rollback failed",
+        description: (e as Error).message,
+        variant: "destructive",
+      });
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  const statusBadge = (s: MigrationBatch["status"]) => {
+    const map = {
+      draft: { label: "Draft", variant: "outline" as const },
+      validated: { label: "Validated", variant: "secondary" as const },
+      committed: { label: "Committed", variant: "default" as const },
+      rolled_back: { label: "Rolled back", variant: "destructive" as const },
+      failed: { label: "Failed", variant: "destructive" as const },
+    };
+    const m = map[s];
+    return <Badge variant={m.variant}>{m.label}</Badge>;
+  };
+
+  return (
+    <>
+      <Alert>
+        <AlertTitle className="flex items-center gap-2">
+          <AlertTriangle className="h-4 w-4" /> Historical heats
+        </AlertTitle>
+        <AlertDescription className="text-xs">
+          Upload TWO CSVs (heat headers + consumption rows linked by heat_number). Commit creates
+          heat_logs + heat_metallurgy + paired inventory_ledger consumption rows +
+          material_consumption — all dated at the heat's tap_time.
+        </AlertDescription>
+      </Alert>
+
+      <Card>
+        <CardHeader>
+          <CardTitle>Upload</CardTitle>
+          <CardDescription>
+            Up to 2,000 heats and 20,000 consumption rows per batch.
+          </CardDescription>
+        </CardHeader>
+        <CardContent className="space-y-4">
+          <div>
+            <Label htmlFor="batch-label-heat">Batch label</Label>
+            <Input
+              id="batch-label-heat"
+              value={batchLabel}
+              onChange={(e) => setBatchLabel(e.target.value)}
+            />
+          </div>
+
+          <div className="grid gap-2 sm:grid-cols-2">
+            <div className="rounded border p-3">
+              <p className="text-sm font-medium">1. Heat headers</p>
+              <p className="text-xs text-muted-foreground mb-2">
+                One row per heat_number.{" "}
+                {parsedHeats.length > 0 && (
+                  <span className="text-foreground">
+                    Parsed {parsedHeats.length} · errors {heatErrors.length}
+                  </span>
+                )}
+              </p>
+              <div className="flex gap-2">
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() =>
+                    downloadCsv("heat-header-template.csv", toCsv(buildHeatHeaderTemplateRows()))
+                  }
+                >
+                  <Download className="mr-2 h-4 w-4" /> Template
+                </Button>
+                <Button size="sm" onClick={() => headerFileRef.current?.click()}>
+                  <Upload className="mr-2 h-4 w-4" /> Upload
+                </Button>
+                <input
+                  ref={headerFileRef}
+                  type="file"
+                  accept=".csv,text/csv"
+                  className="hidden"
+                  onChange={(e) => {
+                    const f = e.target.files?.[0];
+                    if (f) void handleHeaderFile(f);
+                  }}
+                />
+              </div>
+            </div>
+            <div className="rounded border p-3">
+              <p className="text-sm font-medium">2. Consumption</p>
+              <p className="text-xs text-muted-foreground mb-2">
+                Many rows per heat_number.{" "}
+                {parsedConsumption.length > 0 && (
+                  <span className="text-foreground">
+                    Parsed {parsedConsumption.length} · errors {consumptionErrors.length}
+                  </span>
+                )}
+              </p>
+              <div className="flex gap-2">
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() =>
+                    downloadCsv(
+                      "heat-consumption-template.csv",
+                      toCsv(buildHeatConsumptionTemplateRows()),
+                    )
+                  }
+                >
+                  <Download className="mr-2 h-4 w-4" /> Template
+                </Button>
+                <Button size="sm" onClick={() => consumptionFileRef.current?.click()}>
+                  <Upload className="mr-2 h-4 w-4" /> Upload
+                </Button>
+                <input
+                  ref={consumptionFileRef}
+                  type="file"
+                  accept=".csv,text/csv"
+                  className="hidden"
+                  onChange={(e) => {
+                    const f = e.target.files?.[0];
+                    if (f) void handleConsumptionFile(f);
+                  }}
+                />
+              </div>
+            </div>
+          </div>
+
+          {(heatErrors.length > 0 || consumptionErrors.length > 0) && (
+            <Alert variant="destructive">
+              <AlertTitle>Parse errors</AlertTitle>
+              <AlertDescription>
+                <ul className="mt-1 max-h-32 list-disc overflow-auto pl-5 text-xs">
+                  {[...heatErrors, ...consumptionErrors].slice(0, 20).map((e, i) => (
+                    <li key={i}>
+                      Row {e.rowNumber}: {e.message}
+                    </li>
+                  ))}
+                </ul>
+              </AlertDescription>
+            </Alert>
+          )}
+
+          <Button onClick={handleStage} disabled={busy || parsedHeats.length === 0}>
+            Stage {parsedHeats.length} heat(s) + {parsedConsumption.length} consumption
+          </Button>
+        </CardContent>
+      </Card>
+
+      <Card>
+        <CardHeader className="flex flex-row items-center justify-between">
+          <div>
+            <CardTitle>Batches</CardTitle>
+            <CardDescription>{batches.length} total</CardDescription>
+          </div>
+          <Button variant="ghost" size="sm" onClick={refresh}>
+            Refresh
+          </Button>
+        </CardHeader>
+        <CardContent>
+          {loading ? (
+            <p className="text-sm text-muted-foreground">Loading…</p>
+          ) : batches.length === 0 ? (
+            <p className="text-sm text-muted-foreground">No heat history batches yet.</p>
+          ) : (
+            <Table>
+              <TableHeader>
+                <TableRow>
+                  <TableHead>Label</TableHead>
+                  <TableHead>Status</TableHead>
+                  <TableHead className="text-right">Heats valid / total</TableHead>
+                  <TableHead>Created</TableHead>
+                  <TableHead />
+                </TableRow>
+              </TableHeader>
+              <TableBody>
+                {batches.map((b) => (
+                  <TableRow key={b.id}>
+                    <TableCell className="font-medium">{b.label}</TableCell>
+                    <TableCell>{statusBadge(b.status)}</TableCell>
+                    <TableCell className="text-right">
+                      {b.dryRunReport?.heats_valid ?? "—"} /{" "}
+                      {b.dryRunReport?.heats_total ?? "—"}
+                    </TableCell>
+                    <TableCell className="text-xs text-muted-foreground">
+                      {new Date(b.createdAt).toLocaleString()}
+                    </TableCell>
+                    <TableCell className="text-right">
+                      <Button variant="ghost" size="sm" onClick={() => openBatch(b)}>
+                        Open
+                      </Button>
+                    </TableCell>
+                  </TableRow>
+                ))}
+              </TableBody>
+            </Table>
+          )}
+        </CardContent>
+      </Card>
+
+      <Dialog open={!!activeBatch} onOpenChange={(o) => !o && setActiveBatch(null)}>
+        <DialogContent className="max-w-4xl">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              {activeBatch?.label} {activeBatch && statusBadge(activeBatch.status)}
+            </DialogTitle>
+            <DialogDescription className="text-xs">
+              {activeBatch?.dryRunReport
+                ? Object.entries(activeBatch.dryRunReport)
+                    .map(([k, v]) => `${k}: ${v}`)
+                    .join(" · ")
+                : "Not yet validated."}
+            </DialogDescription>
+          </DialogHeader>
+          <div className="max-h-80 overflow-auto rounded border">
+            <Table>
+              <TableHeader>
+                <TableRow>
+                  <TableHead>#</TableHead>
+                  <TableHead>Heat</TableHead>
+                  <TableHead>Furnace · Shift</TableHead>
+                  <TableHead className="text-right">Weight (MT)</TableHead>
+                  <TableHead>Errors</TableHead>
+                </TableRow>
+              </TableHeader>
+              <TableBody>
+                {stagingRows.slice(0, 200).map((r) => (
+                  <TableRow key={r.id}>
+                    <TableCell>{r.rowNo}</TableCell>
+                    <TableCell>{r.primary}</TableCell>
+                    <TableCell>{r.secondary}</TableCell>
+                    <TableCell className="text-right">{r.quantity ?? "—"}</TableCell>
+                    <TableCell className="text-xs text-destructive">
+                      {r.validationErrors.join(", ")}
+                    </TableCell>
+                  </TableRow>
+                ))}
+              </TableBody>
+            </Table>
+            {stagingRows.length > 200 && (
+              <p className="p-2 text-xs text-muted-foreground">
+                Showing first 200 of {stagingRows.length} heat headers (consumption rows hidden).
+              </p>
+            )}
+          </div>
+
+          {activeBatch?.status === "committed" && (
+            <div className="space-y-2">
+              <Label htmlFor="rollback-reason-heat">Rollback reason</Label>
+              <Textarea
+                id="rollback-reason-heat"
+                value={rollbackReason}
+                onChange={(e) => setRollbackReason(e.target.value)}
+                placeholder="Why are you rolling this batch back?"
+                rows={2}
+              />
+            </div>
+          )}
+
+          <DialogFooter className="gap-2">
+            <Button variant="ghost" onClick={() => setActiveBatch(null)}>
+              Close
+            </Button>
+            {activeBatch?.status === "committed" && (
+              <Button variant="destructive" onClick={handleRollback} disabled={busy}>
+                Roll back
+              </Button>
+            )}
+            {(activeBatch?.status === "draft" || activeBatch?.status === "failed") && (
+              <Button variant="outline" onClick={handleRevalidate} disabled={busy}>
+                Re-validate
+              </Button>
+            )}
+            {activeBatch?.status === "validated" && (
+              <Button onClick={handleCommit} disabled={busy}>
+                Commit
+              </Button>
+            )}
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+    </>
+  );
+}
