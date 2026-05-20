@@ -288,12 +288,16 @@ export default function AdminMigration() {
               {d.label}
             </TabsTrigger>
           ))}
+          <TabsTrigger value="heat_history">Historical heats</TabsTrigger>
         </TabsList>
         {DOMAINS.map((d) => (
           <TabsContent key={d.key} value={d.key} className="space-y-6 mt-4">
             <DomainPanel domain={d} pcId={activeProfitCenter.id} pcName={activeProfitCenter.name} />
           </TabsContent>
         ))}
+        <TabsContent value="heat_history" className="space-y-6 mt-4">
+          <HeatHistoryPanel pcId={activeProfitCenter.id} />
+        </TabsContent>
       </Tabs>
     </div>
   );
