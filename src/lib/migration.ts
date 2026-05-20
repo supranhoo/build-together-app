@@ -1,5 +1,5 @@
 /**
- * Client wrappers for the data-migration RPCs (P1 foundation).
+ * Client wrappers for the data-migration RPCs (P1 + P2 of go-live plan).
  *
  * All functions are admin-gated server-side via SECURITY DEFINER + has_role
  * checks; we just call the RPCs and shape the result.
@@ -11,7 +11,7 @@ const client = supabase as unknown as {
   rpc: (n: string, args: any) => any;
 };
 
-export type MigrationDomain = "opening_stock";
+export type MigrationDomain = "opening_stock" | "open_po" | "open_so";
 export type MigrationStatus =
   | "draft"
   | "validated"
@@ -26,14 +26,8 @@ export interface MigrationBatch {
   label: string;
   status: MigrationStatus;
   source: string | null;
-  dryRunReport: {
-    total_rows?: number;
-    valid_rows?: number;
-    invalid_rows?: number;
-    total_quantity?: number;
-    total_value?: number;
-  } | null;
-  commitSummary: { rows_inserted?: number; as_of?: string } | null;
+  dryRunReport: Record<string, number> | null;
+  commitSummary: Record<string, unknown> | null;
   createdBy: string;
   createdAt: string;
   validatedAt: string | null;
@@ -45,14 +39,18 @@ export interface MigrationBatch {
 export interface MigrationStagingRow {
   id: string;
   rowNo: number;
-  materialCode: string | null;
-  stockLocationCode: string | null;
+  /** Domain-specific preview cells. */
+  primary: string;
+  secondary: string;
   quantity: number | null;
-  unitCost: number | null;
-  legacyRef: string | null;
-  notes: string | null;
   validationErrors: string[];
 }
+
+const STAGING_TABLE: Record<MigrationDomain, string> = {
+  opening_stock: "migration_staging_opening_stock",
+  open_po: "migration_staging_open_po",
+  open_so: "migration_staging_open_so",
+};
 
 function batchFromRow(row: any): MigrationBatch {
   return {
@@ -89,32 +87,52 @@ export async function listMigrationBatches(
 }
 
 export async function listStagingRows(
+  domain: MigrationDomain,
   batchId: string,
-  onlyInvalid = false,
 ): Promise<MigrationStagingRow[]> {
-  let q = client
-    .from("migration_staging_opening_stock")
-    .select(
-      "id, row_no, material_code, stock_location_code, quantity, unit_cost, legacy_ref, notes, validation_errors",
-    )
+  const table = STAGING_TABLE[domain];
+  const { data, error } = await client
+    .from(table)
+    .select("*")
     .eq("batch_id", batchId)
     .order("row_no", { ascending: true });
-  const { data, error } = await q;
   if (error) throw error;
-  const rows = (data ?? []).map((r: any) => ({
-    id: r.id,
-    rowNo: r.row_no,
-    materialCode: r.material_code,
-    stockLocationCode: r.stock_location_code,
-    quantity: r.quantity,
-    unitCost: r.unit_cost,
-    legacyRef: r.legacy_ref,
-    notes: r.notes,
-    validationErrors: Array.isArray(r.validation_errors) ? r.validation_errors : [],
-  })) as MigrationStagingRow[];
-  return onlyInvalid ? rows.filter((r) => r.validationErrors.length > 0) : rows;
+  return (data ?? []).map((r: any): MigrationStagingRow => {
+    const errs = Array.isArray(r.validation_errors) ? r.validation_errors : [];
+    if (domain === "opening_stock") {
+      return {
+        id: r.id,
+        rowNo: r.row_no,
+        primary: r.material_code ?? "",
+        secondary: r.stock_location_code ?? "",
+        quantity: r.quantity,
+        validationErrors: errs,
+      };
+    }
+    if (domain === "open_po") {
+      return {
+        id: r.id,
+        rowNo: r.row_no,
+        primary: `${r.po_number ?? ""} · ${r.material_code ?? ""}`,
+        secondary: r.supplier_code ?? "",
+        quantity: r.qty_ordered,
+        validationErrors: errs,
+      };
+    }
+    return {
+      id: r.id,
+      rowNo: r.row_no,
+      primary: `${r.so_number ?? ""} · ${r.product ?? ""}`,
+      secondary: r.customer_code ?? "",
+      quantity: r.open_qty_mt,
+      validationErrors: errs,
+    };
+  });
 }
 
+// ============================================================
+// Opening stock
+// ============================================================
 export interface CreateOpeningStockBatchInput {
   profitCenterId: string;
   label: string;
@@ -147,14 +165,7 @@ export async function validateOpeningStockBatch(batchId: string) {
   });
   if (error) throw error;
   if (!data?.ok) throw new Error(data?.error ?? "validate_failed");
-  return data as {
-    ok: true;
-    total_rows: number;
-    valid_rows: number;
-    invalid_rows: number;
-    total_quantity: number;
-    total_value: number;
-  };
+  return data;
 }
 
 export async function commitOpeningStockBatch(batchId: string, asOf?: string) {
@@ -167,6 +178,85 @@ export async function commitOpeningStockBatch(batchId: string, asOf?: string) {
   return data as { ok: true; rows_inserted: number };
 }
 
+// ============================================================
+// Open POs
+// ============================================================
+export interface CreateOpenPoBatchInput {
+  profitCenterId: string;
+  label: string;
+  rows: Array<Record<string, unknown>>;
+}
+
+export async function createOpenPoBatch(input: CreateOpenPoBatchInput) {
+  const { data, error } = await client.rpc("migration_create_open_po_batch", {
+    _profit_center_id: input.profitCenterId,
+    _label: input.label,
+    _rows: input.rows,
+  });
+  if (error) throw error;
+  if (!data?.ok) throw new Error(data?.error ?? "create_failed");
+  return { batchId: data.batch_id as string, stagedRows: data.staged_rows as number };
+}
+
+export async function validateOpenPoBatch(batchId: string) {
+  const { data, error } = await client.rpc("migration_validate_open_po", {
+    _batch_id: batchId,
+  });
+  if (error) throw error;
+  if (!data?.ok) throw new Error(data?.error ?? "validate_failed");
+  return data;
+}
+
+export async function commitOpenPoBatch(batchId: string) {
+  const { data, error } = await client.rpc("migration_commit_open_po", {
+    _batch_id: batchId,
+  });
+  if (error) throw error;
+  if (!data?.ok) throw new Error(data?.error ?? "commit_failed");
+  return data;
+}
+
+// ============================================================
+// Open SOs
+// ============================================================
+export interface CreateOpenSoBatchInput {
+  profitCenterId: string;
+  label: string;
+  rows: Array<Record<string, unknown>>;
+}
+
+export async function createOpenSoBatch(input: CreateOpenSoBatchInput) {
+  const { data, error } = await client.rpc("migration_create_open_so_batch", {
+    _profit_center_id: input.profitCenterId,
+    _label: input.label,
+    _rows: input.rows,
+  });
+  if (error) throw error;
+  if (!data?.ok) throw new Error(data?.error ?? "create_failed");
+  return { batchId: data.batch_id as string, stagedRows: data.staged_rows as number };
+}
+
+export async function validateOpenSoBatch(batchId: string) {
+  const { data, error } = await client.rpc("migration_validate_open_so", {
+    _batch_id: batchId,
+  });
+  if (error) throw error;
+  if (!data?.ok) throw new Error(data?.error ?? "validate_failed");
+  return data;
+}
+
+export async function commitOpenSoBatch(batchId: string) {
+  const { data, error } = await client.rpc("migration_commit_open_so", {
+    _batch_id: batchId,
+  });
+  if (error) throw error;
+  if (!data?.ok) throw new Error(data?.error ?? "commit_failed");
+  return data;
+}
+
+// ============================================================
+// Common rollback
+// ============================================================
 export async function rollbackMigrationBatch(batchId: string, reason: string) {
   const { data, error } = await client.rpc("migration_rollback_batch", {
     _batch_id: batchId,
