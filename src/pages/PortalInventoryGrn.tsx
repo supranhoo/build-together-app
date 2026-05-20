@@ -188,10 +188,24 @@ export default function PortalInventoryGrn() {
     <Card className="border-border bg-card shadow-panel">
       <CardHeader className="flex flex-row items-center justify-between gap-4">
         <CardTitle>GRN (Inward) — quality records</CardTitle>
-        <Dialog open={open} onOpenChange={setOpen}>
-          <DialogTrigger asChild>
-            <Button disabled={!allowed || materials.length === 0 || locations.length === 0}>New GRN</Button>
-          </DialogTrigger>
+        <div className="flex flex-wrap items-center gap-2">
+          <Button variant="outline" size="sm" onClick={handleDownloadTemplate} disabled={materials.length === 0 || locations.length === 0}>
+            Download template
+          </Button>
+          <input
+            ref={fileInputRef}
+            type="file"
+            accept=".csv,text/csv"
+            className="hidden"
+            onChange={(e) => { const f = e.target.files?.[0]; if (f) void handleFilePicked(f); }}
+          />
+          <Button variant="outline" size="sm" onClick={() => fileInputRef.current?.click()} disabled={!allowed || materials.length === 0 || locations.length === 0}>
+            Bulk upload
+          </Button>
+          <Dialog open={open} onOpenChange={setOpen}>
+            <DialogTrigger asChild>
+              <Button disabled={!allowed || materials.length === 0 || locations.length === 0}>New GRN</Button>
+            </DialogTrigger>
           <DialogContent className="max-w-xl">
             <DialogHeader><DialogTitle>Post GRN</DialogTitle></DialogHeader>
             <div className="grid gap-3 sm:grid-cols-2">
