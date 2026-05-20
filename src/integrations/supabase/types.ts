@@ -1512,7 +1512,10 @@ export type Database = {
           id: string
           inventory_ledger_id: string
           invoice_no: string | null
+          is_migrated: boolean
           is_test_data: boolean
+          legacy_ref: string | null
+          migration_batch_id: string | null
           mn_pct: number | null
           moisture_pct: number | null
           notes: string | null
@@ -1527,7 +1530,10 @@ export type Database = {
           id?: string
           inventory_ledger_id: string
           invoice_no?: string | null
+          is_migrated?: boolean
           is_test_data?: boolean
+          legacy_ref?: string | null
+          migration_batch_id?: string | null
           mn_pct?: number | null
           moisture_pct?: number | null
           notes?: string | null
@@ -1542,7 +1548,10 @@ export type Database = {
           id?: string
           inventory_ledger_id?: string
           invoice_no?: string | null
+          is_migrated?: boolean
           is_test_data?: boolean
+          legacy_ref?: string | null
+          migration_batch_id?: string | null
           mn_pct?: number | null
           moisture_pct?: number | null
           notes?: string | null
@@ -1551,6 +1560,13 @@ export type Database = {
           vendor?: string | null
         }
         Relationships: [
+          {
+            foreignKeyName: "grn_logs_migration_batch_id_fkey"
+            columns: ["migration_batch_id"]
+            isOneToOne: false
+            referencedRelation: "migration_batches"
+            referencedColumns: ["id"]
+          },
           {
             foreignKeyName: "grn_logs_test_batch_id_fkey"
             columns: ["test_batch_id"]
@@ -1668,8 +1684,11 @@ export type Database = {
           furnace_id: string
           heat_number: string
           id: string
+          is_migrated: boolean
           is_test_data: boolean
           is_voided: boolean
+          legacy_ref: string | null
+          migration_batch_id: string | null
           notes: string | null
           power_mwh: number | null
           profit_center_id: string
@@ -1688,8 +1707,11 @@ export type Database = {
           furnace_id: string
           heat_number: string
           id?: string
+          is_migrated?: boolean
           is_test_data?: boolean
           is_voided?: boolean
+          legacy_ref?: string | null
+          migration_batch_id?: string | null
           notes?: string | null
           power_mwh?: number | null
           profit_center_id: string
@@ -1708,8 +1730,11 @@ export type Database = {
           furnace_id?: string
           heat_number?: string
           id?: string
+          is_migrated?: boolean
           is_test_data?: boolean
           is_voided?: boolean
+          legacy_ref?: string | null
+          migration_batch_id?: string | null
           notes?: string | null
           power_mwh?: number | null
           profit_center_id?: string
@@ -1728,6 +1753,13 @@ export type Database = {
             columns: ["furnace_id"]
             isOneToOne: false
             referencedRelation: "furnaces"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "heat_logs_migration_batch_id_fkey"
+            columns: ["migration_batch_id"]
+            isOneToOne: false
+            referencedRelation: "migration_batches"
             referencedColumns: ["id"]
           },
           {
@@ -1767,7 +1799,10 @@ export type Database = {
           grade: string | null
           heat_log_id: string
           id: string
+          is_migrated: boolean
           is_test_data: boolean
+          legacy_ref: string | null
+          migration_batch_id: string | null
           notes: string | null
           product: string | null
           profit_center_id: string
@@ -1792,7 +1827,10 @@ export type Database = {
           grade?: string | null
           heat_log_id: string
           id?: string
+          is_migrated?: boolean
           is_test_data?: boolean
+          legacy_ref?: string | null
+          migration_batch_id?: string | null
           notes?: string | null
           product?: string | null
           profit_center_id: string
@@ -1817,7 +1855,10 @@ export type Database = {
           grade?: string | null
           heat_log_id?: string
           id?: string
+          is_migrated?: boolean
           is_test_data?: boolean
+          legacy_ref?: string | null
+          migration_batch_id?: string | null
           notes?: string | null
           product?: string | null
           profit_center_id?: string
@@ -1830,6 +1871,13 @@ export type Database = {
           updated_at?: string
         }
         Relationships: [
+          {
+            foreignKeyName: "heat_metallurgy_migration_batch_id_fkey"
+            columns: ["migration_batch_id"]
+            isOneToOne: false
+            referencedRelation: "migration_batches"
+            referencedColumns: ["id"]
+          },
           {
             foreignKeyName: "heat_metallurgy_test_batch_id_fkey"
             columns: ["test_batch_id"]
@@ -3119,8 +3167,11 @@ export type Database = {
           heat_log_id: string
           id: string
           inventory_ledger_id: string | null
+          is_migrated: boolean
           is_test_data: boolean
+          legacy_ref: string | null
           material_id: string
+          migration_batch_id: string | null
           profit_center_id: string
           quantity: number
           stock_location_id: string
@@ -3132,8 +3183,11 @@ export type Database = {
           heat_log_id: string
           id?: string
           inventory_ledger_id?: string | null
+          is_migrated?: boolean
           is_test_data?: boolean
+          legacy_ref?: string | null
           material_id: string
+          migration_batch_id?: string | null
           profit_center_id: string
           quantity: number
           stock_location_id: string
@@ -3145,8 +3199,11 @@ export type Database = {
           heat_log_id?: string
           id?: string
           inventory_ledger_id?: string | null
+          is_migrated?: boolean
           is_test_data?: boolean
+          legacy_ref?: string | null
           material_id?: string
+          migration_batch_id?: string | null
           profit_center_id?: string
           quantity?: number
           stock_location_id?: string
@@ -3172,6 +3229,13 @@ export type Database = {
             columns: ["material_id"]
             isOneToOne: false
             referencedRelation: "materials"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "material_consumption_migration_batch_id_fkey"
+            columns: ["migration_batch_id"]
+            isOneToOne: false
+            referencedRelation: "migration_batches"
             referencedColumns: ["id"]
           },
           {
@@ -3440,6 +3504,305 @@ export type Database = {
             columns: ["profit_center_id"]
             isOneToOne: false
             referencedRelation: "profit_centers"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      migration_staging_adjustment: {
+        Row: {
+          batch_id: string
+          created_at: string
+          id: string
+          ledger_date: string | null
+          legacy_ref: string | null
+          material_code: string | null
+          movement_type: string | null
+          notes: string | null
+          quantity: number | null
+          resolved_material_id: string | null
+          resolved_stock_location_id: string | null
+          row_no: number
+          stock_location_code: string | null
+          unit_cost: number | null
+          validation_errors: Json
+        }
+        Insert: {
+          batch_id: string
+          created_at?: string
+          id?: string
+          ledger_date?: string | null
+          legacy_ref?: string | null
+          material_code?: string | null
+          movement_type?: string | null
+          notes?: string | null
+          quantity?: number | null
+          resolved_material_id?: string | null
+          resolved_stock_location_id?: string | null
+          row_no: number
+          stock_location_code?: string | null
+          unit_cost?: number | null
+          validation_errors?: Json
+        }
+        Update: {
+          batch_id?: string
+          created_at?: string
+          id?: string
+          ledger_date?: string | null
+          legacy_ref?: string | null
+          material_code?: string | null
+          movement_type?: string | null
+          notes?: string | null
+          quantity?: number | null
+          resolved_material_id?: string | null
+          resolved_stock_location_id?: string | null
+          row_no?: number
+          stock_location_code?: string | null
+          unit_cost?: number | null
+          validation_errors?: Json
+        }
+        Relationships: [
+          {
+            foreignKeyName: "migration_staging_adjustment_batch_id_fkey"
+            columns: ["batch_id"]
+            isOneToOne: false
+            referencedRelation: "migration_batches"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      migration_staging_grn: {
+        Row: {
+          batch_id: string
+          created_at: string
+          fe_pct: number | null
+          id: string
+          invoice_no: string | null
+          legacy_ref: string | null
+          material_code: string | null
+          mn_pct: number | null
+          moisture_pct: number | null
+          notes: string | null
+          quantity: number | null
+          receipt_date: string | null
+          resolved_material_id: string | null
+          resolved_stock_location_id: string | null
+          row_no: number
+          stock_location_code: string | null
+          unit_cost: number | null
+          validation_errors: Json
+          vendor: string | null
+        }
+        Insert: {
+          batch_id: string
+          created_at?: string
+          fe_pct?: number | null
+          id?: string
+          invoice_no?: string | null
+          legacy_ref?: string | null
+          material_code?: string | null
+          mn_pct?: number | null
+          moisture_pct?: number | null
+          notes?: string | null
+          quantity?: number | null
+          receipt_date?: string | null
+          resolved_material_id?: string | null
+          resolved_stock_location_id?: string | null
+          row_no: number
+          stock_location_code?: string | null
+          unit_cost?: number | null
+          validation_errors?: Json
+          vendor?: string | null
+        }
+        Update: {
+          batch_id?: string
+          created_at?: string
+          fe_pct?: number | null
+          id?: string
+          invoice_no?: string | null
+          legacy_ref?: string | null
+          material_code?: string | null
+          mn_pct?: number | null
+          moisture_pct?: number | null
+          notes?: string | null
+          quantity?: number | null
+          receipt_date?: string | null
+          resolved_material_id?: string | null
+          resolved_stock_location_id?: string | null
+          row_no?: number
+          stock_location_code?: string | null
+          unit_cost?: number | null
+          validation_errors?: Json
+          vendor?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "migration_staging_grn_batch_id_fkey"
+            columns: ["batch_id"]
+            isOneToOne: false
+            referencedRelation: "migration_batches"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      migration_staging_heat: {
+        Row: {
+          aux_power_mwh: number | null
+          avg_power_factor: number | null
+          batch_id: string
+          batch_no: string | null
+          created_at: string
+          dust_mn_pct: number | null
+          dust_qty_mt: number | null
+          fg_mn_pct: number | null
+          furnace_code: string | null
+          furnace_power_mwh: number | null
+          grade: string | null
+          heat_number: string | null
+          heat_status: string | null
+          id: string
+          legacy_ref: string | null
+          notes: string | null
+          power_mwh: number | null
+          product: string | null
+          resolved_furnace_id: string | null
+          resolved_shift_id: string | null
+          row_no: number
+          shift_code: string | null
+          slag_mno_pct: number | null
+          slag_qty_mt: number | null
+          tap_time: string | null
+          tapping_no: string | null
+          tapping_power_mwh: number | null
+          validation_errors: Json
+          weight_mt: number | null
+        }
+        Insert: {
+          aux_power_mwh?: number | null
+          avg_power_factor?: number | null
+          batch_id: string
+          batch_no?: string | null
+          created_at?: string
+          dust_mn_pct?: number | null
+          dust_qty_mt?: number | null
+          fg_mn_pct?: number | null
+          furnace_code?: string | null
+          furnace_power_mwh?: number | null
+          grade?: string | null
+          heat_number?: string | null
+          heat_status?: string | null
+          id?: string
+          legacy_ref?: string | null
+          notes?: string | null
+          power_mwh?: number | null
+          product?: string | null
+          resolved_furnace_id?: string | null
+          resolved_shift_id?: string | null
+          row_no: number
+          shift_code?: string | null
+          slag_mno_pct?: number | null
+          slag_qty_mt?: number | null
+          tap_time?: string | null
+          tapping_no?: string | null
+          tapping_power_mwh?: number | null
+          validation_errors?: Json
+          weight_mt?: number | null
+        }
+        Update: {
+          aux_power_mwh?: number | null
+          avg_power_factor?: number | null
+          batch_id?: string
+          batch_no?: string | null
+          created_at?: string
+          dust_mn_pct?: number | null
+          dust_qty_mt?: number | null
+          fg_mn_pct?: number | null
+          furnace_code?: string | null
+          furnace_power_mwh?: number | null
+          grade?: string | null
+          heat_number?: string | null
+          heat_status?: string | null
+          id?: string
+          legacy_ref?: string | null
+          notes?: string | null
+          power_mwh?: number | null
+          product?: string | null
+          resolved_furnace_id?: string | null
+          resolved_shift_id?: string | null
+          row_no?: number
+          shift_code?: string | null
+          slag_mno_pct?: number | null
+          slag_qty_mt?: number | null
+          tap_time?: string | null
+          tapping_no?: string | null
+          tapping_power_mwh?: number | null
+          validation_errors?: Json
+          weight_mt?: number | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "migration_staging_heat_batch_id_fkey"
+            columns: ["batch_id"]
+            isOneToOne: false
+            referencedRelation: "migration_batches"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      migration_staging_heat_consumption: {
+        Row: {
+          batch_id: string
+          created_at: string
+          heat_number: string | null
+          id: string
+          legacy_ref: string | null
+          material_code: string | null
+          notes: string | null
+          quantity: number | null
+          resolved_material_id: string | null
+          resolved_stock_location_id: string | null
+          row_no: number
+          stock_location_code: string | null
+          unit_cost: number | null
+          validation_errors: Json
+        }
+        Insert: {
+          batch_id: string
+          created_at?: string
+          heat_number?: string | null
+          id?: string
+          legacy_ref?: string | null
+          material_code?: string | null
+          notes?: string | null
+          quantity?: number | null
+          resolved_material_id?: string | null
+          resolved_stock_location_id?: string | null
+          row_no: number
+          stock_location_code?: string | null
+          unit_cost?: number | null
+          validation_errors?: Json
+        }
+        Update: {
+          batch_id?: string
+          created_at?: string
+          heat_number?: string | null
+          id?: string
+          legacy_ref?: string | null
+          material_code?: string | null
+          notes?: string | null
+          quantity?: number | null
+          resolved_material_id?: string | null
+          resolved_stock_location_id?: string | null
+          row_no?: number
+          stock_location_code?: string | null
+          unit_cost?: number | null
+          validation_errors?: Json
+        }
+        Relationships: [
+          {
+            foreignKeyName: "migration_staging_heat_consumption_batch_id_fkey"
+            columns: ["batch_id"]
+            isOneToOne: false
+            referencedRelation: "migration_batches"
             referencedColumns: ["id"]
           },
         ]
@@ -6116,10 +6479,33 @@ export type Database = {
         Returns: boolean
       }
       is_test_data_enabled: { Args: { _pc: string }; Returns: boolean }
+      migration_commit_adjustment: {
+        Args: { _batch_id: string }
+        Returns: Json
+      }
+      migration_commit_grn: { Args: { _batch_id: string }; Returns: Json }
+      migration_commit_heat: { Args: { _batch_id: string }; Returns: Json }
       migration_commit_open_po: { Args: { _batch_id: string }; Returns: Json }
       migration_commit_open_so: { Args: { _batch_id: string }; Returns: Json }
       migration_commit_opening_stock: {
         Args: { _as_of?: string; _batch_id: string }
+        Returns: Json
+      }
+      migration_create_adjustment_batch: {
+        Args: { _label: string; _profit_center_id: string; _rows: Json }
+        Returns: Json
+      }
+      migration_create_grn_batch: {
+        Args: { _label: string; _profit_center_id: string; _rows: Json }
+        Returns: Json
+      }
+      migration_create_heat_batch: {
+        Args: {
+          _consumption: Json
+          _heats: Json
+          _label: string
+          _profit_center_id: string
+        }
         Returns: Json
       }
       migration_create_open_po_batch: {
@@ -6138,6 +6524,12 @@ export type Database = {
         Args: { _batch_id: string; _reason: string }
         Returns: Json
       }
+      migration_validate_adjustment: {
+        Args: { _batch_id: string }
+        Returns: Json
+      }
+      migration_validate_grn: { Args: { _batch_id: string }; Returns: Json }
+      migration_validate_heat: { Args: { _batch_id: string }; Returns: Json }
       migration_validate_open_po: { Args: { _batch_id: string }; Returns: Json }
       migration_validate_open_so: { Args: { _batch_id: string }; Returns: Json }
       migration_validate_opening_stock: {
