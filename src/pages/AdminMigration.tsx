@@ -39,6 +39,20 @@ import {
 import { buildOpenPoTemplateRows, parseOpenPoCsv } from "@/lib/open-po-csv";
 import { buildOpenSoTemplateRows, parseOpenSoCsv } from "@/lib/open-so-csv";
 import {
+  buildGrnHistoryTemplateRows,
+  parseGrnHistoryCsv,
+} from "@/lib/grn-history-csv";
+import {
+  buildHeatHeaderTemplateRows,
+  buildHeatConsumptionTemplateRows,
+  parseHeatHeaderCsv,
+  parseHeatConsumptionCsv,
+} from "@/lib/heat-history-csv";
+import {
+  buildAdjustmentTemplateRows,
+  parseAdjustmentCsv,
+} from "@/lib/adjustment-csv";
+import {
   commitOpenPoBatch,
   commitOpenSoBatch,
   commitOpeningStockBatch,
@@ -51,6 +65,15 @@ import {
   validateOpenPoBatch,
   validateOpenSoBatch,
   validateOpeningStockBatch,
+  createGrnHistoryBatch,
+  validateGrnHistoryBatch,
+  commitGrnHistoryBatch,
+  createHeatHistoryBatch,
+  validateHeatHistoryBatch,
+  commitHeatHistoryBatch,
+  createAdjustmentBatch,
+  validateAdjustmentBatch,
+  commitAdjustmentBatch,
   type MigrationBatch,
   type MigrationDomain,
   type MigrationStagingRow,
