@@ -128,12 +128,43 @@ export async function listStagingRows(
         validationErrors: errs,
       };
     }
+    if (domain === "open_so") {
+      return {
+        id: r.id,
+        rowNo: r.row_no,
+        primary: `${r.so_number ?? ""} · ${r.product ?? ""}`,
+        secondary: r.customer_code ?? "",
+        quantity: r.open_qty_mt,
+        validationErrors: errs,
+      };
+    }
+    if (domain === "grn_history") {
+      return {
+        id: r.id,
+        rowNo: r.row_no,
+        primary: r.material_code ?? "",
+        secondary: r.stock_location_code ?? "",
+        quantity: r.quantity,
+        validationErrors: errs,
+      };
+    }
+    if (domain === "heat_history") {
+      return {
+        id: r.id,
+        rowNo: r.row_no,
+        primary: r.heat_number ?? "",
+        secondary: `${r.furnace_code ?? ""} · ${r.shift_code ?? ""}`,
+        quantity: r.weight_mt,
+        validationErrors: errs,
+      };
+    }
+    // inv_adjustment
     return {
       id: r.id,
       rowNo: r.row_no,
-      primary: `${r.so_number ?? ""} · ${r.product ?? ""}`,
-      secondary: r.customer_code ?? "",
-      quantity: r.open_qty_mt,
+      primary: r.material_code ?? "",
+      secondary: `${r.stock_location_code ?? ""} · ${r.movement_type ?? ""}`,
+      quantity: r.quantity,
       validationErrors: errs,
     };
   });
