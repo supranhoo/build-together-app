@@ -1,100 +1,62 @@
-# Plan: Fix blinking, missing records, and profit center assignment failure
+# Bulk Upload for GRN (Inward)
 
-## Assumptions
+Add a CSV-based bulk upload to `/portal/inventory` → **GRN (Inward)** so operators can post many receipts in one go instead of opening the dialog per row. Mirrors the proven Item Master CSV pattern (`master-items-csv.ts` + Item Master page).
 
-- The screenshot shows the real failure: Admin Settings → Access → Save assignment returns “Assignment failed”.
-- The current logged-in user is `biswajitceo@gmail.com`, a `super_admin`.
-- Users should be assignable profit-center-wise from Admin Settings → Access.
-- Marking a default workspace should keep only one default workspace per user.
-- Existing Maker-Checker rules for creating users and privileged roles must remain unchanged.
+## Scope
 
-## Confirmed root cause
+In scope:
+- New "Bulk upload" button next to "New GRN" on `PortalInventoryGrn.tsx`.
+- "Download template" button that emits a CSV with the canonical headers + one example row.
+- Parse + per-row validation in a new pure module `src/lib/grn-csv.ts` (no Supabase calls — unit-testable).
+- Dry-run preview table (counts: valid / errors / will-post) before any DB write.
+- On confirm: post each valid row sequentially via the existing `postGrn()` SSOT — **no new write paths**, so RLS, audit trigger, and inventory_ledger semantics stay identical to manual entry.
+- Per-row error summary after the run; partial success is allowed (same trade-off as the existing GRN flow — receipts and GRNs are two writes already).
 
-### Assignment failure
+Out of scope (explicit):
+- No new tables, no schema changes, no RLS changes.
+- No background job / queue — runs in the browser, capped at a sensible row limit (e.g. 500 per file).
+- No Excel (.xlsx) parser; CSV only, same as Item Master.
+- No bulk *edit* or *delete* of existing GRNs.
+- No changes to other Inventory tabs (Receipts, Issues, Transfers) — they can adopt the same pattern in a follow-up if asked.
 
-The failed network request is:
+## CSV shape
+
+Headers (canonical order):
 
 ```text
-POST /user_profit_centers?on_conflict=user_id,profit_center_id
-500: ON CONFLICT DO UPDATE command cannot affect row a second time
+material_code, stock_location_code, quantity, unit_cost,
+vendor, invoice_no, mn_pct, fe_pct, moisture_pct, notes
 ```
 
-This happens when saving an existing assignment as default. The app uses `upsert()` on `user_profit_centers`, while the database trigger `is_default_profit_center_allowed()` also updates rows in the same table to clear other defaults for that user. That trigger/update combination conflicts with the upsert operation.
+- `material_code` and `stock_location_code` are resolved against the **active profit center's** material master / stock locations. Unknown codes → row error (no auto-create — that would violate the zero-hardcoding / master-data-first rule).
+- `quantity` required, > 0.
+- `unit_cost` optional.
+- Quality fields (`mn_pct`, `fe_pct`, `moisture_pct`) optional; if present must be 0–100 (reuses `validateGrnQuality`).
+- `vendor`, `invoice_no`, `notes` optional free text.
+- Fully blank lines silently skipped.
 
-### Blinking / not showing records
+The "qty and all respective field as per material master" wording is interpreted as: **one column per field captured on the manual GRN dialog**, with material identified by its master `code`. Per-material spec values (Mn target, Fe target, etc.) already live on the Item Master and are not re-entered here — the GRN captures the *actual* measured quality, which is what the dialog already asks for.
 
-There are two related state issues:
+## Files
 
-1. Auth/profile loading does database work inside the auth state callback, which can race with token restore. Console logs show `Invalid Refresh Token: Refresh Token Not Found`.
-2. For `super_admin`, selectable workspaces depend on `allProfitCenters`, but that list loads after assignment state. During the gap, the UI can temporarily render empty/no-workspace states.
+New:
+- `src/lib/grn-csv.ts` — `GRN_CSV_HEADERS`, `buildGrnTemplateRows()`, `parseGrnCsv(rows, { materials, locations })` returning `{ rows, errors }`.
+- `src/test/grn-csv.test.ts` — happy path, unknown material code, unknown location, qty ≤ 0, out-of-range quality %, blank-row skip, missing required header, duplicate header detection.
 
-### Existing created users
+Edited:
+- `src/pages/PortalInventoryGrn.tsx` — add "Download template" + "Bulk upload" buttons, a file input, a preview dialog showing parsed rows + errors, and a "Post N receipts" confirm that loops `postGrn()` and shows a final toast with success/failure counts.
+- `DOCUMENTATION.md` — new sub-section under Inventory / GRN describing the CSV columns, validation rules, and the sequential-post / partial-success semantics. Version-history bump.
+- `POLICY.md` — note that bulk upload uses the same RLS + audit path as manual GRN and that unknown master codes are rejected (no silent creation).
 
-Backend counts confirm existing data exists:
+## Risk & impact
 
-- 6 profiles
-- 7 role rows
-- 5 profit centers
-- 8 user-profit-center assignment rows
-- 1 `user.create` request is still pending approval, so that user is not considered fully created until approved.
+- **Data impact**: none beyond what manual GRN already writes (`inventory_ledger` + `grn_logs`).
+- **Workflow impact**: same `inventory.receipt` permission gate (`userRoleAllows`) guards the new button — no new role surface.
+- **UI impact**: localized to the GRN card on the Inventory page; no nav changes.
+- **Regression risk**: low — pure parser is isolated; the page reuses `postGrn`. Main failure mode is a mid-batch network error leaving N of M rows posted; mitigated by the preview step and a clear per-row result list.
+- **Mitigation**: hard cap rows per file, disable the confirm button while posting, show progress, and surface the row numbers that failed so the operator can re-upload only those.
 
-## Data Impact
+## Tests
 
-- No table redesign planned.
-- One small backend function change is needed for assignment save safety.
-- No existing user/profit-center records will be deleted.
-- Default workspace behavior remains one default per user.
-- Audit logging stays required for assignment changes.
-
-## Workflow Impact
-
-- Admin Settings → Access should allow assigning a user to the active profit center.
-- Updating an already assigned user to default should work.
-- Assigning non-default should work.
-- Pending user invites will still appear in Approvals, not as fully created users.
-- Normal users still only see assigned profit centers; `super_admin` still sees all active profit centers.
-
-## UI/UX Impact
-
-- The Access tab should show a clear backend error if assignment fails.
-- Loading/empty states should stop flickering.
-- No visual redesign; keep current layout and wording except improving the failure message if needed.
-
-## Regression Risk
-
-- Changing assignment save logic can affect default workspace behavior.
-- Changing auth/workspace readiness can affect route guards for `/portal` and `/admin`.
-- Fixing the backend trigger must not weaken RLS or allow unauthorized assignment.
-
-## Mitigation Plan
-
-1. Fix assignment persistence.
-   - Replace the conflicting upsert path with a safe two-step insert/update flow, or adjust the default-clearing trigger so it does not conflict with upsert.
-   - Preserve RLS and audit logging.
-   - Verification: assign Anil Shinde as default/non-default without the 500 error.
-
-2. Make assignment errors visible.
-   - Return/show the real backend error message instead of only “Please try again”.
-   - Verification: any future failure explains whether it is RLS, duplicate/default logic, or network related.
-
-3. Stabilize auth readiness.
-   - Move profile fetch out of the auth state callback path.
-   - Load profile after session restoration is ready.
-   - Verification: refresh/login no longer bounces between loading states.
-
-4. Stabilize workspace readiness.
-   - Load `super_admin` active profit centers before rendering no-workspace empty state.
-   - Keep normal-user assignment checks unchanged.
-   - Verification: `biswajitceo@gmail.com` sees all active profit centers without flicker.
-
-5. Add regression tests and mock data.
-   - Existing assignment updated to default.
-   - New assignment inserted as default.
-   - Only one default workspace remains per user.
-   - `super_admin` with no explicit assignments still sees active profit centers.
-   - Normal user with no assignments still cannot enter portal.
-
-6. Update documentation and policy.
-   - Document assignment default behavior.
-   - Document auth/workspace readiness rules.
-   - Document that pending invites are not fully created users until approved.
+- `grn-csv.test.ts` covers all parser branches above.
+- Existing `grn.test.ts` remains untouched (we don't change `postGrn`).
