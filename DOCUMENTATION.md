@@ -1066,3 +1066,13 @@ Read via `fetchProductionApprovals(profitCenterId, { source?, status? })` in `sr
   - `src/lib/open-so-csv.ts` — 16 columns including export flag, FX, incoterms, ports. Detects in-batch duplicate `so_number`.
 - Frontend: `src/pages/AdminMigration.tsx` refactored to a 3-tab console (Opening stock / Open POs / Open SOs). All tabs share workflow: download template → upload → stage → validate → review → commit (or rollback). Each tab uses domain-specific parser, RPC trio, and column labels in the preview.
 - Tests: `src/test/open-po-csv.test.ts` (9) + `src/test/open-so-csv.test.ts` (7). Combined with existing opening-stock suite = 27 passing.
+
+## Data Migration — P3 (Historical inventory + production)
+
+Three additional admin-only loaders extend the migration console:
+
+- **Historical GRN** (`migration_create_grn_batch` / `_validate_grn` / `_commit_grn`): each CSV row writes one paired `inventory_ledger` receipt + `grn_logs` record dated at `receipt_date`. Limit 5,000 rows/batch.
+- **Historical heats** (`migration_create_heat_batch` / `_validate_heat` / `_commit_heat`): takes TWO CSVs — heat headers + per-heat consumption. Commit writes `heat_logs` + `heat_metallurgy` + per-consumption `inventory_ledger` (movement_type=`consumption`, negative qty) + `material_consumption`, all dated at the heat's `tap_time`. Heat number is unique per profit center; the validator flags duplicates against live `heat_logs` and inside the batch. Limit 2,000 heats and 20,000 consumption rows/batch.
+- **Inventory adjustments** (`migration_create_adjustment_batch` / `_validate_adjustment` / `_commit_adjustment`): free-form ledger entries (`adjustment`, `issue`, `transfer_in`, `transfer_out`); signed quantity stored as given. Limit 5,000 rows/batch.
+
+Rollback (`migration_rollback_batch`) is now domain-aware: for `grn_history` it deletes paired `grn_logs` + `inventory_ledger`; for `heat_history` it deletes `material_consumption` + `inventory_ledger` + `heat_metallurgy` + `heat_logs`; for `inv_adjustment` it deletes `inventory_ledger`. All committed rows carry `is_migrated=true`, `migration_batch_id`, and `legacy_ref` for audit and reconciliation. Rollback requires `reason` (min 3 chars) and is only available while the batch status is `committed`.

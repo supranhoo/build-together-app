@@ -562,3 +562,9 @@ max_level     = daily × max_cover_days       (default 30)
 - Open POs (domain `open_po`): allowed statuses on import are `draft`, `sent`, `acknowledged`, `partially_received`. `closed` / `cancelled` POs are not migrated as "open". One PO per `po_number`; multiple rows with the same `po_number` are grouped into header + N lines on commit (header taken from the first row).
 - Open SOs (domain `open_so`): allowed statuses are `draft`, `confirmed`, `in_production`, `ready_for_dispatch`. `open_qty_mt` represents the remaining (un-dispatched) balance only — original SO total is preserved in `legacy_ref` / `notes`, never in operating qty. Export rows in non-INR currency require `fx_rate`.
 - Rollback semantics by domain: opening_stock → deletes ledger rows; open_po → deletes PO lines then headers; open_so → deletes SO rows. All scoped to `migration_batch_id` and the workspace.
+
+### Data migration — P3 additions
+- Historical GRN, heat, and inventory-adjustment loaders are admin / super-admin only and scoped to the caller's profit center via `has_profit_center_access`.
+- All commits are transactional and audit-logged (`audit_logs.entity_type='migration_batch'`, action `commit` or `rollback`).
+- Historical heat commits intentionally insert paired `inventory_ledger` rows directly rather than going through the live consumption flow so balances are dated at the original `tap_time`.
+- Rollback is only allowed for batches in status `committed`, requires a reason, and cascades to paired tables per domain.
