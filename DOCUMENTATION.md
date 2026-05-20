@@ -1050,3 +1050,19 @@ Read via `fetchProductionApprovals(profitCenterId, { source?, status? })` in `sr
 - Pure CSV mapper `src/lib/opening-stock-csv.ts` (`OPENING_STOCK_CSV_HEADERS`, `buildOpeningStockTemplateRows()`, `parseOpeningStockCsv()`) is side-effect free. Columns: `material_code, stock_location_code, quantity, unit_cost, legacy_ref, notes`. Client also catches in-batch duplicates of `(material × location)` before the round-trip.
 - Tests: `src/test/opening-stock-csv.test.ts` — 10 cases (happy path, optional blanks, empty CSV, missing/duplicate headers, missing required fields, invalid qty / unit_cost, in-batch duplicates, blank-line skip).
 - Not in this turn: open POs/PRs, open Sales Orders, historical GRN/heats/consumption/costing — those are P2 (remaining), P3, P4, P5. Each gets its own staging table + RPC trio + CSV mapper, using the same `migration_batches` shell so audit, listing, and rollback are uniform.
+
+## 2026-05-20 — Data migration P2 (open POs + open SOs)
+- Migration tagging columns added to `purchase_orders`, `purchase_order_lines`, `sales_orders`: `is_migrated`, `migration_batch_id` (FK → `migration_batches`), `legacy_ref`. Filtered partial indexes on `migration_batch_id`.
+- New staging tables (admin-only RLS, identical pattern to opening stock):
+  - `migration_staging_open_po` — one row per PO line, header fields repeated; server resolves `resolved_supplier_id`, `resolved_material_id`. Domain string on `migration_batches` = `open_po`.
+  - `migration_staging_open_so` — one row per open SO; server resolves `resolved_customer_id`. Domain = `open_so`. `open_qty_mt` is the remaining (un-dispatched) balance only.
+- New RPCs (all SECURITY DEFINER, admin-gated, PC-access-gated):
+  - `migration_create_open_po_batch / _validate / _commit` — commit groups staging rows by `po_number`, inserts one `purchase_orders` header (status from CSV, total = Σ qty×cost), and N `purchase_order_lines` carrying migrated qty_ordered/qty_received. Header is taken from the first row of each po_number (per `row_no`).
+  - `migration_create_open_so_batch / _validate / _commit` — one `sales_orders` insert per row; `qty_mt` = `open_qty_mt` (remaining), `status` defaults to `confirmed`.
+  - `migration_rollback_batch` extended to dispatch by `domain`: opens stock → delete from `inventory_ledger`; open_po → delete PO lines then headers; open_so → delete SO rows. All deletions scoped by `migration_batch_id` + `profit_center_id`.
+- Validation errors flagged: PO — `po_number_missing`, `supplier_code_missing`, `unknown_supplier`, `material_code_missing`, `unknown_material`, `qty_ordered_invalid`, `qty_received_invalid`, `qty_received_exceeds_ordered`, `unit_cost_invalid`, `uom_missing`, `invalid_po_status` (allowed: draft/sent/acknowledged/partially_received). SO — `so_number_missing`, `customer_code_missing`, `unknown_customer`, `product_missing`, `open_qty_invalid`, `price_invalid`, `invalid_so_status` (allowed: draft/confirmed/in_production/ready_for_dispatch), `fx_rate_required_for_export`.
+- Pure CSV mappers (side-effect free, tested):
+  - `src/lib/open-po-csv.ts` — 15 columns including PO header, line, status, currency, expected delivery.
+  - `src/lib/open-so-csv.ts` — 16 columns including export flag, FX, incoterms, ports. Detects in-batch duplicate `so_number`.
+- Frontend: `src/pages/AdminMigration.tsx` refactored to a 3-tab console (Opening stock / Open POs / Open SOs). All tabs share workflow: download template → upload → stage → validate → review → commit (or rollback). Each tab uses domain-specific parser, RPC trio, and column labels in the preview.
+- Tests: `src/test/open-po-csv.test.ts` (9) + `src/test/open-so-csv.test.ts` (7). Combined with existing opening-stock suite = 27 passing.
