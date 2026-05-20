@@ -53,6 +53,12 @@ export default function PortalInventoryGrn() {
   const [open, setOpen] = useState(false);
   const [form, setForm] = useState<FormState>(empty);
   const [saving, setSaving] = useState(false);
+  const fileInputRef = useRef<HTMLInputElement>(null);
+  const [bulkOpen, setBulkOpen] = useState(false);
+  const [bulkRows, setBulkRows] = useState<ParsedGrnRow[]>([]);
+  const [bulkErrors, setBulkErrors] = useState<ParsedGrnError[]>([]);
+  const [bulkPosting, setBulkPosting] = useState(false);
+  const [bulkProgress, setBulkProgress] = useState<{ done: number; total: number; failed: { rowNumber: number; message: string }[] } | null>(null);
 
   const reload = async () => {
     if (!activeProfitCenter) return;
