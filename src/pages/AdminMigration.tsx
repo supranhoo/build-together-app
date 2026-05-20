@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState, useCallback } from "react";
 import {
   Card,
   CardContent,
@@ -9,8 +9,10 @@ import {
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { Textarea } from "@/components/ui/textarea";
 import { Badge } from "@/components/ui/badge";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
+import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
 import {
   Table,
   TableBody,
@@ -33,71 +35,142 @@ import { parseCsv, toCsv, downloadCsv } from "@/lib/csv";
 import {
   buildOpeningStockTemplateRows,
   parseOpeningStockCsv,
-  type ParsedOpeningStockRow,
-  type ParsedOpeningStockError,
 } from "@/lib/opening-stock-csv";
+import { buildOpenPoTemplateRows, parseOpenPoCsv } from "@/lib/open-po-csv";
+import { buildOpenSoTemplateRows, parseOpenSoCsv } from "@/lib/open-so-csv";
 import {
+  commitOpenPoBatch,
+  commitOpenSoBatch,
   commitOpeningStockBatch,
+  createOpenPoBatch,
+  createOpenSoBatch,
   createOpeningStockBatch,
   listMigrationBatches,
   listStagingRows,
   rollbackMigrationBatch,
+  validateOpenPoBatch,
+  validateOpenSoBatch,
   validateOpeningStockBatch,
   type MigrationBatch,
+  type MigrationDomain,
   type MigrationStagingRow,
 } from "@/lib/migration";
-import { AlertTriangle, Download, Upload, RotateCcw, CheckCircle2 } from "lucide-react";
+import { AlertTriangle, Download, Upload } from "lucide-react";
 
 const MAX_ROWS = 5000;
 
+interface DomainConfig {
+  key: MigrationDomain;
+  label: string;
+  description: string;
+  templateName: string;
+  buildTemplate: () => string[][];
+  parseCsv: (rows: string[][]) => { rows: any[]; errors: Array<{ rowNumber: number; message: string }> };
+  toRpcRow: (parsed: any) => Record<string, unknown>;
+  create: (pcId: string, label: string, rows: Array<Record<string, unknown>>) => Promise<{ batchId: string; stagedRows: number }>;
+  validate: (batchId: string) => Promise<any>;
+  commit: (batchId: string) => Promise<any>;
+  primaryHeader: string;
+  secondaryHeader: string;
+  qtyHeader: string;
+}
+
+const DOMAINS: DomainConfig[] = [
+  {
+    key: "opening_stock",
+    label: "Opening stock",
+    description:
+      "Per material × stock location balances as on cut-over. Posts opening_balance movements to the inventory ledger.",
+    templateName: "opening-stock-template.csv",
+    buildTemplate: buildOpeningStockTemplateRows,
+    parseCsv: parseOpeningStockCsv,
+    toRpcRow: (r) => ({
+      material_code: r.materialCode,
+      stock_location_code: r.stockLocationCode,
+      quantity: r.quantity,
+      unit_cost: r.unitCost,
+      legacy_ref: r.legacyRef,
+      notes: r.notes,
+    }),
+    create: (pcId, label, rows) =>
+      createOpeningStockBatch({ profitCenterId: pcId, label, rows: rows as any }),
+    validate: validateOpeningStockBatch,
+    commit: (id) => commitOpeningStockBatch(id),
+    primaryHeader: "Material",
+    secondaryHeader: "Location",
+    qtyHeader: "Qty",
+  },
+  {
+    key: "open_po",
+    label: "Open POs",
+    description:
+      "Purchase orders still open at cut-over (one row per PO line). Header is taken from the first row of each po_number.",
+    templateName: "open-po-template.csv",
+    buildTemplate: buildOpenPoTemplateRows,
+    parseCsv: parseOpenPoCsv,
+    toRpcRow: (r) => ({
+      po_number: r.poNumber,
+      supplier_code: r.supplierCode,
+      po_status: r.poStatus,
+      currency_code: r.currencyCode,
+      expected_delivery_date: r.expectedDeliveryDate,
+      payment_terms: r.paymentTerms,
+      header_notes: r.headerNotes,
+      line_no: r.lineNo,
+      material_code: r.materialCode,
+      qty_ordered: r.qtyOrdered,
+      qty_received: r.qtyReceived,
+      uom: r.uom,
+      unit_cost: r.unitCost,
+      line_notes: r.lineNotes,
+      legacy_ref: r.legacyRef,
+    }),
+    create: (pcId, label, rows) => createOpenPoBatch({ profitCenterId: pcId, label, rows }),
+    validate: validateOpenPoBatch,
+    commit: commitOpenPoBatch,
+    primaryHeader: "PO · Material",
+    secondaryHeader: "Supplier",
+    qtyHeader: "Qty ordered",
+  },
+  {
+    key: "open_so",
+    label: "Open SOs",
+    description:
+      "Sales orders not fully dispatched at cut-over. open_qty_mt represents the remaining balance only.",
+    templateName: "open-so-template.csv",
+    buildTemplate: buildOpenSoTemplateRows,
+    parseCsv: parseOpenSoCsv,
+    toRpcRow: (r) => ({
+      so_number: r.soNumber,
+      customer_code: r.customerCode,
+      order_date: r.orderDate,
+      is_export: r.isExport,
+      product: r.product,
+      grade: r.grade,
+      open_qty_mt: r.openQtyMt,
+      price_per_mt: r.pricePerMt,
+      currency_code: r.currencyCode,
+      fx_rate: r.fxRate,
+      incoterms: r.incoterms,
+      port_of_loading: r.portOfLoading,
+      port_of_discharge: r.portOfDischarge,
+      so_status: r.soStatus,
+      notes: r.notes,
+      legacy_ref: r.legacyRef,
+    }),
+    create: (pcId, label, rows) => createOpenSoBatch({ profitCenterId: pcId, label, rows }),
+    validate: validateOpenSoBatch,
+    commit: commitOpenSoBatch,
+    primaryHeader: "SO · Product",
+    secondaryHeader: "Customer",
+    qtyHeader: "Open qty (MT)",
+  },
+];
+
 export default function AdminMigration() {
   const { activeProfitCenter, isAdmin } = useWorkspace();
-  const { toast } = useToast();
-  const pcId = activeProfitCenter?.id;
-
-  const [batches, setBatches] = useState<MigrationBatch[]>([]);
-  const [loading, setLoading] = useState(true);
-  const [busy, setBusy] = useState(false);
-
-  // Upload preview state
-  const fileRef = useRef<HTMLInputElement>(null);
-  const [parsedRows, setParsedRows] = useState<ParsedOpeningStockRow[]>([]);
-  const [parsedErrors, setParsedErrors] = useState<ParsedOpeningStockError[]>([]);
-  const [previewOpen, setPreviewOpen] = useState(false);
-  const [batchLabel, setBatchLabel] = useState("Opening stock — go-live");
-
-  // Inspect/commit dialog
-  const [activeBatch, setActiveBatch] = useState<MigrationBatch | null>(null);
-  const [stagingRows, setStagingRows] = useState<MigrationStagingRow[]>([]);
-  const [rollbackReason, setRollbackReason] = useState("");
-
-  async function refresh() {
-    if (!pcId) return;
-    setLoading(true);
-    try {
-      setBatches(await listMigrationBatches(pcId, "opening_stock"));
-    } catch (e) {
-      toast({
-        title: "Failed to load batches",
-        description: (e as Error).message,
-        variant: "destructive",
-      });
-    } finally {
-      setLoading(false);
-    }
-  }
-
-  useEffect(() => {
-    void refresh();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [pcId]);
-
-  const totals = useMemo(() => {
-    const c = batches.filter((b) => b.status === "committed").length;
-    const r = batches.filter((b) => b.status === "rolled_back").length;
-    const d = batches.filter((b) => b.status === "draft" || b.status === "validated").length;
-    return { committed: c, rolledBack: r, drafts: d };
-  }, [batches]);
+  const [domainKey, setDomainKey] = useState<MigrationDomain>("opening_stock");
+  const domain = DOMAINS.find((d) => d.key === domainKey)!;
 
   if (!isAdmin) {
     return (
@@ -111,7 +184,7 @@ export default function AdminMigration() {
     );
   }
 
-  if (!pcId) {
+  if (!activeProfitCenter?.id) {
     return (
       <Alert>
         <AlertTitle>Select a workspace</AlertTitle>
@@ -120,8 +193,85 @@ export default function AdminMigration() {
     );
   }
 
+  return (
+    <div className="space-y-6">
+      <div>
+        <h2 className="text-2xl font-semibold">Data migration</h2>
+        <p className="text-sm text-muted-foreground">
+          Bulk-load legacy data for <strong>{activeProfitCenter.name}</strong>. All commits are
+          batch-scoped, audit-logged, and reversible until go-live is locked.
+        </p>
+      </div>
+
+      <Tabs value={domainKey} onValueChange={(v) => setDomainKey(v as MigrationDomain)}>
+        <TabsList>
+          {DOMAINS.map((d) => (
+            <TabsTrigger key={d.key} value={d.key}>
+              {d.label}
+            </TabsTrigger>
+          ))}
+        </TabsList>
+        {DOMAINS.map((d) => (
+          <TabsContent key={d.key} value={d.key} className="space-y-6 mt-4">
+            <DomainPanel domain={d} pcId={activeProfitCenter.id} pcName={activeProfitCenter.name} />
+          </TabsContent>
+        ))}
+      </Tabs>
+    </div>
+  );
+}
+
+function DomainPanel({
+  domain,
+  pcId,
+}: {
+  domain: DomainConfig;
+  pcId: string;
+  pcName: string;
+}) {
+  const { toast } = useToast();
+  const [batches, setBatches] = useState<MigrationBatch[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [busy, setBusy] = useState(false);
+
+  const fileRef = useRef<HTMLInputElement>(null);
+  const [parsedRows, setParsedRows] = useState<any[]>([]);
+  const [parsedErrors, setParsedErrors] = useState<Array<{ rowNumber: number; message: string }>>([]);
+  const [previewOpen, setPreviewOpen] = useState(false);
+  const [batchLabel, setBatchLabel] = useState(`${domain.label} — go-live`);
+
+  const [activeBatch, setActiveBatch] = useState<MigrationBatch | null>(null);
+  const [stagingRows, setStagingRows] = useState<MigrationStagingRow[]>([]);
+  const [rollbackReason, setRollbackReason] = useState("");
+
+  const refresh = useCallback(async () => {
+    setLoading(true);
+    try {
+      setBatches(await listMigrationBatches(pcId, domain.key));
+    } catch (e) {
+      toast({
+        title: "Failed to load batches",
+        description: (e as Error).message,
+        variant: "destructive",
+      });
+    } finally {
+      setLoading(false);
+    }
+  }, [pcId, domain.key, toast]);
+
+  useEffect(() => {
+    void refresh();
+  }, [refresh]);
+
+  const totals = useMemo(() => {
+    const c = batches.filter((b) => b.status === "committed").length;
+    const r = batches.filter((b) => b.status === "rolled_back").length;
+    const d = batches.filter((b) => b.status === "draft" || b.status === "validated").length;
+    return { committed: c, rolledBack: r, drafts: d };
+  }, [batches]);
+
   const handleDownloadTemplate = () => {
-    downloadCsv("opening-stock-template.csv", toCsv(buildOpeningStockTemplateRows()));
+    downloadCsv(domain.templateName, toCsv(domain.buildTemplate()));
   };
 
   const handleFile = async (file: File) => {
@@ -137,7 +287,7 @@ export default function AdminMigration() {
         });
         return;
       }
-      const parsed = parseOpeningStockCsv(raw);
+      const parsed = domain.parseCsv(raw);
       setParsedRows(parsed.rows);
       setParsedErrors(parsed.errors);
       setPreviewOpen(true);
@@ -153,25 +303,19 @@ export default function AdminMigration() {
   };
 
   const handleStage = async () => {
-    if (!pcId || parsedRows.length === 0) return;
+    if (parsedRows.length === 0) return;
     setBusy(true);
     try {
-      const { batchId, stagedRows } = await createOpeningStockBatch({
-        profitCenterId: pcId,
-        label: batchLabel || "Opening stock",
-        rows: parsedRows.map((r) => ({
-          material_code: r.materialCode,
-          stock_location_code: r.stockLocationCode,
-          quantity: r.quantity,
-          unit_cost: r.unitCost,
-          legacy_ref: r.legacyRef,
-          notes: r.notes,
-        })),
-      });
-      const report = await validateOpeningStockBatch(batchId);
+      const rpcRows = parsedRows.map((r) => domain.toRpcRow(r));
+      const { batchId, stagedRows } = await domain.create(
+        pcId,
+        batchLabel || domain.label,
+        rpcRows,
+      );
+      const report = await domain.validate(batchId);
       toast({
         title: `Staged ${stagedRows} row(s)`,
-        description: `${report.valid_rows} valid · ${report.invalid_rows} invalid · qty ${report.total_quantity}`,
+        description: `${report.valid_rows ?? 0} valid · ${report.invalid_rows ?? 0} invalid`,
       });
       setPreviewOpen(false);
       setParsedRows([]);
@@ -192,7 +336,7 @@ export default function AdminMigration() {
     setActiveBatch(b);
     setRollbackReason("");
     try {
-      setStagingRows(await listStagingRows(b.id));
+      setStagingRows(await listStagingRows(domain.key, b.id));
     } catch (e) {
       toast({
         title: "Failed to load batch rows",
@@ -206,11 +350,11 @@ export default function AdminMigration() {
     if (!activeBatch) return;
     setBusy(true);
     try {
-      await validateOpeningStockBatch(activeBatch.id);
+      await domain.validate(activeBatch.id);
       toast({ title: "Re-validated" });
       await refresh();
-      setStagingRows(await listStagingRows(activeBatch.id));
-      const next = (await listMigrationBatches(pcId!, "opening_stock")).find(
+      setStagingRows(await listStagingRows(domain.key, activeBatch.id));
+      const next = (await listMigrationBatches(pcId, domain.key)).find(
         (x) => x.id === activeBatch.id,
       );
       if (next) setActiveBatch(next);
@@ -227,11 +371,16 @@ export default function AdminMigration() {
 
   const handleCommit = async () => {
     if (!activeBatch) return;
-    if (!window.confirm(`Post ${activeBatch.dryRunReport?.valid_rows ?? 0} opening-balance rows to the ledger?`)) return;
+    if (
+      !window.confirm(
+        `Commit ${activeBatch.dryRunReport?.valid_rows ?? 0} ${domain.label.toLowerCase()} row(s) to the live database?`,
+      )
+    )
+      return;
     setBusy(true);
     try {
-      const res = await commitOpeningStockBatch(activeBatch.id);
-      toast({ title: `Posted ${res.rows_inserted} row(s)` });
+      const res = await domain.commit(activeBatch.id);
+      toast({ title: "Committed", description: JSON.stringify(res) });
       setActiveBatch(null);
       await refresh();
     } catch (e) {
@@ -251,7 +400,8 @@ export default function AdminMigration() {
       toast({ title: "Reason required (min 3 chars)", variant: "destructive" });
       return;
     }
-    if (!window.confirm("Delete all ledger rows from this batch?")) return;
+    if (!window.confirm(`Roll back all ${domain.label.toLowerCase()} rows from this batch?`))
+      return;
     setBusy(true);
     try {
       const res = await rollbackMigrationBatch(activeBatch.id, rollbackReason);
@@ -270,7 +420,10 @@ export default function AdminMigration() {
   };
 
   const statusBadge = (s: MigrationBatch["status"]) => {
-    const map: Record<MigrationBatch["status"], { label: string; variant: "default" | "secondary" | "destructive" | "outline" }> = {
+    const map: Record<
+      MigrationBatch["status"],
+      { label: string; variant: "default" | "secondary" | "destructive" | "outline" }
+    > = {
       draft: { label: "Draft", variant: "outline" },
       validated: { label: "Validated", variant: "secondary" },
       committed: { label: "Committed", variant: "default" },
@@ -282,25 +435,12 @@ export default function AdminMigration() {
   };
 
   return (
-    <div className="space-y-6">
-      <div>
-        <h2 className="text-2xl font-semibold">Data migration — Opening stock</h2>
-        <p className="text-sm text-muted-foreground">
-          Bulk-load opening balances per material × stock location for {activeProfitCenter?.name}.
-          Posted as <code>opening_balance</code> movements in the inventory ledger; reversible
-          until go-live is locked.
-        </p>
-      </div>
-
+    <>
       <Alert>
         <AlertTitle className="flex items-center gap-2">
-          <AlertTriangle className="h-4 w-4" /> Workflow
+          <AlertTriangle className="h-4 w-4" /> {domain.label}
         </AlertTitle>
-        <AlertDescription className="text-xs">
-          1. Download template → 2. Fill from legacy system → 3. Upload &amp; stage →
-          4. Validate (server resolves codes &amp; reports errors) → 5. Commit. Rollback is
-          available until you mark the workspace go-live.
-        </AlertDescription>
+        <AlertDescription className="text-xs">{domain.description}</AlertDescription>
       </Alert>
 
       <Card>
@@ -311,12 +451,11 @@ export default function AdminMigration() {
         <CardContent className="space-y-3">
           <div className="grid gap-2 sm:grid-cols-[1fr_auto_auto]">
             <div>
-              <Label htmlFor="batch-label">Batch label</Label>
+              <Label htmlFor={`batch-label-${domain.key}`}>Batch label</Label>
               <Input
-                id="batch-label"
+                id={`batch-label-${domain.key}`}
                 value={batchLabel}
                 onChange={(e) => setBatchLabel(e.target.value)}
-                placeholder="Opening stock — go-live"
               />
             </div>
             <div className="flex items-end">
@@ -368,7 +507,6 @@ export default function AdminMigration() {
                   <TableHead>Label</TableHead>
                   <TableHead>Status</TableHead>
                   <TableHead className="text-right">Valid / Total</TableHead>
-                  <TableHead className="text-right">Qty</TableHead>
                   <TableHead>Created</TableHead>
                   <TableHead />
                 </TableRow>
@@ -380,9 +518,6 @@ export default function AdminMigration() {
                     <TableCell>{statusBadge(b.status)}</TableCell>
                     <TableCell className="text-right">
                       {b.dryRunReport?.valid_rows ?? "—"} / {b.dryRunReport?.total_rows ?? "—"}
-                    </TableCell>
-                    <TableCell className="text-right">
-                      {b.dryRunReport?.total_quantity ?? "—"}
                     </TableCell>
                     <TableCell className="text-xs text-muted-foreground">
                       {new Date(b.createdAt).toLocaleString()}
@@ -406,8 +541,7 @@ export default function AdminMigration() {
           <DialogHeader>
             <DialogTitle>Preview — {parsedRows.length} row(s)</DialogTitle>
             <DialogDescription>
-              Client-side parse only. Master-data resolution happens server-side during
-              validate.
+              Client-side parse only. Master-data resolution happens server-side during validate.
             </DialogDescription>
           </DialogHeader>
           {parsedErrors.length > 0 && (
@@ -423,37 +557,6 @@ export default function AdminMigration() {
                 </ul>
               </AlertDescription>
             </Alert>
-          )}
-          {parsedRows.length > 0 && (
-            <div className="max-h-72 overflow-auto rounded border">
-              <Table>
-                <TableHeader>
-                  <TableRow>
-                    <TableHead>#</TableHead>
-                    <TableHead>Material</TableHead>
-                    <TableHead>Location</TableHead>
-                    <TableHead className="text-right">Qty</TableHead>
-                    <TableHead className="text-right">Unit cost</TableHead>
-                  </TableRow>
-                </TableHeader>
-                <TableBody>
-                  {parsedRows.slice(0, 100).map((r) => (
-                    <TableRow key={r.rowNumber}>
-                      <TableCell>{r.rowNumber}</TableCell>
-                      <TableCell>{r.materialCode}</TableCell>
-                      <TableCell>{r.stockLocationCode}</TableCell>
-                      <TableCell className="text-right">{r.quantity}</TableCell>
-                      <TableCell className="text-right">{r.unitCost ?? "—"}</TableCell>
-                    </TableRow>
-                  ))}
-                </TableBody>
-              </Table>
-              {parsedRows.length > 100 && (
-                <p className="p-2 text-xs text-muted-foreground">
-                  Showing first 100 of {parsedRows.length} rows.
-                </p>
-              )}
-            </div>
           )}
           <DialogFooter>
             <Button variant="ghost" onClick={() => setPreviewOpen(false)}>
@@ -474,16 +577,11 @@ export default function AdminMigration() {
               {activeBatch?.label} {activeBatch && statusBadge(activeBatch.status)}
             </DialogTitle>
             <DialogDescription className="text-xs">
-              {activeBatch?.dryRunReport ? (
-                <>
-                  {activeBatch.dryRunReport.valid_rows} valid ·{" "}
-                  {activeBatch.dryRunReport.invalid_rows} invalid · total qty{" "}
-                  {activeBatch.dryRunReport.total_quantity} · total value{" "}
-                  {activeBatch.dryRunReport.total_value}
-                </>
-              ) : (
-                "Not yet validated."
-              )}
+              {activeBatch?.dryRunReport
+                ? Object.entries(activeBatch.dryRunReport)
+                    .map(([k, v]) => `${k}: ${v}`)
+                    .join(" · ")
+                : "Not yet validated."}
             </DialogDescription>
           </DialogHeader>
           <div className="max-h-80 overflow-auto rounded border">
@@ -491,66 +589,68 @@ export default function AdminMigration() {
               <TableHeader>
                 <TableRow>
                   <TableHead>#</TableHead>
-                  <TableHead>Material</TableHead>
-                  <TableHead>Location</TableHead>
-                  <TableHead className="text-right">Qty</TableHead>
+                  <TableHead>{domain.primaryHeader}</TableHead>
+                  <TableHead>{domain.secondaryHeader}</TableHead>
+                  <TableHead className="text-right">{domain.qtyHeader}</TableHead>
                   <TableHead>Errors</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
-                {stagingRows.map((r) => (
-                  <TableRow key={r.id} className={r.validationErrors.length > 0 ? "bg-destructive/5" : ""}>
+                {stagingRows.slice(0, 200).map((r) => (
+                  <TableRow key={r.id}>
                     <TableCell>{r.rowNo}</TableCell>
-                    <TableCell>{r.materialCode ?? "—"}</TableCell>
-                    <TableCell>{r.stockLocationCode ?? "—"}</TableCell>
+                    <TableCell>{r.primary}</TableCell>
+                    <TableCell>{r.secondary}</TableCell>
                     <TableCell className="text-right">{r.quantity ?? "—"}</TableCell>
-                    <TableCell className="text-xs">
-                      {r.validationErrors.length === 0 ? (
-                        <span className="text-muted-foreground">—</span>
-                      ) : (
-                        r.validationErrors.join(", ")
-                      )}
+                    <TableCell className="text-xs text-destructive">
+                      {r.validationErrors.join(", ")}
                     </TableCell>
                   </TableRow>
                 ))}
               </TableBody>
             </Table>
+            {stagingRows.length > 200 && (
+              <p className="p-2 text-xs text-muted-foreground">
+                Showing first 200 of {stagingRows.length} rows.
+              </p>
+            )}
           </div>
 
           {activeBatch?.status === "committed" && (
             <div className="space-y-2">
               <Label htmlFor="rollback-reason">Rollback reason</Label>
-              <Input
+              <Textarea
                 id="rollback-reason"
                 value={rollbackReason}
                 onChange={(e) => setRollbackReason(e.target.value)}
-                placeholder="e.g. Wrong cut-over date"
+                placeholder="Why are you rolling this batch back?"
+                rows={2}
               />
             </div>
           )}
 
           <DialogFooter className="gap-2">
-            {activeBatch?.status !== "committed" && activeBatch?.status !== "rolled_back" && (
-              <>
-                <Button variant="outline" onClick={handleRevalidate} disabled={busy}>
-                  Re-validate
-                </Button>
-                <Button
-                  onClick={handleCommit}
-                  disabled={busy || activeBatch?.status !== "validated"}
-                >
-                  <CheckCircle2 className="mr-2 h-4 w-4" /> Commit to ledger
-                </Button>
-              </>
-            )}
+            <Button variant="ghost" onClick={() => setActiveBatch(null)}>
+              Close
+            </Button>
             {activeBatch?.status === "committed" && (
               <Button variant="destructive" onClick={handleRollback} disabled={busy}>
-                <RotateCcw className="mr-2 h-4 w-4" /> Rollback batch
+                Roll back
+              </Button>
+            )}
+            {(activeBatch?.status === "draft" || activeBatch?.status === "failed") && (
+              <Button variant="outline" onClick={handleRevalidate} disabled={busy}>
+                Re-validate
+              </Button>
+            )}
+            {activeBatch?.status === "validated" && (
+              <Button onClick={handleCommit} disabled={busy}>
+                Commit
               </Button>
             )}
           </DialogFooter>
         </DialogContent>
       </Dialog>
-    </div>
+    </>
   );
 }
