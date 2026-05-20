@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -19,6 +19,10 @@ import {
 } from "@/lib/inventory";
 import { fetchPermissionGrants, userRoleAllows, type PermissionGrant } from "@/lib/permissions";
 import { fetchGrnLogs, postGrn, type GrnRecord } from "@/lib/grn";
+import { parseGrnCsv, buildGrnTemplateRows, type ParsedGrnRow, type ParsedGrnError } from "@/lib/grn-csv";
+import { parseCsv, toCsv, downloadCsv } from "@/lib/csv";
+
+const MAX_BULK_ROWS = 500;
 
 interface FormState {
   materialId: string;
@@ -49,6 +53,12 @@ export default function PortalInventoryGrn() {
   const [open, setOpen] = useState(false);
   const [form, setForm] = useState<FormState>(empty);
   const [saving, setSaving] = useState(false);
+  const fileInputRef = useRef<HTMLInputElement>(null);
+  const [bulkOpen, setBulkOpen] = useState(false);
+  const [bulkRows, setBulkRows] = useState<ParsedGrnRow[]>([]);
+  const [bulkErrors, setBulkErrors] = useState<ParsedGrnError[]>([]);
+  const [bulkPosting, setBulkPosting] = useState(false);
+  const [bulkProgress, setBulkProgress] = useState<{ done: number; total: number; failed: { rowNumber: number; message: string }[] } | null>(null);
 
   const reload = async () => {
     if (!activeProfitCenter) return;
@@ -111,14 +121,91 @@ export default function PortalInventoryGrn() {
     }
   };
 
+  const handleDownloadTemplate = () => {
+    const sample = {
+      materialCode: materials[0]?.code,
+      locationCode: locations.find((l) => l.isActive)?.code,
+    };
+    downloadCsv("grn-bulk-template.csv", toCsv(buildGrnTemplateRows(sample)));
+  };
+
+  const handleFilePicked = async (file: File) => {
+    if (!activeProfitCenter) return;
+    try {
+      const text = await file.text();
+      const raw = parseCsv(text);
+      const dataRows = Math.max(0, raw.length - 1);
+      if (dataRows > MAX_BULK_ROWS) {
+        toast({ title: `Too many rows`, description: `Limit is ${MAX_BULK_ROWS} per file (got ${dataRows}). Split the file and re-upload.`, variant: "destructive" });
+        return;
+      }
+      const parsed = parseGrnCsv(raw, { materials, locations });
+      setBulkRows(parsed.rows);
+      setBulkErrors(parsed.errors);
+      setBulkProgress(null);
+      setBulkOpen(true);
+    } catch (e) {
+      toast({ title: "Could not read CSV", description: e instanceof Error ? e.message : "", variant: "destructive" });
+    } finally {
+      if (fileInputRef.current) fileInputRef.current.value = "";
+    }
+  };
+
+  const handleConfirmBulk = async () => {
+    if (!activeProfitCenter || !session?.user || bulkRows.length === 0) return;
+    setBulkPosting(true);
+    const failed: { rowNumber: number; message: string }[] = [];
+    let done = 0;
+    setBulkProgress({ done: 0, total: bulkRows.length, failed: [] });
+    for (const row of bulkRows) {
+      try {
+        await postGrn({
+          profitCenterId: activeProfitCenter.id,
+          materialId: row.materialId,
+          stockLocationId: row.stockLocationId,
+          quantity: row.quantity,
+          unitCost: row.unitCost,
+          createdBy: session.user.id,
+          quality: row.quality,
+        });
+      } catch (e) {
+        failed.push({ rowNumber: row.rowNumber, message: e instanceof Error ? e.message : "Failed" });
+      }
+      done += 1;
+      setBulkProgress({ done, total: bulkRows.length, failed: [...failed] });
+    }
+    setBulkPosting(false);
+    const ok = bulkRows.length - failed.length;
+    toast({
+      title: failed.length === 0 ? "Bulk GRN posted" : `Posted ${ok} of ${bulkRows.length}`,
+      description: failed.length > 0 ? `${failed.length} row(s) failed — see details in the dialog.` : undefined,
+      variant: failed.length === 0 ? "default" : "destructive",
+    });
+    await reload();
+  };
+
   return (
     <Card className="border-border bg-card shadow-panel">
       <CardHeader className="flex flex-row items-center justify-between gap-4">
         <CardTitle>GRN (Inward) — quality records</CardTitle>
-        <Dialog open={open} onOpenChange={setOpen}>
-          <DialogTrigger asChild>
-            <Button disabled={!allowed || materials.length === 0 || locations.length === 0}>New GRN</Button>
-          </DialogTrigger>
+        <div className="flex flex-wrap items-center gap-2">
+          <Button variant="outline" size="sm" onClick={handleDownloadTemplate} disabled={materials.length === 0 || locations.length === 0}>
+            Download template
+          </Button>
+          <input
+            ref={fileInputRef}
+            type="file"
+            accept=".csv,text/csv"
+            className="hidden"
+            onChange={(e) => { const f = e.target.files?.[0]; if (f) void handleFilePicked(f); }}
+          />
+          <Button variant="outline" size="sm" onClick={() => fileInputRef.current?.click()} disabled={!allowed || materials.length === 0 || locations.length === 0}>
+            Bulk upload
+          </Button>
+          <Dialog open={open} onOpenChange={setOpen}>
+            <DialogTrigger asChild>
+              <Button disabled={!allowed || materials.length === 0 || locations.length === 0}>New GRN</Button>
+            </DialogTrigger>
           <DialogContent className="max-w-xl">
             <DialogHeader><DialogTitle>Post GRN</DialogTitle></DialogHeader>
             <div className="grid gap-3 sm:grid-cols-2">
@@ -182,6 +269,7 @@ export default function PortalInventoryGrn() {
             </DialogFooter>
           </DialogContent>
         </Dialog>
+        </div>
       </CardHeader>
       <CardContent>
         <Table>
@@ -214,6 +302,83 @@ export default function PortalInventoryGrn() {
           </TableBody>
         </Table>
       </CardContent>
+
+      <Dialog open={bulkOpen} onOpenChange={(o) => { if (!bulkPosting) setBulkOpen(o); }}>
+        <DialogContent className="max-w-3xl">
+          <DialogHeader>
+            <DialogTitle>Bulk GRN preview</DialogTitle>
+          </DialogHeader>
+          <div className="space-y-3 text-sm">
+            <div className="flex flex-wrap gap-4">
+              <span className="text-foreground">Valid rows: <strong>{bulkRows.length}</strong></span>
+              <span className="text-destructive">Errors: <strong>{bulkErrors.length}</strong></span>
+              {bulkProgress && (
+                <span className="text-muted-foreground">Posted: {bulkProgress.done} / {bulkProgress.total} ({bulkProgress.failed.length} failed)</span>
+              )}
+            </div>
+
+            {bulkErrors.length > 0 && (
+              <div className="max-h-40 overflow-auto rounded border border-destructive/40 bg-destructive/5 p-2">
+                <div className="mb-1 font-medium text-destructive">Validation errors</div>
+                <ul className="space-y-0.5 text-xs">
+                  {bulkErrors.map((e, i) => (
+                    <li key={i}>Row {e.rowNumber}: {e.message}</li>
+                  ))}
+                </ul>
+              </div>
+            )}
+
+            {bulkRows.length > 0 && (
+              <div className="max-h-64 overflow-auto rounded border border-border">
+                <Table>
+                  <TableHeader>
+                    <TableRow>
+                      <TableHead>Row</TableHead>
+                      <TableHead>Material</TableHead>
+                      <TableHead>Location</TableHead>
+                      <TableHead className="text-right">Qty</TableHead>
+                      <TableHead className="text-right">Unit cost</TableHead>
+                      <TableHead>Vendor</TableHead>
+                    </TableRow>
+                  </TableHeader>
+                  <TableBody>
+                    {bulkRows.map((r) => (
+                      <TableRow key={r.rowNumber}>
+                        <TableCell>{r.rowNumber}</TableCell>
+                        <TableCell>{r.materialCode}</TableCell>
+                        <TableCell>{r.stockLocationCode}</TableCell>
+                        <TableCell className="text-right">{r.quantity}</TableCell>
+                        <TableCell className="text-right">{r.unitCost ?? "—"}</TableCell>
+                        <TableCell>{r.quality.vendor ?? "—"}</TableCell>
+                      </TableRow>
+                    ))}
+                  </TableBody>
+                </Table>
+              </div>
+            )}
+
+            {bulkProgress && bulkProgress.failed.length > 0 && (
+              <div className="max-h-40 overflow-auto rounded border border-destructive/40 bg-destructive/5 p-2">
+                <div className="mb-1 font-medium text-destructive">Post failures</div>
+                <ul className="space-y-0.5 text-xs">
+                  {bulkProgress.failed.map((f, i) => (
+                    <li key={i}>Row {f.rowNumber}: {f.message}</li>
+                  ))}
+                </ul>
+              </div>
+            )}
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setBulkOpen(false)} disabled={bulkPosting}>Close</Button>
+            <Button
+              onClick={() => void handleConfirmBulk()}
+              disabled={bulkPosting || bulkRows.length === 0 || (bulkProgress?.done === bulkRows.length)}
+            >
+              {bulkPosting ? `Posting ${bulkProgress?.done ?? 0}/${bulkRows.length}…` : `Post ${bulkRows.length} GRN${bulkRows.length === 1 ? "" : "s"}`}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </Card>
   );
 }
