@@ -1076,3 +1076,23 @@ Three additional admin-only loaders extend the migration console:
 - **Inventory adjustments** (`migration_create_adjustment_batch` / `_validate_adjustment` / `_commit_adjustment`): free-form ledger entries (`adjustment`, `issue`, `transfer_in`, `transfer_out`); signed quantity stored as given. Limit 5,000 rows/batch.
 
 Rollback (`migration_rollback_batch`) is now domain-aware: for `grn_history` it deletes paired `grn_logs` + `inventory_ledger`; for `heat_history` it deletes `material_consumption` + `inventory_ledger` + `heat_metallurgy` + `heat_logs`; for `inv_adjustment` it deletes `inventory_ledger`. All committed rows carry `is_migrated=true`, `migration_batch_id`, and `legacy_ref` for audit and reconciliation. Rollback requires `reason` (min 3 chars) and is only available while the batch status is `committed`.
+
+## User Management (2026-05-21)
+Adds three direct admin actions to AdminUsers on top of the existing maker-checker invite/delete stack. Login identifier remains email (unchanged); RBAC enum unchanged; no schema migration.
+
+**Edge functions** (`supabase/functions/`):
+- `admin-create-user` — now REQUIRES a password meeting the policy (≥8 chars, letter+digit, ≤72). Random-password fallback removed. Audit: `user.created`.
+- `admin-reset-password` (new) — body `{ userId, password }`. Verifies caller has `admin`/`super_admin`, validates the password, calls `auth.admin.updateUserById`. Audit: `user.password_reset` (password never persisted to the audit row).
+- `admin-set-user-active` (new) — body `{ userId, isActive }`. Verifies admin role, blocks self-deactivation, updates `profiles.is_active`. Audit: `user.activated` / `user.deactivated`.
+
+**Frontend**:
+- `src/lib/auth.ts` exports pure `validatePasswordStrength(pw)` shared by UI and tests.
+- `src/lib/users-admin.ts` (new) wraps the three edge functions via `supabase.functions.invoke`.
+- `src/pages/AdminUsers.tsx` renamed dialog to "Create user" with Password + Confirm fields; adds per-row Reset-password button, Active/Inactive Switch, and a Status column. Delete still queues to Approvals.
+- `src/lib/workspace.ts` — `ManageableProfile` gains `isActive`; `fetchManageableProfiles` selects `is_active`.
+- `src/components/AdminShell.tsx` — adds top-level "User Management" nav entry pointing at `/admin/system-control?tab=users`.
+
+**Tests** — `src/test/users-admin.test.ts` (11 cases): password validator boundaries + invoke payload contracts + error propagation.
+
+### Version History
+- 2026-05-21: Initial User Management module — direct create/reset-password/activate-deactivate, password policy, top-level nav entry.

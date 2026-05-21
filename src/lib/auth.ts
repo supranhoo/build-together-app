@@ -14,6 +14,22 @@ export type EmployeeProfile = Tables<"profiles"> & {
   role: string;
 };
 
+/**
+ * Password policy (POLICY.md → User Management):
+ *   - 8–72 characters (Supabase Auth caps at 72)
+ *   - must contain at least one letter AND one digit
+ * Pure function — kept in this module so client + tests share a single source
+ * with the server-side mirror in admin-reset-password / admin-create-user.
+ */
+export function validatePasswordStrength(pw: string): { ok: true } | { ok: false; reason: string } {
+  if (typeof pw !== "string" || pw.length === 0) return { ok: false, reason: "Password is required." };
+  if (pw.length < 8) return { ok: false, reason: "Password must be at least 8 characters." };
+  if (pw.length > 72) return { ok: false, reason: "Password must be 72 characters or fewer." };
+  if (!/[A-Za-z]/.test(pw)) return { ok: false, reason: "Password must contain a letter." };
+  if (!/\d/.test(pw)) return { ok: false, reason: "Password must contain a digit." };
+  return { ok: true };
+}
+
 export async function signInWithEmail(email: string, password: string) {
   return supabase.auth.signInWithPassword({ email, password });
 }

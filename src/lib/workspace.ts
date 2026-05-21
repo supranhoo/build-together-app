@@ -56,6 +56,7 @@ export interface ManageableProfile {
   displayName: string | null;
   department: string | null;
   jobTitle: string | null;
+  isActive: boolean;
 }
 
 export interface AuditLogRecord {
@@ -401,7 +402,7 @@ export async function updateUserProfile(input: UpdateUserProfileInput): Promise<
 export async function fetchManageableProfiles(): Promise<ManageableProfile[]> {
   const { data, error } = await client
     .from("profiles")
-    .select("user_id, display_name, department, job_title")
+    .select("user_id, display_name, department, job_title, is_active")
     .order("display_name");
 
   if (error) throw error;
@@ -411,6 +412,7 @@ export async function fetchManageableProfiles(): Promise<ManageableProfile[]> {
     displayName: row.display_name ?? null,
     department: row.department ?? null,
     jobTitle: row.job_title ?? null,
+    isActive: row.is_active !== false, // default to true when column unset
   }));
 }
 
