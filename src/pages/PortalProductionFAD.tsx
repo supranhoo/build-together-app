@@ -88,6 +88,10 @@ function recoveryColor(pct: number | null, minOk: number): string {
   return "text-emerald-600 font-bold";
 }
 
+export const FAD_MATERIAL_CELL_CLASS = "w-44 min-w-44 max-w-44";
+export const FAD_QTY_CELL_CLASS = "w-36 min-w-36";
+export const FAD_NUMERIC_INPUT_CLASS = "w-full min-w-[6.5rem] text-center font-mono tabular-nums [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none";
+
 /**
  * Editable percent input for reductant chemistry (FC / VM / Ash / Moisture).
  * Pulls its initial value from the Item Master, but the operator overrides it
@@ -147,7 +151,7 @@ function ReductantSpecInput({
             onChange(0);
           }
         }}
-        className={`h-8 text-center font-mono px-1 ${warn ? "text-amber-600 font-bold" : ""}`}
+        className={`h-8 px-1 ${FAD_NUMERIC_INPUT_CLASS} ${warn ? "text-amber-600 font-bold" : ""}`}
       />
       {isOverride && (
         <span
@@ -671,11 +675,11 @@ export default function PortalProductionFAD() {
                     </Button>
                   </CardHeader>
                   <CardContent className="p-3 overflow-x-auto">
-                    <Table className="text-xs [&_th]:h-8 [&_th]:px-2 [&_th]:py-1 [&_td]:py-1 [&_td]:px-2 [&_input]:h-8 [&_input]:text-xs [&_input]:px-2 [&_button[role=combobox]]:h-8 [&_button[role=combobox]]:text-xs [&_button[role=combobox]]:px-2">
+                    <Table className="min-w-[58rem] table-fixed text-xs [&_th]:h-8 [&_th]:px-2 [&_th]:py-1 [&_td]:py-1 [&_td]:px-2 [&_input]:h-8 [&_input]:text-xs [&_input]:px-2 [&_button[role=combobox]]:h-8 [&_button[role=combobox]]:text-xs [&_button[role=combobox]]:px-2">
                       <TableHeader>
                         <TableRow>
-                          <TableHead>Material</TableHead>
-                          <TableHead className="w-28">Qty (Wet MT)</TableHead>
+                          <TableHead className={FAD_MATERIAL_CELL_CLASS}>Material</TableHead>
+                          <TableHead className={FAD_QTY_CELL_CLASS}>Qty (Wet MT)</TableHead>
                           <TableHead className="w-24">Moisture %</TableHead>
                           <TableHead className="w-24">Mn %</TableHead>
                           <TableHead className="w-28 bg-muted/40">Mn Input (MT)</TableHead>
@@ -689,7 +693,7 @@ export default function PortalProductionFAD() {
                           return (
                           <Fragment key={r.id}>
                           <TableRow key={r.id}>
-                            <TableCell>
+                            <TableCell className={FAD_MATERIAL_CELL_CLASS}>
                               <MaterialPicker
                                 contextKey="fad.ore"
                                 profitCenterId={activeProfitCenterId ?? null}
@@ -699,8 +703,9 @@ export default function PortalProductionFAD() {
                                 placeholder="Pick ore"
                               />
                             </TableCell>
-                            <TableCell>
+                            <TableCell className={FAD_QTY_CELL_CLASS}>
                               <Input type="number" step="0.001" value={r.qtyWetMt}
+                                className={FAD_NUMERIC_INPUT_CLASS}
                                 onChange={(e) => updateRow(setOreRows, r.id, { qtyWetMt: Number(e.target.value) })} />
                             </TableCell>
                             <TableCell className={`text-center font-mono ${moistureWarn(r.moisturePct) ? "text-amber-600 font-bold" : ""}`} title="From item spec">
@@ -717,7 +722,7 @@ export default function PortalProductionFAD() {
                                 step="0.01"
                                 value={r.siPct}
                                 onChange={(e) => updateRow(setOreRows, r.id, { siPct: Number(e.target.value) })}
-                                className="h-8 text-center font-mono px-1"
+                                className={`h-8 px-1 ${FAD_NUMERIC_INPUT_CLASS}`}
                                 placeholder="0"
                               />
                             </TableCell>
@@ -758,12 +763,12 @@ export default function PortalProductionFAD() {
                     </Button>
                   </CardHeader>
                   <CardContent className="p-3 overflow-x-auto">
-                    <Table className="text-xs [&_th]:h-8 [&_th]:px-1.5 [&_th]:py-1 [&_td]:py-1 [&_td]:px-1.5 [&_input]:h-8 [&_input]:text-xs [&_input]:px-2 [&_button[role=combobox]]:h-8 [&_button[role=combobox]]:text-xs [&_button[role=combobox]]:px-2">
+                    <Table className="min-w-[64rem] table-fixed text-xs [&_th]:h-8 [&_th]:px-1.5 [&_th]:py-1 [&_td]:py-1 [&_td]:px-1.5 [&_input]:h-8 [&_input]:text-xs [&_input]:px-2 [&_button[role=combobox]]:h-8 [&_button[role=combobox]]:text-xs [&_button[role=combobox]]:px-2">
                       <TableHeader>
                         <TableRow>
-                          <TableHead>Material</TableHead>
+                          <TableHead className={FAD_MATERIAL_CELL_CLASS}>Material</TableHead>
                           <TableHead className="w-20">Type</TableHead>
-                          <TableHead className="w-24">Qty</TableHead>
+                          <TableHead className={FAD_QTY_CELL_CLASS}>Qty</TableHead>
                           <TableHead className="w-20">Unit</TableHead>
                           <TableHead className="w-20">Moist %</TableHead>
                           <TableHead className="w-20">FC %</TableHead>
@@ -779,7 +784,7 @@ export default function PortalProductionFAD() {
                           return (
                           <Fragment key={r.id}>
                           <TableRow key={r.id}>
-                            <TableCell>
+                            <TableCell className={FAD_MATERIAL_CELL_CLASS}>
                               <MaterialPicker
                                 contextKey="fad.reductant"
                                 profitCenterId={activeProfitCenterId ?? null}
@@ -799,8 +804,9 @@ export default function PortalProductionFAD() {
                                 </SelectContent>
                               </Select>
                             </TableCell>
-                            <TableCell>
+                            <TableCell className={FAD_QTY_CELL_CLASS}>
                               <Input type="number" step="0.01" value={r.qty}
+                                className={FAD_NUMERIC_INPUT_CLASS}
                                 onChange={(e) => updateRow(setReductantRows, r.id, { qty: Number(e.target.value) })} />
                             </TableCell>
                             <TableCell>
@@ -883,11 +889,11 @@ export default function PortalProductionFAD() {
                       </Button>
                     </CardHeader>
                     <CardContent className="p-3 overflow-x-auto">
-                      <Table className="text-xs [&_th]:h-8 [&_th]:px-2 [&_th]:py-1 [&_td]:py-1 [&_td]:px-2 [&_input]:h-8 [&_input]:text-xs [&_input]:px-2 [&_button[role=combobox]]:h-8 [&_button[role=combobox]]:text-xs [&_button[role=combobox]]:px-2">
+                      <Table className="min-w-[46rem] table-fixed text-xs [&_th]:h-8 [&_th]:px-2 [&_th]:py-1 [&_td]:py-1 [&_td]:px-2 [&_input]:h-8 [&_input]:text-xs [&_input]:px-2 [&_button[role=combobox]]:h-8 [&_button[role=combobox]]:text-xs [&_button[role=combobox]]:px-2">
                         <TableHeader>
                           <TableRow>
-                            <TableHead>Material</TableHead>
-                            <TableHead className="w-28">Qty (MT)</TableHead>
+                            <TableHead className={FAD_MATERIAL_CELL_CLASS}>Material</TableHead>
+                            <TableHead className={FAD_QTY_CELL_CLASS}>Qty (MT)</TableHead>
                             <TableHead className="w-24">Moisture %</TableHead>
                             <TableHead className="w-28 bg-muted/40">Dry Qty (MT)</TableHead>
                             <TableHead className="w-10" />
@@ -899,7 +905,7 @@ export default function PortalProductionFAD() {
                             return (
                             <Fragment key={r.id}>
                             <TableRow key={r.id}>
-                              <TableCell>
+                              <TableCell className={FAD_MATERIAL_CELL_CLASS}>
                                 <MaterialPicker
                                   contextKey="fad.flux"
                                   profitCenterId={activeProfitCenterId ?? null}
@@ -909,8 +915,9 @@ export default function PortalProductionFAD() {
                                   placeholder="Pick flux"
                                 />
                               </TableCell>
-                              <TableCell>
+                              <TableCell className={FAD_QTY_CELL_CLASS}>
                                 <Input type="number" step="0.01" value={r.qtyMt}
+                                  className={FAD_NUMERIC_INPUT_CLASS}
                                   onChange={(e) => updateRow(setFluxRows, r.id, { qtyMt: Number(e.target.value) })} />
                               </TableCell>
                               <TableCell className={`text-center font-mono ${moistureWarn(r.moisturePct) ? "text-amber-600 font-bold" : ""}`} title="From item spec">
@@ -951,18 +958,18 @@ export default function PortalProductionFAD() {
                       </Button>
                     </CardHeader>
                     <CardContent className="p-3 overflow-x-auto">
-                      <Table className="text-xs [&_th]:h-8 [&_th]:px-2 [&_th]:py-1 [&_td]:py-1 [&_td]:px-2 [&_input]:h-8 [&_input]:text-xs [&_input]:px-2 [&_button[role=combobox]]:h-8 [&_button[role=combobox]]:text-xs [&_button[role=combobox]]:px-2">
+                      <Table className="min-w-[34rem] table-fixed text-xs [&_th]:h-8 [&_th]:px-2 [&_th]:py-1 [&_td]:py-1 [&_td]:px-2 [&_input]:h-8 [&_input]:text-xs [&_input]:px-2 [&_button[role=combobox]]:h-8 [&_button[role=combobox]]:text-xs [&_button[role=combobox]]:px-2">
                         <TableHeader>
                           <TableRow>
-                            <TableHead>Material</TableHead>
-                            <TableHead className="w-32">Qty (Kg)</TableHead>
+                            <TableHead className={FAD_MATERIAL_CELL_CLASS}>Material</TableHead>
+                            <TableHead className={FAD_QTY_CELL_CLASS}>Qty (Kg)</TableHead>
                             <TableHead className="w-10" />
                           </TableRow>
                         </TableHeader>
                         <TableBody>
                           {pasteRows.map((p) => (
                             <TableRow key={p.id}>
-                              <TableCell>
+                              <TableCell className={FAD_MATERIAL_CELL_CLASS}>
                                 <Select value={p.materialId} onValueChange={(v) => updateRow(setPasteRows, p.id, { materialId: v })}>
                                   <SelectTrigger><SelectValue placeholder="Pick paste" /></SelectTrigger>
                                   <SelectContent>
@@ -972,8 +979,9 @@ export default function PortalProductionFAD() {
                                   </SelectContent>
                                 </Select>
                               </TableCell>
-                              <TableCell>
+                              <TableCell className={FAD_QTY_CELL_CLASS}>
                                 <Input type="number" step="0.01" value={p.qtyKg}
+                                  className={FAD_NUMERIC_INPUT_CLASS}
                                   onChange={(e) => updateRow(setPasteRows, p.id, { qtyKg: Number(e.target.value) })} />
                               </TableCell>
                               <TableCell>
