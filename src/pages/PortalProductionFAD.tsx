@@ -958,18 +958,18 @@ export default function PortalProductionFAD() {
                       </Button>
                     </CardHeader>
                     <CardContent className="p-3 overflow-x-auto">
-                      <Table className="text-xs [&_th]:h-8 [&_th]:px-2 [&_th]:py-1 [&_td]:py-1 [&_td]:px-2 [&_input]:h-8 [&_input]:text-xs [&_input]:px-2 [&_button[role=combobox]]:h-8 [&_button[role=combobox]]:text-xs [&_button[role=combobox]]:px-2">
+                      <Table className="min-w-[34rem] table-fixed text-xs [&_th]:h-8 [&_th]:px-2 [&_th]:py-1 [&_td]:py-1 [&_td]:px-2 [&_input]:h-8 [&_input]:text-xs [&_input]:px-2 [&_button[role=combobox]]:h-8 [&_button[role=combobox]]:text-xs [&_button[role=combobox]]:px-2">
                         <TableHeader>
                           <TableRow>
-                            <TableHead>Material</TableHead>
-                            <TableHead className="w-32">Qty (Kg)</TableHead>
+                            <TableHead className={FAD_MATERIAL_CELL_CLASS}>Material</TableHead>
+                            <TableHead className={FAD_QTY_CELL_CLASS}>Qty (Kg)</TableHead>
                             <TableHead className="w-10" />
                           </TableRow>
                         </TableHeader>
                         <TableBody>
                           {pasteRows.map((p) => (
                             <TableRow key={p.id}>
-                              <TableCell>
+                              <TableCell className={FAD_MATERIAL_CELL_CLASS}>
                                 <Select value={p.materialId} onValueChange={(v) => updateRow(setPasteRows, p.id, { materialId: v })}>
                                   <SelectTrigger><SelectValue placeholder="Pick paste" /></SelectTrigger>
                                   <SelectContent>
@@ -979,8 +979,9 @@ export default function PortalProductionFAD() {
                                   </SelectContent>
                                 </Select>
                               </TableCell>
-                              <TableCell>
+                              <TableCell className={FAD_QTY_CELL_CLASS}>
                                 <Input type="number" step="0.01" value={p.qtyKg}
+                                  className={FAD_NUMERIC_INPUT_CLASS}
                                   onChange={(e) => updateRow(setPasteRows, p.id, { qtyKg: Number(e.target.value) })} />
                               </TableCell>
                               <TableCell>
