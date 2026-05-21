@@ -17,7 +17,7 @@ import {
 } from "@/lib/inventory";
 import { fetchMasterItems, fetchCostRates, type MasterItem, type CostRate } from "@/lib/master-data";
 import { classifyStockStatus } from "@/lib/inventory-min-max";
-import { latestRateOn } from "@/lib/costing";
+import { resolveLatestRate } from "@/lib/costing";
 
 export default function PortalInventoryDashboard() {
   const { activeProfitCenter } = useWorkspace();
@@ -51,7 +51,7 @@ export default function PortalInventoryDashboard() {
       const qty = balances
         .filter((b) => b.materialId === item.id)
         .reduce((sum, b) => sum + b.quantity, 0);
-      const rate = latestRateOn(rates, item.id, today);
+      const rate = resolveLatestRate(rates, ledger, item.id, today);
       const value = rate ? qty * rate.rate : null;
       const status = classifyStockStatus(qty, {
         minLevel: item.minLevel,

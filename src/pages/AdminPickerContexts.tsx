@@ -12,6 +12,13 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Switch } from "@/components/ui/switch";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { useWorkspace } from "@/hooks/use-workspace";
 import { useToast } from "@/hooks/use-toast";
@@ -21,6 +28,7 @@ import {
   upsertPickerContext,
   type PickerContext,
 } from "@/lib/picker-contexts";
+import { fetchMasterItems, type MasterItem } from "@/lib/master-data";
 
 const BLANK = {
   id: "" as string | undefined,
@@ -39,14 +47,43 @@ export default function AdminPickerContexts() {
   const [rows, setRows] = useState<PickerContext[]>([]);
   const [form, setForm] = useState({ ...BLANK });
   const [saving, setSaving] = useState(false);
+  const [items, setItems] = useState<MasterItem[]>([]);
 
   const reload = async () => {
     if (!activeProfitCenter) return;
-    try { setRows(await fetchPickerContexts(activeProfitCenter.id)); }
+    try {
+      const [pickerRows, masterItems] = await Promise.all([
+        fetchPickerContexts(activeProfitCenter.id),
+        fetchMasterItems(activeProfitCenter.id),
+      ]);
+      setRows(pickerRows);
+      setItems(masterItems);
+    }
     catch (e) { toast({ title: "Failed to load", description: e instanceof Error ? e.message : "", variant: "destructive" }); }
   };
 
   useEffect(() => { void reload(); }, [activeProfitCenter?.id]);
+
+  // Distinct group/subgroup labels from master data — drives the Select options
+  // so admins cannot invent a label that no material actually uses. Includes
+  // the currently-selected value so existing rows pointing at legacy labels
+  // ('ORE', 'REDUCTANT', …) remain editable.
+  const groupOptions = useMemo(() => {
+    const set = new Set<string>();
+    for (const it of items) if (it.groupName && it.groupName.trim()) set.add(it.groupName.trim());
+    if (form.groupName) set.add(form.groupName);
+    return Array.from(set).sort((a, b) => a.localeCompare(b));
+  }, [items, form.groupName]);
+  const subgroupOptions = useMemo(() => {
+    const set = new Set<string>();
+    for (const it of items) {
+      if (!form.groupName || (it.groupName ?? "").trim().toLowerCase() === form.groupName.trim().toLowerCase()) {
+        if (it.subgroup && it.subgroup.trim()) set.add(it.subgroup.trim());
+      }
+    }
+    if (form.subgroup) set.add(form.subgroup);
+    return Array.from(set).sort((a, b) => a.localeCompare(b));
+  }, [items, form.groupName, form.subgroup]);
 
   const workspaceRows = useMemo(
     () => rows.filter((r) => r.profitCenterId === activeProfitCenter?.id),
@@ -131,11 +168,31 @@ export default function AdminPickerContexts() {
             </div>
             <div>
               <Label>Group</Label>
-              <Input value={form.groupName} onChange={(e) => setForm({ ...form, groupName: e.target.value })} placeholder="ORE / REDUCTANT / FLUXES / PASTE" />
+              <Select
+                value={form.groupName || "__any__"}
+                onValueChange={(v) => setForm({ ...form, groupName: v === "__any__" ? "" : v, subgroup: "" })}
+              >
+                <SelectTrigger><SelectValue placeholder="Any group" /></SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="__any__">Any group</SelectItem>
+                  {groupOptions.map((g) => <SelectItem key={g} value={g}>{g}</SelectItem>)}
+                </SelectContent>
+              </Select>
+              <p className="mt-1 text-xs text-muted-foreground">From master data — admins cannot invent labels.</p>
             </div>
             <div>
               <Label>Subgroup</Label>
-              <Input value={form.subgroup} onChange={(e) => setForm({ ...form, subgroup: e.target.value })} placeholder="SINTER / COKE …" />
+              <Select
+                value={form.subgroup || "__any__"}
+                onValueChange={(v) => setForm({ ...form, subgroup: v === "__any__" ? "" : v })}
+                disabled={!form.groupName}
+              >
+                <SelectTrigger><SelectValue placeholder="Any subgroup" /></SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="__any__">Any subgroup</SelectItem>
+                  {subgroupOptions.map((s) => <SelectItem key={s} value={s}>{s}</SelectItem>)}
+                </SelectContent>
+              </Select>
             </div>
             <div className="flex items-end gap-4">
               <div className="flex items-center gap-2"><Switch checked={form.allowUnmapped} onCheckedChange={(v) => setForm({ ...form, allowUnmapped: v })} /><Label>Allow unmapped</Label></div>

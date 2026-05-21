@@ -12,7 +12,7 @@ import {
   type StockLocation,
 } from "@/lib/inventory";
 import { fetchMasterItems, fetchCostRates, type MasterItem, type CostRate } from "@/lib/master-data";
-import { latestRateOn } from "@/lib/costing";
+import { resolveLatestRate } from "@/lib/costing";
 import { exportRows } from "@/lib/excel-export";
 
 export default function PortalInventoryReports() {
@@ -43,7 +43,7 @@ export default function PortalInventoryReports() {
   const exportInventoryDss = () => {
     const stockRows = balances.map((b) => {
       const item = matLabel(b.materialId);
-      const rate = item ? latestRateOn(rates, item.id, today) : null;
+      const rate = item ? resolveLatestRate(rates, ledger, item.id, today) : null;
       return {
         Material: item?.code ?? b.materialId,
         Name: item?.name ?? "",

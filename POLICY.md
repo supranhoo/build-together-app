@@ -568,3 +568,24 @@ max_level     = daily × max_cover_days       (default 30)
 - All commits are transactional and audit-logged (`audit_logs.entity_type='migration_batch'`, action `commit` or `rollback`).
 - Historical heat commits intentionally insert paired `inventory_ledger` rows directly rather than going through the live consumption flow so balances are dated at the original `tap_time`.
 - Rollback is only allowed for batches in status `committed`, requires a reason, and cascades to paired tables per domain.
+
+## Inventory Rate Resolution
+
+The "latest rate" shown for any material in valuation contexts (stock
+value, dashboards, exports) follows a single resolution order:
+
+1. Admin-maintained `cost_rates` row effective on the date.
+2. Most recent `inventory_ledger.unit_cost` on/before the date (opening
+   balance or GRN receipt).
+3. No rate available — display `—`.
+
+Standard / planned rates (Cost Sheet "Std rate", Variance) continue to
+require an explicit `cost_rates` entry; they do NOT fall back to ledger.
+
+## Master Data ownership for picker contexts
+
+Picker context group/subgroup labels reference the canonical labels
+defined in the Materials master. Admins cannot create new group or
+subgroup values from the Picker Contexts page — they must first exist in
+Materials. This prevents drift where a context filters on a label no
+material carries (which surfaces as an empty dropdown).

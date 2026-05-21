@@ -1102,3 +1102,25 @@ Adds three direct admin actions to AdminUsers on top of the existing maker-check
 - 2026-05-21: Initial User Management module — direct create/reset-password/activate-deactivate, password policy, top-level nav entry.
 - 2026-05-21: Improved User Management error surfacing for create/reset/activate-deactivate edge-function failures; no policy or schema change.
 - 2026-05-21: Added Email column to the users table and admin-only Change Email action (`admin-change-user-email` edge function); `profiles.email` mirror column added and backfilled.
+
+## Inventory rate resolution (valuation)
+
+`resolveLatestRate(rates, ledger, materialId, onDate)` in `src/lib/costing.ts`
+returns the rate used by valuation displays (Inventory Dashboard "Stock value
+by item", Reports export). Resolution order:
+
+1. `cost_rates` admin override (`latestRateOn`)
+2. Latest `inventory_ledger.unit_cost` ≤ `onDate` (opening balance / GRN)
+3. `null`
+
+`latestRateOn` alone is reserved for **standard / planned** rates (Cost
+Sheet "Std rate", Variance "stdRate") — it must not be used for valuation,
+because it ignores receipts.
+
+## Picker contexts vs master data
+
+`picker_contexts.group_name` and `subgroup` must reference values that
+exist in `materials.group_name` / `materials.subgroup` (case-insensitive
+exact match in `filterMaterialsByContext`). The Admin · Picker Contexts
+page enforces this by populating the Group/Subgroup pickers from
+distinct master-data labels. Free-text entry is no longer allowed.
