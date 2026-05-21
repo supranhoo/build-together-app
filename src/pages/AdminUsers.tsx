@@ -214,6 +214,32 @@ export default function AdminUsers() {
     } finally {
       setDeletingBusy(false);
     }
+
+  const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+
+  const handleChangeEmail = async () => {
+    if (!emailTarget) return;
+    const next = newLoginEmail.trim();
+    if (!EMAIL_RE.test(next)) {
+      toast({ title: "Invalid email", variant: "destructive" });
+      return;
+    }
+    if (next.toLowerCase() === (emailTarget.email ?? "").toLowerCase()) {
+      toast({ title: "Email unchanged", description: "Enter a different address.", variant: "destructive" });
+      return;
+    }
+    setChangingEmail(true);
+    try {
+      await changeUserEmail({ userId: emailTarget.userId, email: next });
+      toast({ title: "Email updated", description: `${emailTarget.displayName ?? "User"} now signs in with ${next}.` });
+      setEmailTarget(null);
+      setNewLoginEmail("");
+      await refreshWorkspace();
+    } catch (e) {
+      toast({ title: "Could not change email", description: (e as Error).message, variant: "destructive" });
+    } finally {
+      setChangingEmail(false);
+    }
   };
 
   return (
@@ -229,12 +255,22 @@ export default function AdminUsers() {
           <TableHeader>
             <TableRow>
               <TableHead>Display name</TableHead>
+              <TableHead>Email</TableHead>
               <TableHead>Department</TableHead>
               <TableHead>Job title</TableHead>
               <TableHead>Status</TableHead>
               <TableHead className="text-right">Actions</TableHead>
             </TableRow>
           </TableHeader>
+          <TableBody>
+            {manageableProfiles.map((profile) => {
+              const isSelf = profile.userId === session?.user?.id;
+              return (
+                <TableRow key={profile.userId}>
+                  <TableCell className="font-medium text-foreground">{profile.displayName || "—"}</TableCell>
+                  <TableCell className="text-muted-foreground">{profile.email || "—"}</TableCell>
+                  <TableCell>{profile.department || "—"}</TableCell>
+                  <TableCell>{profile.jobTitle || "—"}</TableCell>
           <TableBody>
             {manageableProfiles.map((profile) => {
               const isSelf = profile.userId === session?.user?.id;
