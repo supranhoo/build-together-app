@@ -17,7 +17,7 @@ import {
 } from "@/lib/inventory";
 import { fetchMasterItems, fetchCostRates, type MasterItem, type CostRate } from "@/lib/master-data";
 import { classifyStockStatus } from "@/lib/inventory-min-max";
-import { latestRateOn } from "@/lib/costing";
+import { resolveLatestRate } from "@/lib/costing";
 
 export default function PortalInventoryDashboard() {
   const { activeProfitCenter } = useWorkspace();
