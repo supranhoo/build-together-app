@@ -3,10 +3,31 @@ import {
   buildCostBreakdown,
   conversionCost,
   daysBetween,
+  latestLedgerRate,
   latestRateOn,
   materialCost,
+  resolveLatestRate,
 } from "@/lib/costing";
 import type { CostRate } from "@/lib/master-data";
+import type { InventoryLedgerEntry } from "@/lib/inventory";
+
+function led(overrides: Partial<InventoryLedgerEntry>): InventoryLedgerEntry {
+  return {
+    id: Math.random().toString(36),
+    profitCenterId: "p",
+    materialId: "ore",
+    stockLocationId: "loc",
+    movementType: "receipt",
+    quantity: 1,
+    unitCost: 100,
+    referenceType: null,
+    referenceId: null,
+    notes: null,
+    createdBy: "u",
+    createdAt: "2026-01-01T00:00:00.000Z",
+    ...overrides,
+  };
+}
 
 const rates: CostRate[] = [
   { id: "1", profitCenterId: "p", materialId: "ore", rate: 100, costType: "variable", allocationBasis: null, status: "ACTIVE", effectiveFrom: "2026-01-01", effectiveTo: null, notes: null, createdBy: "u", createdAt: "" },
