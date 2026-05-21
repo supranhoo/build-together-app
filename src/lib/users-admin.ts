@@ -20,9 +20,26 @@ export interface CreateUserDirectInput {
   jobTitle?: string | null;
 }
 
+async function readFunctionErrorMessage(error: unknown): Promise<string> {
+  const fallback = error instanceof Error ? error.message : "Edge Function request failed";
+  const context = (error as { context?: Response | null } | null)?.context;
+
+  if (!context) return fallback;
+
+  try {
+    const payload = await context.clone().json() as { error?: unknown; message?: unknown };
+    if (typeof payload.error === "string" && payload.error.trim()) return payload.error;
+    if (typeof payload.message === "string" && payload.message.trim()) return payload.message;
+  } catch {
+    // Fall back to the SDK error message when the function did not return JSON.
+  }
+
+  return fallback;
+}
+
 async function invoke<T = unknown>(name: string, body: unknown): Promise<T> {
   const { data, error } = await supabase.functions.invoke(name, { body });
-  if (error) throw error;
+  if (error) throw new Error(await readFunctionErrorMessage(error));
   const payload = data as { error?: string } | null;
   if (payload && typeof payload === "object" && payload.error) {
     throw new Error(payload.error);
