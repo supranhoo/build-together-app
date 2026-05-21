@@ -589,3 +589,11 @@ defined in the Materials master. Admins cannot create new group or
 subgroup values from the Picker Contexts page — they must first exist in
 Materials. This prevents drift where a context filters on a label no
 material carries (which surfaces as an empty dropdown).
+
+## FAD Entry UX Policy
+
+FAD consumption tables must keep quantity inputs visibly editable on compact
+screens. Long material descriptions may truncate or require horizontal scroll,
+but they must not collapse Qty fields or make numeric entry unreadable. This is
+a presentation rule only; it must not alter FAD formulas, validation, inventory
+posting, or metallurgical source-of-truth rules.
