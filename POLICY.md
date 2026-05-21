@@ -417,7 +417,7 @@
 
 ## Maker-Checker Approvals (2026-04-30)
 - **Privileged role grants/revokes** (`admin`, `super_admin`) MUST go through `pending_approvals`. Non-privileged roles (manager, operator, analyst, user) apply directly under RLS.
-- **User lifecycle** — invite (create) and deactivate (delete) MUST go through approvals. Soft-delete via `profiles.is_active=false` + revoke roles + deactivate PC assignments. Self-deletion is blocked in UI.
+- **User lifecycle** — *Delete* (deactivate via approval) MUST go through approvals: soft-delete via `profiles.is_active=false` + revoke roles + deactivate PC assignments. Self-deletion is blocked in UI. *Create* is a DIRECT admin action: admin supplies the initial password via `admin-create-user` (no approval). *Reset password* and *Activate/Deactivate toggle* are also direct admin actions (`admin-reset-password`, `admin-set-user-active`). All four actions are audit-logged server-side. See "User Management (2026-05-21)" below.
 - **Bulk PC↔module mapping changes** of `BULK_APPROVAL_THRESHOLD` (5) or more toggles in one operation MUST go through approvals. Single toggles apply directly.
 - **Disable confirmation (2026-05-13).** Any module-mapping action that *disables* a module — single toggle or row "Disable all" — MUST surface a confirm dialog naming the Profit Center and module(s) before persisting. Enabling stays one-click. Rationale: disable is destructive (hides modules from the workspace nav) and toggles save immediately, so accidental clicks were causing unintended outages.
 - **Separation of duties** — the requester can never approve their own item; enforced both in the `pending_approvals` UPDATE RLS policy and re-checked in the edge function.
