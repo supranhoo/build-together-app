@@ -88,7 +88,7 @@ function recoveryColor(pct: number | null, minOk: number): string {
   return "text-emerald-600 font-bold";
 }
 
-export const FAD_MATERIAL_CELL_CLASS = "min-w-[22rem] max-w-[28rem]";
+export const FAD_MATERIAL_CELL_CLASS = "w-44 min-w-44 max-w-44";
 export const FAD_QTY_CELL_CLASS = "w-36 min-w-36";
 export const FAD_NUMERIC_INPUT_CLASS = "w-full min-w-[6.5rem] text-center font-mono tabular-nums [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none";
 
