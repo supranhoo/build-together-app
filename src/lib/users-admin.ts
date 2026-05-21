@@ -58,3 +58,7 @@ export function resetUserPassword(input: { userId: string; password: string }) {
 export function setUserActive(input: { userId: string; isActive: boolean }) {
   return invoke("admin-set-user-active", input);
 }
+
+export function changeUserEmail(input: { userId: string; email: string }) {
+  return invoke("admin-change-user-email", input);
+}
