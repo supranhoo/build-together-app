@@ -214,8 +214,10 @@ export default function AdminUsers() {
     } finally {
       setDeletingBusy(false);
     }
+  };
 
   const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+
 
   const handleChangeEmail = async () => {
     if (!emailTarget) return;
