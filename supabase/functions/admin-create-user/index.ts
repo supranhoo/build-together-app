@@ -52,11 +52,20 @@ Deno.serve(async (req) => {
     if (!body?.email || typeof body.email !== "string") {
       return json({ error: "email_required" }, 400);
     }
+    // Admin MUST supply a password (POLICY.md → User Management).
+    // Mirrors validatePasswordStrength() in src/lib/auth.ts.
+    const pw = body.password;
+    if (typeof pw !== "string") return json({ error: "password_required" }, 400);
+    if (pw.length < 8) return json({ error: "password_too_short" }, 400);
+    if (pw.length > 72) return json({ error: "password_too_long" }, 400);
+    if (!/[A-Za-z]/.test(pw) || !/\d/.test(pw)) {
+      return json({ error: "password_needs_letter_and_digit" }, 400);
+    }
 
-    // Create auth user (auto-confirmed; admin invite flow)
+    // Create auth user (auto-confirmed; admin sets credentials directly).
     const { data: created, error: createErr } = await admin.auth.admin.createUser({
       email: body.email,
-      password: body.password ?? crypto.randomUUID() + "Aa1!",
+      password: pw,
       email_confirm: true,
       user_metadata: { display_name: body.displayName ?? body.email.split("@")[0] },
     });
