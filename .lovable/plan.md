@@ -1,67 +1,92 @@
-# User Login Management — additive UI + admin actions
+# Surface and edit user email in Admin > User Management
 
-Additive on top of the existing RBAC / Login / AdminUsers stack. No changes to login identifier (still email), maker-checker rules untouched for create/delete. We add three things admins are missing today: direct password set on create, password reset, and an active/inactive toggle. Plus a clearer menu entry.
+## Goal
 
-## Scope
+Two additive changes to the User Management screen:
 
-In:
-1. Create user with admin-chosen password (bypass approval), audit-logged.
-2. Reset password action for any managed user.
-3. Activate / Deactivate toggle on the users table (direct, audit-logged).
-4. "User Management" entry under the Admin menu pointing at the existing AdminUsers page.
-5. Password strength minimums (>= 8 chars, mixed) — client + server validated.
-6. DOCUMENTATION.md + POLICY.md updated in same response.
-7. Unit tests for new helpers and edge function input validation.
+1. Show each user's login email in the users table so admins can map a row to its login identity.
+2. Let an admin change a user's email — both the auth login email and the mirror shown in the table.
 
-Out (explicitly):
-- Separate username/User ID field (email stays the login).
-- Replacing the multi-role enum with two roles.
-- Removing existing maker-checker for delete (kept).
-- Self-service signup (already disabled).
+No policy changes beyond what's described here; all existing behaviour (create, reset password, activate/deactivate, delete-via-approval) is preserved.
 
-## Pre-implementation risk
+## What the user sees
 
-- **Data**: No schema change. `profiles.is_active` already exists; we just expose it. No migration needed.
-- **Workflow**: Policy change — `user.create` no longer requires approval when admin supplies password. POLICY.md must be updated in the same commit. `user.delete` approval flow is preserved.
-- **UI/UX**: AdminUsers gains 3 buttons (Reset password, Activate/Deactivate) and the Invite dialog gets a Password field with strength meter. Menu wording change only.
-- **Regression risk**: `admin-create-user` edge function already accepts `password`; we are tightening validation, not changing the contract. Existing approval-driven path through `admin-approve-action` continues to work for callers that still queue.
-- **Mitigation**: Feature is admin-only behind `RequireAdmin`; all three new actions write `audit_logs` rows; password never logged; edge function rejects weak passwords server-side; tests cover validator + payload shape.
+- Users table gains an **Email** column right after Display name.
+- Each row gets a new **Change email** action (pencil/at-sign icon, next to "Reset password").
+- A dialog opens with the current email pre-filled and a single "New email *" input.
+  - Validation: must look like an email, must differ from current.
+  - On submit, a toast confirms success or surfaces the backend error verbatim (e.g. "Email already in use").
+- The "Create user" dialog already collects email; no change there.
+- The "Edit user profile" dialog stays focused on display name / department / job title (no email there — email is a credential, not a profile field).
 
-## Changes
+## Technical design
+
+### Where email lives
+
+Email is owned by `auth.users` (managed by Supabase). To avoid an N+1 query per row and to keep RLS simple, we add a **read-only mirror column** `email` on `public.profiles` and keep it in sync from the admin edge functions that already mutate auth.
+
+```text
+auth.users.email  ──(write via service role on create/change)──▶  profiles.email
+                                                                       │
+                                                                       ▼
+                                                       fetchManageableProfiles SELECT
+```
+
+### Database migration (additive)
+
+- Add `profiles.email text` (nullable, unique where not null via partial index).
+- Backfill: `UPDATE profiles p SET email = u.email FROM auth.users u WHERE p.user_id = u.id;`
+- No RLS change needed — existing "Users can view their own or manageable profiles" policy already covers it.
+- Trigger `handle_new_user_profile` (already present) is extended to also copy `NEW.email` into `profiles.email` on insert, so future direct signups (if ever re-enabled) stay consistent.
 
 ### Edge functions
-- `admin-create-user/index.ts`: require `password` (min 8, must contain letter + digit), drop the random fallback. Add zod validation. Audit row stays.
-- New `admin-reset-password/index.ts`: admin-only (verify caller role like the create function); body `{ userId, password }`; calls `admin.auth.admin.updateUserById(userId, { password })`; writes `audit_logs` action `user.password_reset` (never logs the password).
-- New `admin-set-user-active/index.ts`: admin-only; body `{ userId, isActive }`; updates `profiles.is_active`; audit `user.activated` / `user.deactivated`. Prevent self-deactivation.
+
+- **`admin-create-user`** — after `admin.auth.admin.createUser`, also write `email` into the profile update block (currently only updates display_name/department/job_title).
+- **`admin-change-user-email`** (new) — mirrors `admin-reset-password`:
+  - Auth: Bearer JWT, caller must hold `admin` or `super_admin`.
+  - Input: `{ userId: string, email: string }`. Validate email shape, length ≤ 255.
+  - Calls `admin.auth.admin.updateUserById(userId, { email, email_confirm: true })`. `email_confirm:true` matches the existing "admin sets credentials directly" model (POLICY.md) — no re-verification mail required.
+  - On success, `UPDATE profiles SET email = $new WHERE user_id = $userId`.
+  - Writes an audit row: `entity_type='user'`, `action='user.email_changed'`, `change_summary={ before, after }`.
+  - Blocks self-change (`callerId === userId`) — admins must use account recovery for their own login, same guard pattern as `admin-set-user-active`.
+  - Returns backend error messages verbatim via the existing `readFunctionErrorMessage` path so the UI surfaces e.g. "Email address is already registered".
 
 ### Frontend
-- `src/lib/auth.ts`: add `validatePasswordStrength(pw): { ok: boolean; reason?: string }` pure helper. Exported for tests.
-- `src/lib/users-admin.ts` (new): thin wrappers `createUserDirect`, `resetUserPassword`, `setUserActive` that invoke the edge functions via `supabase.functions.invoke`.
-- `src/pages/AdminUsers.tsx`:
-  - Invite dialog renamed to "Create user"; add Password + Confirm fields; on submit call `createUserDirect` (no approval) when password supplied. Show inline strength error.
-  - Add "Reset password" button per row → small dialog with new password.
-  - Add Active/Inactive switch in the table; toggling calls `setUserActive`. Disabled for the current user's own row.
-  - Show `is_active` column.
-- `src/components/AdminShell.tsx` (menu): add or rename a top-level "User Management" link routing to the existing System Control → Users tab (`/admin/system?tab=users`). The underlying page is unchanged.
 
-### Docs & policy
-- DOCUMENTATION.md: new "User Management" section listing the 3 admin actions, password rules, audit events, edge-function contracts.
-- POLICY.md: under Maker-Checker, clarify that `user.create` is direct when password supplied by admin; `user.delete` remains maker-checker. Add password policy line.
+- `src/lib/workspace.ts`
+  - Add `email: string | null` to `ManageableProfile`.
+  - `fetchManageableProfiles`: include `email` in the SELECT list and map it.
+- `src/lib/users-admin.ts`
+  - Add `changeUserEmail({ userId, email })` wrapper around `supabase.functions.invoke('admin-change-user-email', ...)`, reusing the existing error-extraction helper.
+- `src/pages/AdminUsers.tsx`
+  - Add **Email** column header + cell (`profile.email ?? "—"`).
+  - Add a "Change email" icon button per row (disabled for self, same rule as delete).
+  - Add a `changeEmailTarget` dialog with `newEmail` state, validation, and a `handleChangeEmail` submit that calls the wrapper, toasts, and `refreshWorkspace()`.
 
-### Tests
-- `src/test/users-admin.test.ts`: `validatePasswordStrength` happy/sad cases; invoke wrappers shape payloads correctly (mock `supabase.functions.invoke`).
-- Edge functions: a smoke test for the zod validator on weak password / missing fields.
+### Tests (TDD, per project rules)
 
-## Verification
+- `src/test/users-admin.test.ts`
+  - `changeUserEmail` invokes `admin-change-user-email` with `{ userId, email }`.
+  - Surfaces non-2xx backend message ("Email address is already registered").
+  - Throws on transport error.
+- `src/test/admin-users.test.ts`
+  - `fetchManageableProfiles` maps the new `email` column.
+- Edge-function Deno test for `admin-change-user-email`:
+  - 401 without bearer.
+  - 403 for non-admin caller.
+  - 400 for malformed email or self-target.
+  - 200 happy path updates profile mirror and writes audit row (mocked admin client).
 
-1. Create user with weak password → blocked client + server, error toast.
-2. Create user with valid password → user appears in table, can sign in immediately.
-3. Reset password → user can sign in with new one; audit row written.
-4. Toggle Deactivate → user blocked at next sign-in (existing `is_active` guard); cannot toggle self.
-5. Existing approval-driven delete still queues to Approvals inbox.
-6. All existing AdminUsers tests + new tests pass.
+## Risk & impact (per project knowledge §9)
 
-## Files touched
+- **Data**: one nullable column on `profiles`, backfilled once. No historical data loss.
+- **Workflow**: admins gain a new direct action; same role gate (`admin`/`super_admin`) as existing user-lifecycle functions.
+- **UI/UX**: one extra column + one extra icon button; dialog reuses existing styling.
+- **Regression risk**: drift between `auth.users.email` and `profiles.email` if email is changed outside the new function (e.g. directly in the Supabase dashboard). Mitigation: documented in POLICY.md as "Email must be changed via Admin > User Management"; backfill query can be re-run if drift is suspected.
+- **Security**: email is already considered visible to admins (they can list users); RLS unchanged. Self-email-change blocked to prevent an admin locking themselves out by typo. Audit log captures before/after.
 
-Created: `supabase/functions/admin-reset-password/index.ts`, `supabase/functions/admin-set-user-active/index.ts`, `src/lib/users-admin.ts`, `src/test/users-admin.test.ts`.
-Edited: `supabase/functions/admin-create-user/index.ts`, `src/lib/auth.ts`, `src/pages/AdminUsers.tsx`, `src/components/AdminShell.tsx`, `DOCUMENTATION.md`, `POLICY.md`.
+## Documentation updates (same response as code)
+
+- `DOCUMENTATION.md`: new "Change user email" section under User Management; note the `profiles.email` mirror and the `admin-change-user-email` function.
+- `POLICY.md`: add row to User Management table — "Change email → direct admin action, audited, blocked for self".
+- Version history entry.
