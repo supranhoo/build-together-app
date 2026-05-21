@@ -47,14 +47,43 @@ export default function AdminPickerContexts() {
   const [rows, setRows] = useState<PickerContext[]>([]);
   const [form, setForm] = useState({ ...BLANK });
   const [saving, setSaving] = useState(false);
+  const [items, setItems] = useState<MasterItem[]>([]);
 
   const reload = async () => {
     if (!activeProfitCenter) return;
-    try { setRows(await fetchPickerContexts(activeProfitCenter.id)); }
+    try {
+      const [pickerRows, masterItems] = await Promise.all([
+        fetchPickerContexts(activeProfitCenter.id),
+        fetchMasterItems(activeProfitCenter.id),
+      ]);
+      setRows(pickerRows);
+      setItems(masterItems);
+    }
     catch (e) { toast({ title: "Failed to load", description: e instanceof Error ? e.message : "", variant: "destructive" }); }
   };
 
   useEffect(() => { void reload(); }, [activeProfitCenter?.id]);
+
+  // Distinct group/subgroup labels from master data — drives the Select options
+  // so admins cannot invent a label that no material actually uses. Includes
+  // the currently-selected value so existing rows pointing at legacy labels
+  // ('ORE', 'REDUCTANT', …) remain editable.
+  const groupOptions = useMemo(() => {
+    const set = new Set<string>();
+    for (const it of items) if (it.groupName && it.groupName.trim()) set.add(it.groupName.trim());
+    if (form.groupName) set.add(form.groupName);
+    return Array.from(set).sort((a, b) => a.localeCompare(b));
+  }, [items, form.groupName]);
+  const subgroupOptions = useMemo(() => {
+    const set = new Set<string>();
+    for (const it of items) {
+      if (!form.groupName || (it.groupName ?? "").trim().toLowerCase() === form.groupName.trim().toLowerCase()) {
+        if (it.subgroup && it.subgroup.trim()) set.add(it.subgroup.trim());
+      }
+    }
+    if (form.subgroup) set.add(form.subgroup);
+    return Array.from(set).sort((a, b) => a.localeCompare(b));
+  }, [items, form.groupName, form.subgroup]);
 
   const workspaceRows = useMemo(
     () => rows.filter((r) => r.profitCenterId === activeProfitCenter?.id),
