@@ -271,15 +271,6 @@ export default function AdminUsers() {
                   <TableCell className="text-muted-foreground">{profile.email || "—"}</TableCell>
                   <TableCell>{profile.department || "—"}</TableCell>
                   <TableCell>{profile.jobTitle || "—"}</TableCell>
-          <TableBody>
-            {manageableProfiles.map((profile) => {
-              const isSelf = profile.userId === session?.user?.id;
-              return (
-                <TableRow key={profile.userId}>
-                  <TableCell className="font-medium text-foreground">{profile.displayName || "—"}</TableCell>
-                  <TableCell className="text-muted-foreground">{profile.email || "—"}</TableCell>
-                  <TableCell>{profile.department || "—"}</TableCell>
-                  <TableCell>{profile.jobTitle || "—"}</TableCell>
                   <TableCell>
                     <div className="flex items-center gap-2">
                       <Switch
