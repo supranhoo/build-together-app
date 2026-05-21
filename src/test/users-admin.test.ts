@@ -7,7 +7,7 @@ vi.mock("@/integrations/supabase/client", () => ({
   supabase: { functions: { invoke: (...args: unknown[]) => invokeMock(...args) } },
 }));
 
-import { createUserDirect, resetUserPassword, setUserActive } from "@/lib/users-admin";
+import { changeUserEmail, createUserDirect, resetUserPassword, setUserActive } from "@/lib/users-admin";
 
 describe("validatePasswordStrength", () => {
   it("rejects empty", () => {
