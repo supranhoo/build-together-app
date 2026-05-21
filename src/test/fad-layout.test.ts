@@ -15,7 +15,7 @@ describe("FAD entry layout classes", () => {
   });
 
   it("keeps long material names from stealing quantity width", () => {
-    expect(FAD_MATERIAL_CELL_CLASS).toContain("min-w-[22rem]");
-    expect(FAD_MATERIAL_CELL_CLASS).toContain("max-w-[28rem]");
+    expect(FAD_MATERIAL_CELL_CLASS).toContain("w-44");
+    expect(FAD_MATERIAL_CELL_CLASS).toContain("max-w-44");
   });
 });
