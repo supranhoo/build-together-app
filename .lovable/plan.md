@@ -1,84 +1,67 @@
-# Go-Live Data Migration Plan
+# User Login Management — additive UI + admin actions
 
-End state: every transactional module starts go-live with correct opening balances **and** a clean back-load of historical transactions so KPIs, costing, ageing and audit trails are continuous from day one.
+Additive on top of the existing RBAC / Login / AdminUsers stack. No changes to login identifier (still email), maker-checker rules untouched for create/delete. We add three things admins are missing today: direct password set on create, password reset, and an active/inactive toggle. Plus a clearer menu entry.
 
-Loader pattern (all phases): admin-only SECURITY DEFINER RPCs that consume CSV staging tables. UI = a single `/admin/migration` console with per-domain tabs (upload → validate → dry-run → commit → reconcile). Every committed row is tagged `is_migrated=true`, `migration_batch_id=<uuid>`, `legacy_ref=<source key>` so it can be filtered, audited, and rolled back as a batch.
+## Scope
 
-## Pushback you should weigh before approving
+In:
+1. Create user with admin-chosen password (bypass approval), audit-logged.
+2. Reset password action for any managed user.
+3. Activate / Deactivate toggle on the users table (direct, audit-logged).
+4. "User Management" entry under the Admin menu pointing at the existing AdminUsers page.
+5. Password strength minimums (>= 8 chars, mixed) — client + server validated.
+6. DOCUMENTATION.md + POLICY.md updated in same response.
+7. Unit tests for new helpers and edge function input validation.
 
-1. **"Reuse GRN bulk upload" for opening stock** — you picked this, but it has real costs:
-   - Inflates GRN registers, vendor analytics, and quality records with synthetic "OPENING" receipts.
-   - Opening rows will appear in receipt-based KPIs (purchase volume, supplier evaluation).
-   - Recommended instead: add `opening_balance` to `MovementType` and keep GRN clean. One enum value, one new RPC. Same effort, much cleaner audit. **Plan below assumes this change** — say the word if you still want GRN reuse and I'll swap it.
-2. **"Full historical migration"** is the largest possible scope. Strongly recommend phasing (P1 → P5 below) and going live after P2; P3–P5 can backfill in the weeks after cut-over without blocking go-live.
-3. **Costing history** (ferro_cost_sheets, snapshots) depends on consumption + GRN history existing first. Sequencing is fixed; cannot parallelise.
+Out (explicitly):
+- Separate username/User ID field (email stays the login).
+- Replacing the multi-role enum with two roles.
+- Removing existing maker-checker for delete (kept).
+- Self-service signup (already disabled).
 
-## Phased scope
+## Pre-implementation risk
 
-```text
-P1  Master data refresh         (pre-cut-over, repeatable)
-P2  Opening balances + open docs (cut-over weekend) ← GO-LIVE GATE
-P3  Historical inventory + production
-P4  Historical sales + procurement
-P5  Historical costing + quality + maintenance
-```
+- **Data**: No schema change. `profiles.is_active` already exists; we just expose it. No migration needed.
+- **Workflow**: Policy change — `user.create` no longer requires approval when admin supplies password. POLICY.md must be updated in the same commit. `user.delete` approval flow is preserved.
+- **UI/UX**: AdminUsers gains 3 buttons (Reset password, Activate/Deactivate) and the Invite dialog gets a Password field with strength meter. Menu wording change only.
+- **Regression risk**: `admin-create-user` edge function already accepts `password`; we are tightening validation, not changing the contract. Existing approval-driven path through `admin-approve-action` continues to work for callers that still queue.
+- **Mitigation**: Feature is admin-only behind `RequireAdmin`; all three new actions write `audit_logs` rows; password never logged; edge function rejects weak passwords server-side; tests cover validator + payload shape.
 
-### P1 — Master data refresh (CSV templates per entity)
-Materials, material_groups, stock_locations, furnaces, shifts, suppliers, sales_customers, UOM conversions, spec_templates, BOMs, cost_rates, item_property_definitions, picker_contexts.
-- Upsert by `(profit_center_id, code)`; mark legacy-only rows `is_active=false` rather than delete.
-- Reuses existing `master-items-csv.ts` pattern; extend to the other 11 entities.
+## Changes
 
-### P2 — Opening balances + open documents (GO-LIVE GATE)
-- **Opening stock** → new RPC `bulk_post_opening_balance(batch, rows[])` writing `inventory_ledger` rows with `movement_type='opening_balance'`, `reference_type='migration'`, dated cut-over 00:00.
-- **Open POs / PRs** → loader for `purchase_orders` + `purchase_order_lines` (and PRs) in `status='open'` with `received_qty` carried from legacy so future GRNs reconcile correctly.
-- **Open Sales Orders** → loader for `sales_orders` in `status='open'` with `dispatched_qty` carried.
-- Dry-run produces a reconciliation report: row counts, value totals per location, unknown codes, duplicate legacy refs.
+### Edge functions
+- `admin-create-user/index.ts`: require `password` (min 8, must contain letter + digit), drop the random fallback. Add zod validation. Audit row stays.
+- New `admin-reset-password/index.ts`: admin-only (verify caller role like the create function); body `{ userId, password }`; calls `admin.auth.admin.updateUserById(userId, { password })`; writes `audit_logs` action `user.password_reset` (never logs the password).
+- New `admin-set-user-active/index.ts`: admin-only; body `{ userId, isActive }`; updates `profiles.is_active`; audit `user.activated` / `user.deactivated`. Prevent self-deactivation.
 
-### P3 — Historical inventory + production (post go-live)
-- `grn_logs` + paired `inventory_ledger` (movement_type='receipt')
-- `heat_logs` + `material_consumption` + `heat_metallurgy` (RPC must skip the consumption-ledger trigger and instead insert pre-dated ledger rows so balances reconcile)
-- `inventory_ledger` adjustments / issues not tied to heats
-- Sequencing inside the batch is strict: GRN → consumption → adjustments, per day.
+### Frontend
+- `src/lib/auth.ts`: add `validatePasswordStrength(pw): { ok: boolean; reason?: string }` pure helper. Exported for tests.
+- `src/lib/users-admin.ts` (new): thin wrappers `createUserDirect`, `resetUserPassword`, `setUserActive` that invoke the edge functions via `supabase.functions.invoke`.
+- `src/pages/AdminUsers.tsx`:
+  - Invite dialog renamed to "Create user"; add Password + Confirm fields; on submit call `createUserDirect` (no approval) when password supplied. Show inline strength error.
+  - Add "Reset password" button per row → small dialog with new password.
+  - Add Active/Inactive switch in the table; toggling calls `setUserActive`. Disabled for the current user's own row.
+  - Show `is_active` column.
+- `src/components/AdminShell.tsx` (menu): add or rename a top-level "User Management" link routing to the existing System Control → Users tab (`/admin/system?tab=users`). The underlying page is unchanged.
 
-### P4 — Historical sales + procurement
-- `sales_inquiries`, closed `sales_orders`, `selling_prices`
-- closed `purchase_requisitions`, `purchase_orders`, `import_shipments`, `supplier_evaluations`, `risk_events`
+### Docs & policy
+- DOCUMENTATION.md: new "User Management" section listing the 3 admin actions, password rules, audit events, edge-function contracts.
+- POLICY.md: under Maker-Checker, clarify that `user.create` is direct when password supplied by admin; `user.delete` remains maker-checker. Add password policy line.
 
-### P5 — Historical costing, quality, maintenance
-- `ferro_cost_sheets`, `cost_period_snapshots`, `byproduct_credits`, `standard_cost_bom`
-- `quality_samples`, `bunker_feed_tests`, `fg_inspections`, `dispatch_clearances`, `quality_complaints`, `compliance_records`
-- `maintenance_equipment`, `maintenance_work_orders`, `maintenance_breakdowns`, PMs, downtime, costs
+### Tests
+- `src/test/users-admin.test.ts`: `validatePasswordStrength` happy/sad cases; invoke wrappers shape payloads correctly (mock `supabase.functions.invoke`).
+- Edge functions: a smoke test for the zod validator on weak password / missing fields.
 
-## Technical design
+## Verification
 
-```text
-public.migration_batches
-  id, profit_center_id, domain, label, status,
-  created_by, dry_run_report jsonb, committed_at, rolled_back_at
+1. Create user with weak password → blocked client + server, error toast.
+2. Create user with valid password → user appears in table, can sign in immediately.
+3. Reset password → user can sign in with new one; audit row written.
+4. Toggle Deactivate → user blocked at next sign-in (existing `is_active` guard); cannot toggle self.
+5. Existing approval-driven delete still queues to Approvals inbox.
+6. All existing AdminUsers tests + new tests pass.
 
-public.migration_staging_<domain>          -- one per domain, free-form jsonb payload
-  id, batch_id, row_no, payload jsonb, validation_errors jsonb
+## Files touched
 
-RPC public.migration_validate(batch_id)    -- populates validation_errors, returns summary
-RPC public.migration_commit(batch_id)      -- transactional; writes target rows tagged
-RPC public.migration_rollback(batch_id)    -- deletes rows where migration_batch_id=batch_id
-```
-
-- All target tables get two nullable columns: `is_migrated boolean default false`, `migration_batch_id uuid`, `legacy_ref text`. Single migration adds them across the ~30 tables.
-- All RPCs gated: `has_role(auth.uid(),'admin') OR 'super_admin'` AND `has_profit_center_access`.
-- Triggers temporarily bypassed inside commit RPCs via `session_replication_role` on a per-row basis only where the existing trigger would double-post (consumption → ledger). Audit logs are written explicitly inside the RPC instead.
-- Per-domain CSV templates downloadable from the migration console; parsers live in `src/lib/migration/<domain>-csv.ts`, each with `parse*` + `build*Template` + unit tests (mirrors `grn-csv.ts`).
-- Feature flag `migration.enabled` per profit center; auto-disabled after `go_live_at` timestamp is set (admin-confirmed), after which only `migration_rollback` remains callable for 30 days.
-
-## Reconciliation deliverables (mandatory before each phase is "done")
-- Stock value tieback: legacy closing vs `current_stock()` per (material, location) — variance report ≤ ₹1 / 0.001 unit.
-- Open PO/SO value tieback per supplier/customer.
-- Daily production tonnage tieback (P3) — legacy vs `heat_logs.weight_mt`.
-- Cost period tieback (P5) — legacy ferro cost sheet vs migrated rows.
-
-## SSOT updates (same commit as code per project rules)
-- `DOCUMENTATION.md` → new "Data Migration" chapter (loader contract, phase order, reconciliation procedure).
-- `POLICY.md` → migration is admin-only, feature-flagged, batch-scoped, idempotent, fully reversible until `go_live_at` is set, audit-logged.
-
-## Open question before I start P2 build
-Do you want the cleaner `opening_balance` movement type (recommended) or hard-stick with reusing GRN? Answer changes ~1 enum + 1 RPC; everything else is identical.
+Created: `supabase/functions/admin-reset-password/index.ts`, `supabase/functions/admin-set-user-active/index.ts`, `src/lib/users-admin.ts`, `src/test/users-admin.test.ts`.
+Edited: `supabase/functions/admin-create-user/index.ts`, `src/lib/auth.ts`, `src/pages/AdminUsers.tsx`, `src/components/AdminShell.tsx`, `DOCUMENTATION.md`, `POLICY.md`.
