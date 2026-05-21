@@ -66,4 +66,11 @@ describe("users-admin wrappers", () => {
     invokeMock.mockResolvedValueOnce({ data: null, error: new Error("network") });
     await expect(setUserActive({ userId: "u1", isActive: true })).rejects.toThrow("network");
   });
+
+  it("throws the edge function response error when invoke returns a non-2xx error", async () => {
+    const error = new Error("Edge Function returned a non-2xx status code") as Error & { context: Response };
+    error.context = new Response(JSON.stringify({ error: "User not allowed" }), { status: 400 });
+    invokeMock.mockResolvedValueOnce({ data: null, error });
+    await expect(resetUserPassword({ userId: "u1", password: "Hunter21" })).rejects.toThrow("User not allowed");
+  });
 });
