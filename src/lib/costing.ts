@@ -7,6 +7,7 @@
  */
 
 import type { CostRate } from "./master-data";
+import type { InventoryLedgerEntry } from "./inventory";
 
 export interface ConsumptionLine {
   materialId: string;
