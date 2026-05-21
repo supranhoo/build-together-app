@@ -3,6 +3,8 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { Switch } from "@/components/ui/switch";
+import { Badge } from "@/components/ui/badge";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { useWorkspace } from "@/hooks/use-workspace";
@@ -10,21 +12,21 @@ import { useAuth } from "@/hooks/use-auth";
 import { useToast } from "@/hooks/use-toast";
 import { createAuditLog, updateUserProfile, type ManageableProfile } from "@/lib/workspace";
 import { requestApproval } from "@/lib/approvals";
-import { supabase } from "@/integrations/supabase/client";
-import { UserPlus, Trash2 } from "lucide-react";
+import { validatePasswordStrength } from "@/lib/auth";
+import { createUserDirect, resetUserPassword, setUserActive } from "@/lib/users-admin";
+import { UserPlus, Trash2, KeyRound } from "lucide-react";
 
 /**
- * Admin Users — view, edit, invite (create) and request-deletion of users
- * the current admin can manage.
+ * Admin Users — view, create, edit, reset-password, activate/deactivate, and
+ * request-deletion of users.
  *
- * Per POLICY.md → Maker-Checker Approvals:
- *  - Inviting (creating) a user requires checker approval and is executed by
- *    the `admin-approve-action` edge function with the service role.
- *  - Deleting (deactivating) a user requires checker approval as well; the
- *    edge function flips `profiles.is_active=false`, deactivates PC
- *    assignments, and revokes roles.
+ * Per POLICY.md → User Management:
+ *  - Create / reset password / activate-deactivate are DIRECT admin actions.
+ *    The corresponding edge functions enforce role + audit logging.
+ *  - Deleting (deactivating) a user via the destructive "Delete" button still
+ *    routes through the maker-checker approvals queue.
  *  - Editing display name / department / job title applies directly under the
- *    existing "Admins can update manageable profiles" RLS policy.
+ *    "Admins can update manageable profiles" RLS policy.
  */
 export default function AdminUsers() {
   const { session } = useAuth();
@@ -37,13 +39,24 @@ export default function AdminUsers() {
   const [jobTitle, setJobTitle] = useState("");
   const [saving, setSaving] = useState(false);
 
-  // Invite dialog
-  const [inviteOpen, setInviteOpen] = useState(false);
-  const [inviteEmail, setInviteEmail] = useState("");
-  const [inviteName, setInviteName] = useState("");
-  const [inviteDept, setInviteDept] = useState("");
-  const [inviteTitle, setInviteTitle] = useState("");
-  const [inviting, setInviting] = useState(false);
+  // Create dialog
+  const [createOpen, setCreateOpen] = useState(false);
+  const [newEmail, setNewEmail] = useState("");
+  const [newName, setNewName] = useState("");
+  const [newDept, setNewDept] = useState("");
+  const [newTitle, setNewTitle] = useState("");
+  const [newPassword, setNewPassword] = useState("");
+  const [newPasswordConfirm, setNewPasswordConfirm] = useState("");
+  const [creating, setCreating] = useState(false);
+
+  // Reset password dialog
+  const [resetTarget, setResetTarget] = useState<ManageableProfile | null>(null);
+  const [resetPw, setResetPw] = useState("");
+  const [resetPwConfirm, setResetPwConfirm] = useState("");
+  const [resetting, setResetting] = useState(false);
+
+  // Active toggle in-flight set
+  const [togglingId, setTogglingId] = useState<string | null>(null);
 
   // Delete confirmation
   const [deletingProfile, setDeletingProfile] = useState<ManageableProfile | null>(null);
@@ -97,32 +110,86 @@ export default function AdminUsers() {
     }
   };
 
-  const handleInvite = async () => {
+  const resetCreateForm = () => {
+    setNewEmail(""); setNewName(""); setNewDept(""); setNewTitle("");
+    setNewPassword(""); setNewPasswordConfirm("");
+  };
+
+  const handleCreate = async () => {
     if (!session?.user) return;
-    const email = inviteEmail.trim();
+    const email = newEmail.trim();
     if (!email.includes("@")) {
       toast({ title: "Invalid email", variant: "destructive" });
       return;
     }
-    setInviting(true);
+    const pwCheck = validatePasswordStrength(newPassword);
+    if (!pwCheck.ok) {
+      toast({ title: "Weak password", description: pwCheck.reason, variant: "destructive" });
+      return;
+    }
+    if (newPassword !== newPasswordConfirm) {
+      toast({ title: "Passwords do not match", variant: "destructive" });
+      return;
+    }
+    setCreating(true);
     try {
-      await requestApproval({
-        actionType: "user.create",
-        payload: {
-          email,
-          displayName: inviteName.trim() || email.split("@")[0],
-          department: inviteDept.trim() || null,
-          jobTitle: inviteTitle.trim() || null,
-        },
-        requestedBy: session.user.id,
+      await createUserDirect({
+        email,
+        password: newPassword,
+        displayName: newName.trim() || email.split("@")[0],
+        department: newDept.trim() || null,
+        jobTitle: newTitle.trim() || null,
       });
-      toast({ title: "Invite queued for approval", description: "A second administrator must approve before the user is created." });
-      setInviteOpen(false);
-      setInviteEmail(""); setInviteName(""); setInviteDept(""); setInviteTitle("");
+      toast({ title: "User created", description: `${email} can now sign in.` });
+      setCreateOpen(false);
+      resetCreateForm();
+      await refreshWorkspace();
     } catch (e) {
-      toast({ title: "Could not queue invite", description: (e as Error).message, variant: "destructive" });
+      toast({ title: "Could not create user", description: (e as Error).message, variant: "destructive" });
     } finally {
-      setInviting(false);
+      setCreating(false);
+    }
+  };
+
+  const handleResetPassword = async () => {
+    if (!resetTarget) return;
+    const pwCheck = validatePasswordStrength(resetPw);
+    if (!pwCheck.ok) {
+      toast({ title: "Weak password", description: pwCheck.reason, variant: "destructive" });
+      return;
+    }
+    if (resetPw !== resetPwConfirm) {
+      toast({ title: "Passwords do not match", variant: "destructive" });
+      return;
+    }
+    setResetting(true);
+    try {
+      await resetUserPassword({ userId: resetTarget.userId, password: resetPw });
+      toast({ title: "Password reset" });
+      setResetTarget(null);
+      setResetPw(""); setResetPwConfirm("");
+    } catch (e) {
+      toast({ title: "Reset failed", description: (e as Error).message, variant: "destructive" });
+    } finally {
+      setResetting(false);
+    }
+  };
+
+  const handleToggleActive = async (profile: ManageableProfile, next: boolean) => {
+    if (!session?.user) return;
+    if (profile.userId === session.user.id && !next) {
+      toast({ title: "Cannot deactivate yourself", variant: "destructive" });
+      return;
+    }
+    setTogglingId(profile.userId);
+    try {
+      await setUserActive({ userId: profile.userId, isActive: next });
+      toast({ title: next ? "User activated" : "User deactivated" });
+      await refreshWorkspace();
+    } catch (e) {
+      toast({ title: "Update failed", description: (e as Error).message, variant: "destructive" });
+    } finally {
+      setTogglingId(null);
     }
   };
 
@@ -147,9 +214,9 @@ export default function AdminUsers() {
   return (
     <Card className="border-border bg-card shadow-panel">
       <CardHeader className="flex flex-row items-center justify-between">
-        <CardTitle>Manageable users</CardTitle>
-        <Button size="sm" onClick={() => setInviteOpen(true)}>
-          <UserPlus className="mr-2 h-4 w-4" /> Invite user
+        <CardTitle>User Management</CardTitle>
+        <Button size="sm" onClick={() => setCreateOpen(true)}>
+          <UserPlus className="mr-2 h-4 w-4" /> Create user
         </Button>
       </CardHeader>
       <CardContent>
@@ -159,32 +226,57 @@ export default function AdminUsers() {
               <TableHead>Display name</TableHead>
               <TableHead>Department</TableHead>
               <TableHead>Job title</TableHead>
-              <TableHead></TableHead>
+              <TableHead>Status</TableHead>
+              <TableHead className="text-right">Actions</TableHead>
             </TableRow>
           </TableHeader>
           <TableBody>
-            {manageableProfiles.map((profile) => (
-              <TableRow key={profile.userId}>
-                <TableCell className="font-medium text-foreground">{profile.displayName || "—"}</TableCell>
-                <TableCell>{profile.department || "—"}</TableCell>
-                <TableCell>{profile.jobTitle || "—"}</TableCell>
-                <TableCell className="space-x-2 text-right">
-                  <Button size="sm" variant="outline" onClick={() => openEdit(profile)}>Edit</Button>
-                  <Button
-                    size="sm"
-                    variant="outline"
-                    onClick={() => setDeletingProfile(profile)}
-                    disabled={profile.userId === session?.user?.id}
-                    title={profile.userId === session?.user?.id ? "You cannot delete your own account" : undefined}
-                  >
-                    <Trash2 className="h-4 w-4" />
-                  </Button>
-                </TableCell>
-              </TableRow>
-            ))}
+            {manageableProfiles.map((profile) => {
+              const isSelf = profile.userId === session?.user?.id;
+              return (
+                <TableRow key={profile.userId}>
+                  <TableCell className="font-medium text-foreground">{profile.displayName || "—"}</TableCell>
+                  <TableCell>{profile.department || "—"}</TableCell>
+                  <TableCell>{profile.jobTitle || "—"}</TableCell>
+                  <TableCell>
+                    <div className="flex items-center gap-2">
+                      <Switch
+                        checked={profile.isActive}
+                        disabled={isSelf || togglingId === profile.userId}
+                        onCheckedChange={(v) => void handleToggleActive(profile, v)}
+                        aria-label={profile.isActive ? "Deactivate user" : "Activate user"}
+                      />
+                      <Badge variant={profile.isActive ? "secondary" : "outline"}>
+                        {profile.isActive ? "Active" : "Inactive"}
+                      </Badge>
+                    </div>
+                  </TableCell>
+                  <TableCell className="space-x-2 text-right">
+                    <Button size="sm" variant="outline" onClick={() => openEdit(profile)}>Edit</Button>
+                    <Button
+                      size="sm"
+                      variant="outline"
+                      onClick={() => { setResetTarget(profile); setResetPw(""); setResetPwConfirm(""); }}
+                      title="Reset password"
+                    >
+                      <KeyRound className="h-4 w-4" />
+                    </Button>
+                    <Button
+                      size="sm"
+                      variant="outline"
+                      onClick={() => setDeletingProfile(profile)}
+                      disabled={isSelf}
+                      title={isSelf ? "You cannot delete your own account" : "Delete user"}
+                    >
+                      <Trash2 className="h-4 w-4" />
+                    </Button>
+                  </TableCell>
+                </TableRow>
+              );
+            })}
             {manageableProfiles.length === 0 && (
               <TableRow>
-                <TableCell colSpan={4} className="text-muted-foreground">No users in scope.</TableCell>
+                <TableCell colSpan={5} className="text-muted-foreground">No users in scope.</TableCell>
               </TableRow>
             )}
           </TableBody>
@@ -220,34 +312,72 @@ export default function AdminUsers() {
         </DialogContent>
       </Dialog>
 
-      {/* Invite dialog */}
-      <Dialog open={inviteOpen} onOpenChange={setInviteOpen}>
+      {/* Create dialog */}
+      <Dialog open={createOpen} onOpenChange={(v) => { setCreateOpen(v); if (!v) resetCreateForm(); }}>
         <DialogContent>
-          <DialogHeader><DialogTitle>Invite user (requires approval)</DialogTitle></DialogHeader>
+          <DialogHeader><DialogTitle>Create user</DialogTitle></DialogHeader>
           <div className="space-y-3">
             <div>
               <Label>Email *</Label>
-              <Input value={inviteEmail} onChange={(e) => setInviteEmail(e.target.value)} type="email" />
+              <Input value={newEmail} onChange={(e) => setNewEmail(e.target.value)} type="email" autoComplete="off" />
             </div>
             <div>
               <Label>Display name</Label>
-              <Input value={inviteName} onChange={(e) => setInviteName(e.target.value)} maxLength={100} />
+              <Input value={newName} onChange={(e) => setNewName(e.target.value)} maxLength={100} />
+            </div>
+            <div className="grid grid-cols-2 gap-3">
+              <div>
+                <Label>Department</Label>
+                <Input value={newDept} onChange={(e) => setNewDept(e.target.value)} maxLength={100} />
+              </div>
+              <div>
+                <Label>Job title</Label>
+                <Input value={newTitle} onChange={(e) => setNewTitle(e.target.value)} maxLength={100} />
+              </div>
             </div>
             <div>
-              <Label>Department</Label>
-              <Input value={inviteDept} onChange={(e) => setInviteDept(e.target.value)} maxLength={100} />
+              <Label>Password *</Label>
+              <Input value={newPassword} onChange={(e) => setNewPassword(e.target.value)} type="password" autoComplete="new-password" />
             </div>
             <div>
-              <Label>Job title</Label>
-              <Input value={inviteTitle} onChange={(e) => setInviteTitle(e.target.value)} maxLength={100} />
+              <Label>Confirm password *</Label>
+              <Input value={newPasswordConfirm} onChange={(e) => setNewPasswordConfirm(e.target.value)} type="password" autoComplete="new-password" />
             </div>
             <p className="text-xs text-muted-foreground">
-              The user will be created only after a second administrator approves this request from the Approvals inbox.
+              Minimum 8 characters with at least one letter and one digit. The user can sign in immediately.
             </p>
           </div>
           <DialogFooter>
-            <Button variant="outline" onClick={() => setInviteOpen(false)}>Cancel</Button>
-            <Button onClick={() => void handleInvite()} disabled={inviting}>{inviting ? "Queuing…" : "Queue invite"}</Button>
+            <Button variant="outline" onClick={() => setCreateOpen(false)}>Cancel</Button>
+            <Button onClick={() => void handleCreate()} disabled={creating}>{creating ? "Creating…" : "Create user"}</Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Reset password dialog */}
+      <Dialog open={!!resetTarget} onOpenChange={(v) => !v && setResetTarget(null)}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Reset password</DialogTitle>
+          </DialogHeader>
+          <p className="text-sm text-muted-foreground">
+            Set a new password for <strong>{resetTarget?.displayName || resetTarget?.userId}</strong>. Share it securely; they can change it after signing in.
+          </p>
+          <div className="space-y-3">
+            <div>
+              <Label>New password *</Label>
+              <Input value={resetPw} onChange={(e) => setResetPw(e.target.value)} type="password" autoComplete="new-password" />
+            </div>
+            <div>
+              <Label>Confirm *</Label>
+              <Input value={resetPwConfirm} onChange={(e) => setResetPwConfirm(e.target.value)} type="password" autoComplete="new-password" />
+            </div>
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setResetTarget(null)}>Cancel</Button>
+            <Button onClick={() => void handleResetPassword()} disabled={resetting}>
+              {resetting ? "Resetting…" : "Reset password"}
+            </Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>
@@ -272,6 +402,3 @@ export default function AdminUsers() {
     </Card>
   );
 }
-
-// Touch supabase import to silence linter when no direct call (kept for future)
-void supabase;
