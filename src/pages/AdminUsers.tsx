@@ -124,7 +124,7 @@ export default function AdminUsers() {
     }
     const pwCheck = validatePasswordStrength(newPassword);
     if (!pwCheck.ok) {
-      toast({ title: "Weak password", description: pwCheck.reason, variant: "destructive" });
+      toast({ title: "Weak password", description: (pwCheck as { reason?: string }).reason, variant: "destructive" });
       return;
     }
     if (newPassword !== newPasswordConfirm) {
@@ -155,7 +155,7 @@ export default function AdminUsers() {
     if (!resetTarget) return;
     const pwCheck = validatePasswordStrength(resetPw);
     if (!pwCheck.ok) {
-      toast({ title: "Weak password", description: pwCheck.reason, variant: "destructive" });
+      toast({ title: "Weak password", description: (pwCheck as { reason?: string }).reason, variant: "destructive" });
       return;
     }
     if (resetPw !== resetPwConfirm) {
