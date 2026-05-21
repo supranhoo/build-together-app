@@ -46,6 +46,58 @@ export function latestRateOn(
   return candidates[0] ?? null;
 }
 
+/**
+ * Rate resolved for **valuation** display (stock value, dashboards, exports).
+ *
+ * Resolution order (per POLICY § Inventory Rate Resolution):
+ *   1. `cost_rates` admin override (via {@link latestRateOn})
+ *   2. Latest `inventory_ledger.unit_cost` ≤ `onDate` (opening balance / GRN)
+ *   3. `null` when neither source has data
+ *
+ * `latestRateOn` alone must NOT be used for valuation — it ignores receipts.
+ * Standard / planned-rate use cases (Cost Sheet "Std rate", Variance) keep
+ * using `latestRateOn` because those flows require an explicit admin rate.
+ */
+export interface ResolvedRate {
+  rate: number;
+  source: "cost_rate" | "ledger";
+}
+
+/**
+ * Most recent `unit_cost` from the ledger for `materialId` on/before `onDate`.
+ * Ignores entries with null `unitCost`. Returns null when none qualify.
+ */
+export function latestLedgerRate(
+  ledger: InventoryLedgerEntry[],
+  materialId: string,
+  onDate: string,
+): number | null {
+  const cutoff = `${onDate}T23:59:59.999Z`;
+  const candidates = ledger
+    .filter((e) => e.materialId === materialId)
+    .filter((e) => e.unitCost !== null && Number.isFinite(e.unitCost))
+    .filter((e) => e.createdAt <= cutoff)
+    .sort((a, b) => (a.createdAt < b.createdAt ? 1 : -1));
+  const top = candidates[0];
+  return top ? (top.unitCost as number) : null;
+}
+
+/**
+ * Valuation rate with cost_rates → ledger fallback. See {@link ResolvedRate}.
+ */
+export function resolveLatestRate(
+  rates: CostRate[],
+  ledger: InventoryLedgerEntry[],
+  materialId: string,
+  onDate: string,
+): ResolvedRate | null {
+  const admin = latestRateOn(rates, materialId, onDate);
+  if (admin) return { rate: admin.rate, source: "cost_rate" };
+  const fallback = latestLedgerRate(ledger, materialId, onDate);
+  if (fallback !== null) return { rate: fallback, source: "ledger" };
+  return null;
+}
+
 /** Σ(qty × latest_rate). Lines without a rate contribute 0. */
 export function materialCost(
   lines: ConsumptionLine[],
