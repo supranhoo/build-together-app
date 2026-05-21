@@ -1124,3 +1124,14 @@ exist in `materials.group_name` / `materials.subgroup` (case-insensitive
 exact match in `filterMaterialsByContext`). The Admin · Picker Contexts
 page enforces this by populating the Group/Subgroup pickers from
 distinct master-data labels. Free-text entry is no longer allowed.
+
+## FAD entry table layout
+
+`PortalProductionFAD` keeps consumption tables horizontally scrollable with
+fixed minimum table widths. Material cells are bounded and Qty cells have a
+dedicated readable width, so long material names cannot collapse the numeric
+entry fields. Numeric entry fields hide browser spinner controls to preserve
+usable text space on compact screens.
+
+### Version History
+- 2026-05-21: Adjusted FAD consumption table layout so Qty fields remain readable on compact screens without changing formulas, validation, or save behavior.
