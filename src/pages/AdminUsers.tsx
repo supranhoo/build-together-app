@@ -443,6 +443,35 @@ export default function AdminUsers() {
           </DialogFooter>
         </DialogContent>
       </Dialog>
+
+      {/* Change email dialog */}
+      <Dialog open={!!emailTarget} onOpenChange={(v) => { if (!v) { setEmailTarget(null); setNewLoginEmail(""); } }}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Change login email</DialogTitle>
+          </DialogHeader>
+          <p className="text-sm text-muted-foreground">
+            Update the email <strong>{emailTarget?.displayName || emailTarget?.userId}</strong> uses to sign in.
+            They will need to use the new address on their next login.
+          </p>
+          <div className="space-y-3">
+            <div>
+              <Label>Current email</Label>
+              <Input value={emailTarget?.email ?? ""} disabled readOnly />
+            </div>
+            <div>
+              <Label>New email *</Label>
+              <Input value={newLoginEmail} onChange={(e) => setNewLoginEmail(e.target.value)} type="email" autoComplete="off" />
+            </div>
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => { setEmailTarget(null); setNewLoginEmail(""); }}>Cancel</Button>
+            <Button onClick={() => void handleChangeEmail()} disabled={changingEmail}>
+              {changingEmail ? "Updating…" : "Change email"}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </Card>
   );
 }
