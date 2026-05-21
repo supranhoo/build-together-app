@@ -43,7 +43,7 @@ export default function PortalInventoryReports() {
   const exportInventoryDss = () => {
     const stockRows = balances.map((b) => {
       const item = matLabel(b.materialId);
-      const rate = item ? latestRateOn(rates, item.id, today) : null;
+      const rate = item ? resolveLatestRate(rates, ledger, item.id, today) : null;
       return {
         Material: item?.code ?? b.materialId,
         Name: item?.name ?? "",
