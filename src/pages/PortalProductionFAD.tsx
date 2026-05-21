@@ -889,11 +889,11 @@ export default function PortalProductionFAD() {
                       </Button>
                     </CardHeader>
                     <CardContent className="p-3 overflow-x-auto">
-                      <Table className="text-xs [&_th]:h-8 [&_th]:px-2 [&_th]:py-1 [&_td]:py-1 [&_td]:px-2 [&_input]:h-8 [&_input]:text-xs [&_input]:px-2 [&_button[role=combobox]]:h-8 [&_button[role=combobox]]:text-xs [&_button[role=combobox]]:px-2">
+                      <Table className="min-w-[46rem] table-fixed text-xs [&_th]:h-8 [&_th]:px-2 [&_th]:py-1 [&_td]:py-1 [&_td]:px-2 [&_input]:h-8 [&_input]:text-xs [&_input]:px-2 [&_button[role=combobox]]:h-8 [&_button[role=combobox]]:text-xs [&_button[role=combobox]]:px-2">
                         <TableHeader>
                           <TableRow>
-                            <TableHead>Material</TableHead>
-                            <TableHead className="w-28">Qty (MT)</TableHead>
+                            <TableHead className={FAD_MATERIAL_CELL_CLASS}>Material</TableHead>
+                            <TableHead className={FAD_QTY_CELL_CLASS}>Qty (MT)</TableHead>
                             <TableHead className="w-24">Moisture %</TableHead>
                             <TableHead className="w-28 bg-muted/40">Dry Qty (MT)</TableHead>
                             <TableHead className="w-10" />
@@ -905,7 +905,7 @@ export default function PortalProductionFAD() {
                             return (
                             <Fragment key={r.id}>
                             <TableRow key={r.id}>
-                              <TableCell>
+                              <TableCell className={FAD_MATERIAL_CELL_CLASS}>
                                 <MaterialPicker
                                   contextKey="fad.flux"
                                   profitCenterId={activeProfitCenterId ?? null}
@@ -915,8 +915,9 @@ export default function PortalProductionFAD() {
                                   placeholder="Pick flux"
                                 />
                               </TableCell>
-                              <TableCell>
+                              <TableCell className={FAD_QTY_CELL_CLASS}>
                                 <Input type="number" step="0.01" value={r.qtyMt}
+                                  className={FAD_NUMERIC_INPUT_CLASS}
                                   onChange={(e) => updateRow(setFluxRows, r.id, { qtyMt: Number(e.target.value) })} />
                               </TableCell>
                               <TableCell className={`text-center font-mono ${moistureWarn(r.moisturePct) ? "text-amber-600 font-bold" : ""}`} title="From item spec">
