@@ -1087,7 +1087,7 @@ Adds three direct admin actions to AdminUsers on top of the existing maker-check
 
 **Frontend**:
 - `src/lib/auth.ts` exports pure `validatePasswordStrength(pw)` shared by UI and tests.
-- `src/lib/users-admin.ts` (new) wraps the three edge functions via `supabase.functions.invoke`.
+- `src/lib/users-admin.ts` (new) wraps the three edge functions via `supabase.functions.invoke` and extracts JSON error payloads from non-2xx responses so admins see the actual backend validation/auth message instead of the SDK's generic failure string.
 - `src/pages/AdminUsers.tsx` renamed dialog to "Create user" with Password + Confirm fields; adds per-row Reset-password button, Active/Inactive Switch, and a Status column. Delete still queues to Approvals.
 - `src/lib/workspace.ts` — `ManageableProfile` gains `isActive`; `fetchManageableProfiles` selects `is_active`.
 - `src/components/AdminShell.tsx` — adds top-level "User Management" nav entry pointing at `/admin/system-control?tab=users`.
@@ -1096,3 +1096,4 @@ Adds three direct admin actions to AdminUsers on top of the existing maker-check
 
 ### Version History
 - 2026-05-21: Initial User Management module — direct create/reset-password/activate-deactivate, password policy, top-level nav entry.
+- 2026-05-21: Improved User Management error surfacing for create/reset/activate-deactivate edge-function failures; no policy or schema change.
