@@ -277,6 +277,7 @@ export default function AdminUsers() {
               return (
                 <TableRow key={profile.userId}>
                   <TableCell className="font-medium text-foreground">{profile.displayName || "—"}</TableCell>
+                  <TableCell className="text-muted-foreground">{profile.email || "—"}</TableCell>
                   <TableCell>{profile.department || "—"}</TableCell>
                   <TableCell>{profile.jobTitle || "—"}</TableCell>
                   <TableCell>
@@ -294,6 +295,15 @@ export default function AdminUsers() {
                   </TableCell>
                   <TableCell className="space-x-2 text-right">
                     <Button size="sm" variant="outline" onClick={() => openEdit(profile)}>Edit</Button>
+                    <Button
+                      size="sm"
+                      variant="outline"
+                      onClick={() => { setEmailTarget(profile); setNewLoginEmail(profile.email ?? ""); }}
+                      disabled={isSelf}
+                      title={isSelf ? "You cannot change your own email here" : "Change login email"}
+                    >
+                      <AtSign className="h-4 w-4" />
+                    </Button>
                     <Button
                       size="sm"
                       variant="outline"
@@ -317,7 +327,7 @@ export default function AdminUsers() {
             })}
             {manageableProfiles.length === 0 && (
               <TableRow>
-                <TableCell colSpan={5} className="text-muted-foreground">No users in scope.</TableCell>
+                <TableCell colSpan={6} className="text-muted-foreground">No users in scope.</TableCell>
               </TableRow>
             )}
           </TableBody>
