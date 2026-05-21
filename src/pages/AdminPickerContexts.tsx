@@ -168,11 +168,31 @@ export default function AdminPickerContexts() {
             </div>
             <div>
               <Label>Group</Label>
-              <Input value={form.groupName} onChange={(e) => setForm({ ...form, groupName: e.target.value })} placeholder="ORE / REDUCTANT / FLUXES / PASTE" />
+              <Select
+                value={form.groupName || "__any__"}
+                onValueChange={(v) => setForm({ ...form, groupName: v === "__any__" ? "" : v, subgroup: "" })}
+              >
+                <SelectTrigger><SelectValue placeholder="Any group" /></SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="__any__">Any group</SelectItem>
+                  {groupOptions.map((g) => <SelectItem key={g} value={g}>{g}</SelectItem>)}
+                </SelectContent>
+              </Select>
+              <p className="mt-1 text-xs text-muted-foreground">From master data — admins cannot invent labels.</p>
             </div>
             <div>
               <Label>Subgroup</Label>
-              <Input value={form.subgroup} onChange={(e) => setForm({ ...form, subgroup: e.target.value })} placeholder="SINTER / COKE …" />
+              <Select
+                value={form.subgroup || "__any__"}
+                onValueChange={(v) => setForm({ ...form, subgroup: v === "__any__" ? "" : v })}
+                disabled={!form.groupName}
+              >
+                <SelectTrigger><SelectValue placeholder="Any subgroup" /></SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="__any__">Any subgroup</SelectItem>
+                  {subgroupOptions.map((s) => <SelectItem key={s} value={s}>{s}</SelectItem>)}
+                </SelectContent>
+              </Select>
             </div>
             <div className="flex items-end gap-4">
               <div className="flex items-center gap-2"><Switch checked={form.allowUnmapped} onCheckedChange={(v) => setForm({ ...form, allowUnmapped: v })} /><Label>Allow unmapped</Label></div>
