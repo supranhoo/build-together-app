@@ -57,6 +57,24 @@ describe("filterMaterialsByContext", () => {
     const out = filterMaterialsByContext(items, ctx({}));
     expect(out.find((x) => x.id === "4")).toBeUndefined();
   });
+  it("matches group case-insensitively (regression: 'Mn Ore' vs 'mn ore')", () => {
+    const list = [m({ id: "x", type: "RM", groupName: "Mn Ore" })];
+    const out = filterMaterialsByContext(list, ctx({ materialType: "RM", groupName: "mn ore", allowUnmapped: false }));
+    expect(out.map((x) => x.id)).toEqual(["x"]);
+  });
+  it("returns only unmapped when context group has no matching master label and allow_unmapped=true", () => {
+    const list = [
+      m({ id: "a", type: "RM", groupName: "Mn Ore" }),
+      m({ id: "b", type: "RM", groupName: null }),
+    ];
+    const out = filterMaterialsByContext(list, ctx({ materialType: "RM", groupName: "REDUCTANT", allowUnmapped: true }));
+    expect(out.map((x) => x.id)).toEqual(["b"]);
+  });
+  it("returns empty when context group has no matching master label and allow_unmapped=false", () => {
+    const list = [m({ id: "a", type: "RM", groupName: "Mn Ore" })];
+    const out = filterMaterialsByContext(list, ctx({ materialType: "RM", groupName: "REDUCTANT", allowUnmapped: false }));
+    expect(out).toEqual([]);
+  });
 });
 
 describe("groupMaterialsForPicker", () => {
