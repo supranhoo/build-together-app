@@ -13,8 +13,8 @@ import { useToast } from "@/hooks/use-toast";
 import { createAuditLog, updateUserProfile, type ManageableProfile } from "@/lib/workspace";
 import { requestApproval } from "@/lib/approvals";
 import { validatePasswordStrength } from "@/lib/auth";
-import { createUserDirect, resetUserPassword, setUserActive } from "@/lib/users-admin";
-import { UserPlus, Trash2, KeyRound } from "lucide-react";
+import { changeUserEmail, createUserDirect, resetUserPassword, setUserActive } from "@/lib/users-admin";
+import { AtSign, KeyRound, Trash2, UserPlus } from "lucide-react";
 
 /**
  * Admin Users — view, create, edit, reset-password, activate/deactivate, and
@@ -57,6 +57,11 @@ export default function AdminUsers() {
 
   // Active toggle in-flight set
   const [togglingId, setTogglingId] = useState<string | null>(null);
+
+  // Change email dialog
+  const [emailTarget, setEmailTarget] = useState<ManageableProfile | null>(null);
+  const [newLoginEmail, setNewLoginEmail] = useState("");
+  const [changingEmail, setChangingEmail] = useState(false);
 
   // Delete confirmation
   const [deletingProfile, setDeletingProfile] = useState<ManageableProfile | null>(null);
