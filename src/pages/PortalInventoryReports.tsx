@@ -12,7 +12,7 @@ import {
   type StockLocation,
 } from "@/lib/inventory";
 import { fetchMasterItems, fetchCostRates, type MasterItem, type CostRate } from "@/lib/master-data";
-import { latestRateOn } from "@/lib/costing";
+import { resolveLatestRate } from "@/lib/costing";
 import { exportRows } from "@/lib/excel-export";
 
 export default function PortalInventoryReports() {
