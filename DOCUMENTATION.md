@@ -1128,10 +1128,10 @@ distinct master-data labels. Free-text entry is no longer allowed.
 ## FAD entry table layout
 
 `PortalProductionFAD` keeps consumption tables horizontally scrollable with
-fixed minimum table widths. Material cells are bounded and Qty cells have a
-dedicated readable width, so long material names cannot collapse the numeric
-entry fields. Numeric entry fields hide browser spinner controls to preserve
-usable text space on compact screens.
+fixed minimum table widths. Material cells use a fixed compact width and Qty
+cells have a dedicated readable width, so long material names cannot collapse
+or push numeric entry fields out of view. Numeric entry fields hide browser
+spinner controls to preserve usable text space on compact screens.
 
 ### Version History
 - 2026-05-21: Adjusted FAD consumption table layout so Qty fields remain readable on compact screens without changing formulas, validation, or save behavior.
