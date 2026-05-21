@@ -670,8 +670,8 @@ export default function PortalProductionFAD() {
                       <Plus className="h-4 w-4 mr-2" /> Add Ore
                     </Button>
                   </CardHeader>
-                  <CardContent>
-                    <Table>
+                  <CardContent className="p-3 overflow-x-auto">
+                    <Table className="text-xs [&_th]:h-8 [&_th]:px-2 [&_th]:py-1 [&_td]:py-1 [&_td]:px-2 [&_input]:h-8 [&_input]:text-xs [&_input]:px-2 [&_button[role=combobox]]:h-8 [&_button[role=combobox]]:text-xs [&_button[role=combobox]]:px-2">
                       <TableHeader>
                         <TableRow>
                           <TableHead>Material</TableHead>
@@ -757,8 +757,8 @@ export default function PortalProductionFAD() {
                       <Plus className="h-4 w-4 mr-2" /> Add Reductant
                     </Button>
                   </CardHeader>
-                  <CardContent>
-                    <Table>
+                  <CardContent className="p-3 overflow-x-auto">
+                    <Table className="text-xs [&_th]:h-8 [&_th]:px-1.5 [&_th]:py-1 [&_td]:py-1 [&_td]:px-1.5 [&_input]:h-8 [&_input]:text-xs [&_input]:px-2 [&_button[role=combobox]]:h-8 [&_button[role=combobox]]:text-xs [&_button[role=combobox]]:px-2">
                       <TableHeader>
                         <TableRow>
                           <TableHead>Material</TableHead>
@@ -882,8 +882,8 @@ export default function PortalProductionFAD() {
                         <Plus className="h-4 w-4 mr-2" /> Add Flux
                       </Button>
                     </CardHeader>
-                    <CardContent>
-                      <Table>
+                    <CardContent className="p-3 overflow-x-auto">
+                      <Table className="text-xs [&_th]:h-8 [&_th]:px-2 [&_th]:py-1 [&_td]:py-1 [&_td]:px-2 [&_input]:h-8 [&_input]:text-xs [&_input]:px-2 [&_button[role=combobox]]:h-8 [&_button[role=combobox]]:text-xs [&_button[role=combobox]]:px-2">
                         <TableHeader>
                           <TableRow>
                             <TableHead>Material</TableHead>
@@ -950,8 +950,8 @@ export default function PortalProductionFAD() {
                         <Plus className="h-4 w-4 mr-2" /> Add Paste
                       </Button>
                     </CardHeader>
-                    <CardContent>
-                      <Table>
+                    <CardContent className="p-3 overflow-x-auto">
+                      <Table className="text-xs [&_th]:h-8 [&_th]:px-2 [&_th]:py-1 [&_td]:py-1 [&_td]:px-2 [&_input]:h-8 [&_input]:text-xs [&_input]:px-2 [&_button[role=combobox]]:h-8 [&_button[role=combobox]]:text-xs [&_button[role=combobox]]:px-2">
                         <TableHeader>
                           <TableRow>
                             <TableHead>Material</TableHead>
