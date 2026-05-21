@@ -75,13 +75,13 @@ Deno.serve(async (req) => {
 
     // Trigger handle_new_user_profile creates profile + default role.
     // Patch optional profile fields.
-    if (body.department || body.jobTitle || body.displayName) {
-      await admin.from("profiles").update({
-        display_name: body.displayName ?? null,
-        department: body.department ?? null,
-        job_title: body.jobTitle ?? null,
-      }).eq("user_id", created.user.id);
-    }
+    // Always mirror email; patch optional profile fields too.
+    await admin.from("profiles").update({
+      email: body.email,
+      ...(body.displayName !== undefined ? { display_name: body.displayName } : {}),
+      ...(body.department !== undefined ? { department: body.department } : {}),
+      ...(body.jobTitle !== undefined ? { job_title: body.jobTitle } : {}),
+    }).eq("user_id", created.user.id);
 
     await admin.from("audit_logs").insert({
       actor_user_id: callerId,

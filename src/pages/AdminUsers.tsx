@@ -13,8 +13,8 @@ import { useToast } from "@/hooks/use-toast";
 import { createAuditLog, updateUserProfile, type ManageableProfile } from "@/lib/workspace";
 import { requestApproval } from "@/lib/approvals";
 import { validatePasswordStrength } from "@/lib/auth";
-import { createUserDirect, resetUserPassword, setUserActive } from "@/lib/users-admin";
-import { UserPlus, Trash2, KeyRound } from "lucide-react";
+import { changeUserEmail, createUserDirect, resetUserPassword, setUserActive } from "@/lib/users-admin";
+import { AtSign, KeyRound, Trash2, UserPlus } from "lucide-react";
 
 /**
  * Admin Users — view, create, edit, reset-password, activate/deactivate, and
@@ -57,6 +57,11 @@ export default function AdminUsers() {
 
   // Active toggle in-flight set
   const [togglingId, setTogglingId] = useState<string | null>(null);
+
+  // Change email dialog
+  const [emailTarget, setEmailTarget] = useState<ManageableProfile | null>(null);
+  const [newLoginEmail, setNewLoginEmail] = useState("");
+  const [changingEmail, setChangingEmail] = useState(false);
 
   // Delete confirmation
   const [deletingProfile, setDeletingProfile] = useState<ManageableProfile | null>(null);
@@ -211,6 +216,34 @@ export default function AdminUsers() {
     }
   };
 
+  const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+
+
+  const handleChangeEmail = async () => {
+    if (!emailTarget) return;
+    const next = newLoginEmail.trim();
+    if (!EMAIL_RE.test(next)) {
+      toast({ title: "Invalid email", variant: "destructive" });
+      return;
+    }
+    if (next.toLowerCase() === (emailTarget.email ?? "").toLowerCase()) {
+      toast({ title: "Email unchanged", description: "Enter a different address.", variant: "destructive" });
+      return;
+    }
+    setChangingEmail(true);
+    try {
+      await changeUserEmail({ userId: emailTarget.userId, email: next });
+      toast({ title: "Email updated", description: `${emailTarget.displayName ?? "User"} now signs in with ${next}.` });
+      setEmailTarget(null);
+      setNewLoginEmail("");
+      await refreshWorkspace();
+    } catch (e) {
+      toast({ title: "Could not change email", description: (e as Error).message, variant: "destructive" });
+    } finally {
+      setChangingEmail(false);
+    }
+  };
+
   return (
     <Card className="border-border bg-card shadow-panel">
       <CardHeader className="flex flex-row items-center justify-between">
@@ -224,6 +257,7 @@ export default function AdminUsers() {
           <TableHeader>
             <TableRow>
               <TableHead>Display name</TableHead>
+              <TableHead>Email</TableHead>
               <TableHead>Department</TableHead>
               <TableHead>Job title</TableHead>
               <TableHead>Status</TableHead>
@@ -236,6 +270,7 @@ export default function AdminUsers() {
               return (
                 <TableRow key={profile.userId}>
                   <TableCell className="font-medium text-foreground">{profile.displayName || "—"}</TableCell>
+                  <TableCell className="text-muted-foreground">{profile.email || "—"}</TableCell>
                   <TableCell>{profile.department || "—"}</TableCell>
                   <TableCell>{profile.jobTitle || "—"}</TableCell>
                   <TableCell>
@@ -253,6 +288,15 @@ export default function AdminUsers() {
                   </TableCell>
                   <TableCell className="space-x-2 text-right">
                     <Button size="sm" variant="outline" onClick={() => openEdit(profile)}>Edit</Button>
+                    <Button
+                      size="sm"
+                      variant="outline"
+                      onClick={() => { setEmailTarget(profile); setNewLoginEmail(profile.email ?? ""); }}
+                      disabled={isSelf}
+                      title={isSelf ? "You cannot change your own email here" : "Change login email"}
+                    >
+                      <AtSign className="h-4 w-4" />
+                    </Button>
                     <Button
                       size="sm"
                       variant="outline"
@@ -276,7 +320,7 @@ export default function AdminUsers() {
             })}
             {manageableProfiles.length === 0 && (
               <TableRow>
-                <TableCell colSpan={5} className="text-muted-foreground">No users in scope.</TableCell>
+                <TableCell colSpan={6} className="text-muted-foreground">No users in scope.</TableCell>
               </TableRow>
             )}
           </TableBody>
@@ -395,6 +439,35 @@ export default function AdminUsers() {
             <Button variant="outline" onClick={() => setDeletingProfile(null)}>Cancel</Button>
             <Button variant="destructive" onClick={() => void handleDelete()} disabled={deletingBusy}>
               {deletingBusy ? "Queuing…" : "Queue deletion"}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Change email dialog */}
+      <Dialog open={!!emailTarget} onOpenChange={(v) => { if (!v) { setEmailTarget(null); setNewLoginEmail(""); } }}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Change login email</DialogTitle>
+          </DialogHeader>
+          <p className="text-sm text-muted-foreground">
+            Update the email <strong>{emailTarget?.displayName || emailTarget?.userId}</strong> uses to sign in.
+            They will need to use the new address on their next login.
+          </p>
+          <div className="space-y-3">
+            <div>
+              <Label>Current email</Label>
+              <Input value={emailTarget?.email ?? ""} disabled readOnly />
+            </div>
+            <div>
+              <Label>New email *</Label>
+              <Input value={newLoginEmail} onChange={(e) => setNewLoginEmail(e.target.value)} type="email" autoComplete="off" />
+            </div>
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => { setEmailTarget(null); setNewLoginEmail(""); }}>Cancel</Button>
+            <Button onClick={() => void handleChangeEmail()} disabled={changingEmail}>
+              {changingEmail ? "Updating…" : "Change email"}
             </Button>
           </DialogFooter>
         </DialogContent>

@@ -7,7 +7,7 @@ vi.mock("@/integrations/supabase/client", () => ({
   supabase: { functions: { invoke: (...args: unknown[]) => invokeMock(...args) } },
 }));
 
-import { createUserDirect, resetUserPassword, setUserActive } from "@/lib/users-admin";
+import { changeUserEmail, createUserDirect, resetUserPassword, setUserActive } from "@/lib/users-admin";
 
 describe("validatePasswordStrength", () => {
   it("rejects empty", () => {
@@ -72,5 +72,21 @@ describe("users-admin wrappers", () => {
     error.context = new Response(JSON.stringify({ error: "User not allowed" }), { status: 400 });
     invokeMock.mockResolvedValueOnce({ data: null, error });
     await expect(resetUserPassword({ userId: "u1", password: "Hunter21" })).rejects.toThrow("User not allowed");
+  });
+
+  it("changeUserEmail calls admin-change-user-email with the payload", async () => {
+    await changeUserEmail({ userId: "u1", email: "new@example.com" });
+    expect(invokeMock).toHaveBeenCalledWith("admin-change-user-email", {
+      body: { userId: "u1", email: "new@example.com" },
+    });
+  });
+
+  it("changeUserEmail surfaces the backend message on non-2xx", async () => {
+    const error = new Error("Edge Function returned a non-2xx status code") as Error & { context: Response };
+    error.context = new Response(JSON.stringify({ error: "Email address is already registered" }), { status: 400 });
+    invokeMock.mockResolvedValueOnce({ data: null, error });
+    await expect(changeUserEmail({ userId: "u1", email: "dup@x.com" })).rejects.toThrow(
+      "Email address is already registered",
+    );
   });
 });

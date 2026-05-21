@@ -1084,16 +1084,21 @@ Adds three direct admin actions to AdminUsers on top of the existing maker-check
 - `admin-create-user` — now REQUIRES a password meeting the policy (≥8 chars, letter+digit, ≤72). Random-password fallback removed. Audit: `user.created`.
 - `admin-reset-password` (new) — body `{ userId, password }`. Verifies caller has `admin`/`super_admin`, validates the password, calls `auth.admin.updateUserById`. Audit: `user.password_reset` (password never persisted to the audit row).
 - `admin-set-user-active` (new) — body `{ userId, isActive }`. Verifies admin role, blocks self-deactivation, updates `profiles.is_active`. Audit: `user.activated` / `user.deactivated`.
+- `admin-change-user-email` (new, 2026-05-21) — body `{ userId, email }`. Verifies admin role, blocks self-change, validates email shape (`^[^\s@]+@[^\s@]+\.[^\s@]+$`, ≤255 chars), calls `auth.admin.updateUserById({ email, email_confirm: true })`, mirrors the new value into `profiles.email`. Audit: `user.email_changed` with `{ before, after }`.
+
+**Schema** (migration 2026-05-21):
+- `profiles.email text` — denormalised mirror of `auth.users.email`, kept in sync by `admin-create-user`, `admin-change-user-email`, and the `handle_new_user_profile` trigger. Backfilled from `auth.users` on rollout. Unique index `profiles_email_unique_idx` on `lower(email)` where not null.
 
 **Frontend**:
 - `src/lib/auth.ts` exports pure `validatePasswordStrength(pw)` shared by UI and tests.
-- `src/lib/users-admin.ts` (new) wraps the three edge functions via `supabase.functions.invoke` and extracts JSON error payloads from non-2xx responses so admins see the actual backend validation/auth message instead of the SDK's generic failure string.
-- `src/pages/AdminUsers.tsx` renamed dialog to "Create user" with Password + Confirm fields; adds per-row Reset-password button, Active/Inactive Switch, and a Status column. Delete still queues to Approvals.
-- `src/lib/workspace.ts` — `ManageableProfile` gains `isActive`; `fetchManageableProfiles` selects `is_active`.
+- `src/lib/users-admin.ts` wraps the four edge functions (`createUserDirect`, `resetUserPassword`, `setUserActive`, `changeUserEmail`) via `supabase.functions.invoke` and extracts JSON error payloads from non-2xx responses so admins see the actual backend validation/auth message instead of the SDK's generic failure string.
+- `src/pages/AdminUsers.tsx` table now shows an **Email** column and exposes a per-row "Change login email" action (disabled for self) opening a dialog that pre-fills the current address.
+- `src/lib/workspace.ts` — `ManageableProfile` gains `email`; `fetchManageableProfiles` selects `email`.
 - `src/components/AdminShell.tsx` — adds top-level "User Management" nav entry pointing at `/admin/system-control?tab=users`.
 
-**Tests** — `src/test/users-admin.test.ts` (11 cases): password validator boundaries + invoke payload contracts + error propagation.
+**Tests** — `src/test/users-admin.test.ts`: password validator boundaries + invoke payload contracts + error propagation for all four wrappers including `changeUserEmail` happy path and non-2xx surfacing.
 
 ### Version History
 - 2026-05-21: Initial User Management module — direct create/reset-password/activate-deactivate, password policy, top-level nav entry.
 - 2026-05-21: Improved User Management error surfacing for create/reset/activate-deactivate edge-function failures; no policy or schema change.
+- 2026-05-21: Added Email column to the users table and admin-only Change Email action (`admin-change-user-email` edge function); `profiles.email` mirror column added and backfilled.
