@@ -665,6 +665,7 @@ Per user decision (2026-04-26), every KPI tile rendered via `<AccentKpiCard />` 
 ### Version History
 - 2026-04-26 (Item Master Specs editor): replaced free-form JSON textarea with structured rows editor (`SpecsEditor`) + strict required + numeric range validation. Added 14 unit tests covering migration, validation, and serialization. 414/414 passing.
 - 2026-05-02 (Item Master CSV): replaced single `specs_json` column with one column per standard spec (`FIXED_SPEC_COLUMNS`). Template, Export, and Bulk upload all use the new layout. Custom keys no longer round-trip through CSV. Tests rewritten (14 passing).
+- 2026-05-22 (Item Master CSV — Export): Export now prepends a read-only `code` column (`ITEM_CSV_EXPORT_HEADERS`) so operators get the system-assigned item code in downloaded spreadsheets. Template/Bulk-upload header (`ITEM_CSV_HEADERS`) is unchanged and still rejects any `code` column, preserving the "codes are system-assigned" invariant.
 
 ## Specifications Master — Spec Templates per Nature (2026-04-26, updated 2026-04-27)
 
