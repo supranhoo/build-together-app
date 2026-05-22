@@ -66,17 +66,20 @@ describe("itemsToCsvRows export", () => {
     { id: "1", profitCenterId: "p", code: "RM-01", name: "Mn Ore", type: "RM", groupName: "Ores", subgroup: null, uom: "MT", stdCost: 100.5, specs: { Mn: 35, Fe: 12 }, minLevel: 10, maxLevel: 100, reorderLevel: 25, isActive: true },
     { id: "2", profitCenterId: "p", code: "FG-01", name: "FeMn", type: null, groupName: null, subgroup: null, uom: "MT", stdCost: null, specs: {}, minLevel: null, maxLevel: null, reorderLevel: null, isActive: false },
   ];
-  it("emits header + one row per item without the code column", () => {
+  it("emits header + one row per item with code as the first column", () => {
     const rows = itemsToCsvRows(items);
-    expect(rows[0]).toEqual([...ITEM_CSV_HEADERS]);
-    const mnIdx = ITEM_CSV_HEADERS.indexOf("Mn" as never);
-    const isActiveIdx = ITEM_CSV_HEADERS.indexOf("is_active" as never);
-    expect(rows[1][0]).toBe("Mn Ore"); // name first
-    expect(rows[1][1]).toBe("RM");
-    expect(rows[1][5]).toBe("100.5"); // std_cost
+    expect(rows[0]).toEqual(["code", ...ITEM_CSV_HEADERS]);
+    const exportHeaders = rows[0];
+    const mnIdx = exportHeaders.indexOf("Mn");
+    const isActiveIdx = exportHeaders.indexOf("is_active");
+    expect(rows[1][0]).toBe("RM-01"); // code first
+    expect(rows[1][1]).toBe("Mn Ore"); // then name
+    expect(rows[1][2]).toBe("RM");
+    expect(rows[1][6]).toBe("100.5"); // std_cost (shifted +1 by code)
     expect(rows[1][mnIdx]).toBe("35");
     expect(rows[1][isActiveIdx]).toBe("true");
-    expect(rows[2][1]).toBe(""); // null type
+    expect(rows[2][0]).toBe("FG-01");
+    expect(rows[2][2]).toBe(""); // null type
     expect(rows[2][mnIdx]).toBe(""); // empty specs → blank cell
     expect(rows[2][isActiveIdx]).toBe("false");
   });
