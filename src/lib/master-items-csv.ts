@@ -57,15 +57,22 @@ function buildSampleRow(): string[] {
 
 export const ITEM_CSV_TEMPLATE_SAMPLE: ReadonlyArray<string> = buildSampleRow();
 
+/** Export-only headers — prepend system-assigned `code` for operator reference.
+ *  Import/template headers (`ITEM_CSV_HEADERS`) deliberately exclude `code`
+ *  so a round-trip Export → Edit → Bulk-upload cannot overwrite codes. */
+export const ITEM_CSV_EXPORT_HEADERS = ["code", ...ITEM_CSV_HEADERS] as const;
+
 /** Serialize current items to a 2D array (header + body) ready for `toCsv`.
  *
- * Note: the system-assigned `code` is intentionally NOT included in the export
- * so a round-trip Export → Edit → Bulk-upload can never overwrite codes.
+ * The first column is the system-assigned `code` (read-only reference).
+ * Re-uploading this file via Bulk Upload is still rejected by `parseItemCsv`,
+ * which guards against the legacy `code` column.
  */
 export function itemsToCsvRows(items: ReadonlyArray<MasterItem>): string[][] {
-  const header = [...ITEM_CSV_HEADERS];
+  const header = [...ITEM_CSV_EXPORT_HEADERS];
   const body = items.map((item) => {
     const base = [
+      item.code,
       item.name,
       item.type ?? "",
       item.groupName ?? "",
