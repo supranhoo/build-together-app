@@ -52,6 +52,10 @@ interface MaterialPickerProps {
   placeholder?: string;
   disabled?: boolean;
   className?: string;
+  /** "code-name" (default) shows "CODE — Name (UOM)". "name-only" shows just the item name with current stock. */
+  displayMode?: "code-name" | "name-only";
+  /** Map of materialId → current stock (in the material's base UOM). Required for stock preview. */
+  stockByMaterial?: Map<string, number>;
 }
 
 export function MaterialPicker({
@@ -63,7 +67,10 @@ export function MaterialPicker({
   placeholder = "Choose material…",
   disabled,
   className,
+  displayMode = "code-name",
+  stockByMaterial,
 }: MaterialPickerProps) {
+
   const [open, setOpen] = useState(false);
   const [contexts, setContexts] = useState<PickerContext[]>([]);
 
