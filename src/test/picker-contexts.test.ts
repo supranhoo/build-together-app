@@ -90,3 +90,30 @@ describe("groupMaterialsForPicker", () => {
     expect(groups.find((g) => g.label === "RM › ORE › SINTER")?.items[0].id).toBe("a");
   });
 });
+
+describe("fad.finished_good context", () => {
+  // Regression: FAD Product Name dropdown must show only Ferro-Alloy FG items,
+  // never raw materials. allow_unmapped=false prevents legacy items from leaking in.
+  const fgCtx = ctx({
+    contextKey: "fad.finished_good",
+    materialType: "FG",
+    groupName: "Ferro Alloys",
+    allowUnmapped: false,
+  });
+  const items = [
+    m({ id: "simn", code: "FG-SIMN-001", name: "Silico Manganese", type: "FG", groupName: "Ferro Alloys" }),
+    m({ id: "femn", code: "FG-FEMN-001", name: "Ferro Manganese", type: "FG", groupName: "Ferro Alloys" }),
+    m({ id: "ore",  code: "RM-ORE-001",  name: "Mn Ore",          type: "RM", groupName: "Mn Ore" }),
+    m({ id: "fg-other", code: "FG-X",    name: "Other FG",        type: "FG", groupName: "DRI" }),
+    m({ id: "legacy", type: null, groupName: null }),
+  ];
+  it("includes only Ferro-Alloys FG items", () => {
+    const out = filterMaterialsByContext(items, fgCtx);
+    expect(out.map((x) => x.id).sort()).toEqual(["femn", "simn"]);
+  });
+  it("buckets selected FG items under 'FG › Ferro Alloys'", () => {
+    const groups = groupMaterialsForPicker(filterMaterialsByContext(items, fgCtx));
+    expect(groups.map((g) => g.label)).toEqual(["FG › Ferro Alloys"]);
+    expect(groups[0].items.map((x) => x.id).sort()).toEqual(["femn", "simn"]);
+  });
+});
