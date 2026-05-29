@@ -233,6 +233,7 @@ export default function PortalProductionFAD() {
   const [shiftId, setShiftId] = useState<string>("");
   const [stockLocationId, setStockLocationId] = useState<string>("");
   const [heatNumber, setHeatNumber] = useState("");
+  const [productItemId, setProductItemId] = useState<string>("");
   const [productName, setProductName] = useState("Silico Manganese");
   const [typicalGrade, setTypicalGrade] = useState("SiMn 60/14");
   const [tappingNo, setTappingNo] = useState("");
