@@ -279,6 +279,9 @@ export async function replaceHeatConsumption(input: {
     _rows: payload,
   });
   if (error) throw error;
+}
+
+
 
 export async function fetchConsumptionForHeat(heatLogId: string): Promise<Array<{ id: string; materialId: string; stockLocationId: string; quantity: number }>> {
   const { data, error } = await client
