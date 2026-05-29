@@ -607,3 +607,18 @@ or unmount the active portal page. Operators routinely have unsaved heat /
 consumption / metallurgy data in local component state; losing it on a window
 switch is unacceptable. Effects in `WorkspaceProvider` therefore key on
 `session?.user?.id` (stable), not the `session.user` object reference.
+
+## Draft Heat Re-Save Until Plant Head Submission
+
+A heat captured on the FAD entry screen MAY be saved as a draft any number of
+times by the operator before being submitted to the Plant Head. Each draft
+save overwrites the previous one — heat_log scalar fields are updated and the
+material_consumption rows for that heat are fully replaced (with matching
+inventory_ledger reversal entries so stock balances remain correct). The
+operator's form retains its values after a draft save so editing can continue.
+
+The single locking event is submission to the Plant Head, which sets
+`heat_metallurgy.status = 'submitted'`. Once submitted, the orchestrator MUST
+reject any further save attempt for that (profit_center, furnace, heat_number).
+Voided heats MUST also be rejected. Unlocking requires the existing admin void
+flow — operators cannot bypass this.
