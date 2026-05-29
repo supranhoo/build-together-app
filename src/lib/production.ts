@@ -216,22 +216,47 @@ export async function createHeatLog(input: {
   return (data as any).id as string;
 }
 
+/**
+ * Look up an existing heat log by its natural key (profit centre + furnace + heat number).
+ * Returns null when not found. Used by the FAD entry orchestrator to make
+ * `Save Draft` idempotent — see `submitFadEntry`.
+ */
+export async function findHeatLogByNumber(
+  profitCenterId: string,
+  furnaceId: string,
+  heatNumber: string,
+): Promise<{ id: string; isVoided: boolean } | null> {
+  const { data, error } = await client
+    .from("heat_logs")
+    .select("id, is_voided")
+    .eq("profit_center_id", profitCenterId)
+    .eq("furnace_id", furnaceId)
+    .eq("heat_number", heatNumber)
+    .maybeSingle();
+  if (error) throw error;
+  if (!data) return null;
+  return { id: (data as any).id as string, isVoided: Boolean((data as any).is_voided) };
+}
+
 export async function updateHeatLog(id: string, input: {
   heatNumber: string;
   tapTime: string;
   weightMt: number | null;
   powerMwh: number | null;
   notes: string | null;
+  shiftId?: string;
 }) {
+  const payload: Record<string, unknown> = {
+    heat_number: input.heatNumber,
+    tap_time: input.tapTime,
+    weight_mt: input.weightMt,
+    power_mwh: input.powerMwh,
+    notes: input.notes,
+  };
+  if (input.shiftId) payload.shift_id = input.shiftId;
   const { error } = await client
     .from("heat_logs")
-    .update({
-      heat_number: input.heatNumber,
-      tap_time: input.tapTime,
-      weight_mt: input.weightMt,
-      power_mwh: input.powerMwh,
-      notes: input.notes,
-    })
+    .update(payload)
     .eq("id", id);
   if (error) throw error;
 }
