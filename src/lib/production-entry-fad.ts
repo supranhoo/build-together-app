@@ -1,21 +1,22 @@
 /**
  * FAD Production Entry orchestrator.
  *
- * Performs the multi-step save for one heat from the FAD entry screen:
+ * Performs the multi-step save for one heat from the FAD entry screen.
  *
- *   1. createHeatLog   → row in `heat_logs`            (audit via trigger)
- *   2. recordHeatConsumption → rows in `material_consumption`
- *      (each row creates an `inventory_ledger` consumption via DB trigger)
- *   3. upsertMetallurgy → row in `heat_metallurgy`
+ * Idempotent draft re-save:
+ *   - First save  → INSERT heat_logs, INSERT material_consumption, UPSERT heat_metallurgy.
+ *   - Re-save     → UPDATE heat_logs, replace material_consumption (RPC reverses prior
+ *                   ledger entries then re-inserts), UPDATE heat_metallurgy.
+ *   - Submitted   → the metallurgy `status='submitted'` lock blocks any further save.
  *
  * No transactional rollback today (Supabase JS does not expose multi-table
  * transactions). On failure mid-flight we surface which step failed and
  * leave previously-written rows in place so an operator can correct and
- * retry. Heat-log void / inventory reversal flows already exist for cleanup.
+ * retry. Void / inventory-reversal flows exist for full cleanup.
  */
-import { createHeatLog } from "@/lib/production";
-import { recordHeatConsumption, type ConsumptionInput } from "@/lib/inventory";
-import { upsertMetallurgy, type HeatMetallurgyInput } from "@/lib/heat-metallurgy";
+import { createHeatLog, findHeatLogByNumber, updateHeatLog } from "@/lib/production";
+import { recordHeatConsumption, replaceHeatConsumption, type ConsumptionInput } from "@/lib/inventory";
+import { upsertMetallurgy, fetchMetallurgy, type HeatMetallurgyInput } from "@/lib/heat-metallurgy";
 
 export interface FadEntrySubmitInput {
   profitCenterId: string;
@@ -42,6 +43,7 @@ export interface FadEntrySubmitInput {
 export interface FadEntrySubmitResult {
   heatLogId: string;
   consumptionRowsWritten: number;
+  mode: "created" | "updated";
 }
 
 export class FadEntryError extends Error {
@@ -59,34 +61,79 @@ export async function submitFadEntry(input: FadEntrySubmitInput): Promise<FadEnt
     throw new FadEntryError("Every consumption row needs a material, location, and positive quantity", "consumption");
   }
 
-  let heatLogId: string;
+  // 1. Find existing heat (idempotent draft re-save).
+  let existing: { id: string; isVoided: boolean } | null = null;
   try {
-    heatLogId = await createHeatLog({
-      profitCenterId: input.profitCenterId,
-      furnaceId: input.furnaceId,
-      shiftId: input.shiftId,
-      heatNumber: input.heatNumber.trim(),
-      tapTime: input.tapTime,
-      weightMt: input.weightMt,
-      powerMwh: input.totalPowerMwh,
-      notes: input.notes,
-      createdBy: input.createdBy,
-    });
+    existing = await findHeatLogByNumber(input.profitCenterId, input.furnaceId, input.heatNumber.trim());
   } catch (e) {
-    throw new FadEntryError("Failed to create heat log", "heat_log", e);
+    throw new FadEntryError("Failed to look up heat log", "heat_log", e);
   }
 
-  if (input.consumption.length > 0) {
+  if (existing?.isVoided) {
+    throw new FadEntryError(`Heat ${input.heatNumber} was voided and cannot be re-saved`, "heat_log");
+  }
+
+  // If a draft already exists, enforce the submission lock before we touch anything.
+  if (existing) {
     try {
+      const m = await fetchMetallurgy(existing.id);
+      if (m?.status === "submitted") {
+        throw new FadEntryError(
+          `Heat ${input.heatNumber} is already submitted to Plant Head and cannot be edited`,
+          "heat_log",
+        );
+      }
+    } catch (e) {
+      if (e instanceof FadEntryError) throw e;
+      throw new FadEntryError("Failed to verify heat status", "heat_log", e);
+    }
+  }
+
+  let heatLogId: string;
+  let mode: "created" | "updated";
+  try {
+    if (existing) {
+      await updateHeatLog(existing.id, {
+        heatNumber: input.heatNumber.trim(),
+        tapTime: input.tapTime,
+        weightMt: input.weightMt,
+        powerMwh: input.totalPowerMwh,
+        notes: input.notes,
+        shiftId: input.shiftId,
+      });
+      heatLogId = existing.id;
+      mode = "updated";
+    } else {
+      heatLogId = await createHeatLog({
+        profitCenterId: input.profitCenterId,
+        furnaceId: input.furnaceId,
+        shiftId: input.shiftId,
+        heatNumber: input.heatNumber.trim(),
+        tapTime: input.tapTime,
+        weightMt: input.weightMt,
+        powerMwh: input.totalPowerMwh,
+        notes: input.notes,
+        createdBy: input.createdBy,
+      });
+      mode = "created";
+    }
+  } catch (e) {
+    throw new FadEntryError(mode! === "updated" ? "Failed to update heat log" : "Failed to create heat log", "heat_log", e);
+  }
+
+  try {
+    if (mode === "updated") {
+      await replaceHeatConsumption({ heatLogId, rows: input.consumption });
+    } else if (input.consumption.length > 0) {
       await recordHeatConsumption({
         heatLogId,
         profitCenterId: input.profitCenterId,
         createdBy: input.createdBy,
         rows: input.consumption,
       });
-    } catch (e) {
-      throw new FadEntryError("Heat saved, but consumption rows failed to record", "consumption", e);
     }
+  } catch (e) {
+    throw new FadEntryError("Heat saved, but consumption rows failed to record", "consumption", e);
   }
 
   try {
@@ -100,5 +147,5 @@ export async function submitFadEntry(input: FadEntrySubmitInput): Promise<FadEnt
     throw new FadEntryError("Heat & consumption saved, but metallurgy failed", "metallurgy", e);
   }
 
-  return { heatLogId, consumptionRowsWritten: input.consumption.length };
+  return { heatLogId, consumptionRowsWritten: input.consumption.length, mode };
 }
