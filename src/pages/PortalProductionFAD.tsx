@@ -14,7 +14,7 @@ import { useAuth } from "@/hooks/use-auth";
 import { useToast } from "@/hooks/use-toast";
 
 import { fetchFurnaces, fetchShifts, type Furnace, type Shift } from "@/lib/production";
-import { fetchStockLocations, type StockLocation } from "@/lib/inventory";
+import { fetchStockLocations, fetchLedger, computeStockBalances, type StockLocation, type InventoryLedgerEntry } from "@/lib/inventory";
 import { fetchMasterItems, type MasterItem } from "@/lib/master-data";
 import { mnBalance, mnInput as mnInputCalc, type MaterialSpecLookup } from "@/lib/ferro-alloys";
 import { siBalance, siInput as siInputCalc } from "@/lib/silicon-balance";
