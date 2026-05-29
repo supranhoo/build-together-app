@@ -25,8 +25,8 @@ function tok(value: string): string {
 
 /**
  * Compute the next sequential item code for `(type, group)`. Returns
- * `<TYPE>-<GROUP>-0001` when nothing exists, otherwise increments the
- * highest 4-digit numeric suffix found among matching codes.
+ * `<TYPE>-<GROUP>-00001` when nothing exists, otherwise increments the
+ * highest 5-digit numeric suffix found among matching codes.
  *
  * Returns `""` when type or group is missing — callers display nothing
  * in that case so the operator knows to pick Type + Group first.
@@ -46,7 +46,7 @@ export function nextItemCode(
     const n = Number.parseInt(tail, 10);
     if (Number.isFinite(n) && n > max) max = n;
   }
-  return `${prefix}${String(max + 1).padStart(4, "0")}`;
+  return `${prefix}${String(max + 1).padStart(5, "0")}`;
 }
 
 /**
@@ -68,7 +68,7 @@ export function nextItemCodeBatch(
   const startSeq = Number.parseInt(first.slice(lastDash + 1), 10);
   const out: string[] = [];
   for (let i = 0; i < count; i += 1) {
-    out.push(`${prefix}${String(startSeq + i).padStart(4, "0")}`);
+    out.push(`${prefix}${String(startSeq + i).padStart(5, "0")}`);
   }
   return out;
 }
