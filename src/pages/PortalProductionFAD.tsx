@@ -488,7 +488,7 @@ export default function PortalProductionFAD() {
 
     setSaving(status);
     try {
-      await submitFadEntry({
+      const result = await submitFadEntry({
         profitCenterId: activeProfitCenterId,
         createdBy: userId,
         furnaceId,
@@ -518,8 +518,11 @@ export default function PortalProductionFAD() {
         },
       });
 
+      const title = status === "submitted"
+        ? "Heat submitted to Plant Head"
+        : result.mode === "updated" ? "Draft updated" : "Heat saved as draft";
       toast({
-        title: status === "draft" ? "Heat saved as draft" : "Heat submitted to Plant Head",
+        title,
         description: `${heatNumber} · ${consumption.length} consumption rows recorded.`,
       });
 
