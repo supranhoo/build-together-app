@@ -229,6 +229,15 @@ export default function PortalProductionFAD() {
     return map;
   }, [materials]);
 
+  /** Aggregate current stock per material across all locations — for the FG picker preview. */
+  const stockByMaterial = useMemo(() => {
+    const map = new Map<string, number>();
+    for (const b of computeStockBalances(ledger)) {
+      map.set(b.materialId, (map.get(b.materialId) ?? 0) + b.quantity);
+    }
+    return map;
+  }, [ledger]);
+
   // ---- Entry form state ----
   const today = new Date().toISOString().split("T")[0];
   const [date, setDate] = useState(today);
