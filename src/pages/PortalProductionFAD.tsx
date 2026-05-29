@@ -604,7 +604,27 @@ export default function PortalProductionFAD() {
                     </div>
                     <div>
                       <label className="block text-xs font-medium text-muted-foreground mb-1">Product Name</label>
-                      <Input value={productName} onChange={(e) => setProductName(e.target.value)} />
+                      <MaterialPicker
+                        contextKey="fad.finished_good"
+                        profitCenterId={activeProfitCenterId ?? null}
+                        materials={materials}
+                        value={productItemId}
+                        onChange={(id) => {
+                          setProductItemId(id);
+                          const item = materialMap.get(id);
+                          if (item) {
+                            setProductName(item.name);
+                            const specGrade = (item.specs as Record<string, unknown> | undefined)?.["typicalGrade"];
+                            if (typeof specGrade === "string" && specGrade.trim() && !typicalGrade.trim()) {
+                              setTypicalGrade(specGrade.trim());
+                            }
+                          }
+                        }}
+                        placeholder="Select finished good…"
+                      />
+                      {productName && !productItemId && (
+                        <p className="mt-1 text-xs text-muted-foreground">Saved as: {productName}</p>
+                      )}
                     </div>
                     <div>
                       <label className="block text-xs font-medium text-muted-foreground mb-1">Typical Grade</label>
