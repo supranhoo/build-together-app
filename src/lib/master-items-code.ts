@@ -46,7 +46,7 @@ export function nextItemCode(
     const n = Number.parseInt(tail, 10);
     if (Number.isFinite(n) && n > max) max = n;
   }
-  return `${prefix}${String(max + 1).padStart(4, "0")}`;
+  return `${prefix}${String(max + 1).padStart(5, "0")}`;
 }
 
 /**
