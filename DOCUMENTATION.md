@@ -1137,3 +1137,4 @@ spinner controls to preserve usable text space on compact screens.
 
 ### Version History
 - 2026-05-21: Adjusted FAD consumption table layout so Qty fields remain readable on compact screens without changing formulas, validation, or save behavior.
+- 2026-05-29: Fixed in-flight form data being wiped when the operator Alt-Tabbed away and back. RCA: `WorkspaceProvider` effects depended on `session?.user` (object identity). Supabase's `TOKEN_REFRESHED` event fires on tab refocus and mints a new Session object with the same user id, which re-fired the effects, flipped workspace `loading` to true, and caused `RequireWorkspace` to unmount the active portal page (FAD entry, etc.) — wiping local `useState`. Effects now key on `session?.user?.id` (stable string).
