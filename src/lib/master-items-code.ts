@@ -68,7 +68,7 @@ export function nextItemCodeBatch(
   const startSeq = Number.parseInt(first.slice(lastDash + 1), 10);
   const out: string[] = [];
   for (let i = 0; i < count; i += 1) {
-    out.push(`${prefix}${String(startSeq + i).padStart(4, "0")}`);
+    out.push(`${prefix}${String(startSeq + i).padStart(5, "0")}`);
   }
   return out;
 }
