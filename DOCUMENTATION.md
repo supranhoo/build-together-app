@@ -759,6 +759,7 @@ Every material dropdown across the app (Inventory Receipts/Issues/Transfers/GRN,
 - Workspace overrides win over global defaults (seeded with the migration).
 - Items with no Type/Group/Subgroup appear under an `(Unmapped)` bucket so legacy data stays editable.
 - Admins manage overrides at **Master Data → Picker Contexts**.
+- **`fad.finished_good`** (2026-05-29): drives the **Product Name** dropdown on the FAD heat-entry header (`PortalProductionFAD.tsx`). Default filter `type=FG, group=Ferro Alloys, allow_unmapped=false`. Selecting an item populates `productName` (still saved as text in `heat_logs.product`) and prefills **Typical Grade** from `item.specs.typicalGrade` when present and the field is empty.
 
 ### Files
 - `src/lib/picker-contexts.ts` — fetch / resolve / filter / group helpers (pure, generic over `PickerMaterial`).
