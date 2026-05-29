@@ -177,6 +177,7 @@ export default function PortalProductionFAD() {
   const [shifts, setShifts] = useState<Shift[]>([]);
   const [stockLocations, setStockLocations] = useState<StockLocation[]>([]);
   const [materials, setMaterials] = useState<MasterItem[]>([]);
+  const [ledger, setLedger] = useState<InventoryLedgerEntry[]>([]);
   const [thresholds, setThresholds] = useState<ProductionAlertThresholds>(DEFAULT_PRODUCTION_ALERTS);
   const [formulas, setFormulas] = useState<ProductionFormulaDefaults>(DEFAULT_PRODUCTION_FORMULAS);
   const [loadingMasters, setLoadingMasters] = useState(true);
