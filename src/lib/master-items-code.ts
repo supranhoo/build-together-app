@@ -25,8 +25,8 @@ function tok(value: string): string {
 
 /**
  * Compute the next sequential item code for `(type, group)`. Returns
- * `<TYPE>-<GROUP>-0001` when nothing exists, otherwise increments the
- * highest 4-digit numeric suffix found among matching codes.
+ * `<TYPE>-<GROUP>-00001` when nothing exists, otherwise increments the
+ * highest 5-digit numeric suffix found among matching codes.
  *
  * Returns `""` when type or group is missing — callers display nothing
  * in that case so the operator knows to pick Type + Group first.
