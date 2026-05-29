@@ -118,7 +118,7 @@ export async function submitFadEntry(input: FadEntrySubmitInput): Promise<FadEnt
       mode = "created";
     }
   } catch (e) {
-    throw new FadEntryError(mode! === "updated" ? "Failed to update heat log" : "Failed to create heat log", "heat_log", e);
+    throw new FadEntryError(existing ? "Failed to update heat log" : "Failed to create heat log", "heat_log", e);
   }
 
   try {
