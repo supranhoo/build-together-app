@@ -52,6 +52,10 @@ interface MaterialPickerProps {
   placeholder?: string;
   disabled?: boolean;
   className?: string;
+  /** "code-name" (default) shows "CODE — Name (UOM)". "name-only" shows just the item name with current stock. */
+  displayMode?: "code-name" | "name-only";
+  /** Map of materialId → current stock (in the material's base UOM). Required for stock preview. */
+  stockByMaterial?: Map<string, number>;
 }
 
 export function MaterialPicker({
@@ -63,7 +67,10 @@ export function MaterialPicker({
   placeholder = "Choose material…",
   disabled,
   className,
+  displayMode = "code-name",
+  stockByMaterial,
 }: MaterialPickerProps) {
+
   const [open, setOpen] = useState(false);
   const [contexts, setContexts] = useState<PickerContext[]>([]);
 
@@ -83,6 +90,19 @@ export function MaterialPicker({
   const grouped = useMemo(() => groupMaterialsForPicker(filtered), [filtered]);
   const selected = materials.find((m) => m.id === value);
 
+  const stockOf = (id: string): number | undefined => stockByMaterial?.get(id);
+  const fmtStock = (qty: number | undefined, uom: string | undefined) =>
+    qty === undefined ? "—" : `${qty.toLocaleString(undefined, { maximumFractionDigits: 3 })}${uom ? ` ${uom}` : ""}`;
+
+  const renderTriggerLabel = () => {
+    if (!selected) return placeholder;
+    if (displayMode === "name-only") {
+      const stockLabel = stockByMaterial ? ` · Stock: ${fmtStock(stockOf(selected.id), selected.uom)}` : "";
+      return `${selected.name}${stockLabel}`;
+    }
+    return `${selected.code} — ${selected.name}${selected.uom ? ` (${selected.uom})` : ""}`;
+  };
+
   return (
     <Popover open={open} onOpenChange={setOpen}>
       <PopoverTrigger asChild>
@@ -93,17 +113,13 @@ export function MaterialPicker({
           disabled={disabled}
           className={cn("w-full justify-between font-normal", className)}
         >
-          <span className="truncate text-left">
-            {selected
-              ? `${selected.code} — ${selected.name}${selected.uom ? ` (${selected.uom})` : ""}`
-              : placeholder}
-          </span>
+          <span className="truncate text-left">{renderTriggerLabel()}</span>
           <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
         </Button>
       </PopoverTrigger>
       <PopoverContent className="w-[--radix-popover-trigger-width] p-0" align="start">
         <Command>
-          <CommandInput placeholder="Search code, name, group…" />
+          <CommandInput placeholder={displayMode === "name-only" ? "Search name…" : "Search code, name, group…"} />
           <CommandList className="max-h-72">
             <CommandEmpty>No materials match this slot.</CommandEmpty>
             {grouped.map((group) => (
@@ -126,11 +142,22 @@ export function MaterialPicker({
                           value === m.id ? "opacity-100" : "opacity-0",
                         )}
                       />
-                      <span className="flex-1 truncate">
-                        <span className="font-mono text-xs text-muted-foreground">{m.code}</span>{" "}
-                        {m.name}{" "}
-                        <span className="text-xs text-muted-foreground">({m.uom})</span>
-                      </span>
+                      {displayMode === "name-only" ? (
+                        <span className="flex flex-1 items-center justify-between gap-2 truncate">
+                          <span className="truncate">{m.name}</span>
+                          {stockByMaterial && (
+                            <span className="shrink-0 text-xs text-muted-foreground">
+                              Stock: {fmtStock(stockOf(m.id), m.uom)}
+                            </span>
+                          )}
+                        </span>
+                      ) : (
+                        <span className="flex-1 truncate">
+                          <span className="font-mono text-xs text-muted-foreground">{m.code}</span>{" "}
+                          {m.name}{" "}
+                          <span className="text-xs text-muted-foreground">({m.uom})</span>
+                        </span>
+                      )}
                     </CommandItem>
                   );
                 })}
@@ -141,4 +168,5 @@ export function MaterialPicker({
       </PopoverContent>
     </Popover>
   );
+
 }

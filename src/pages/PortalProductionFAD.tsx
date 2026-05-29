@@ -14,7 +14,7 @@ import { useAuth } from "@/hooks/use-auth";
 import { useToast } from "@/hooks/use-toast";
 
 import { fetchFurnaces, fetchShifts, type Furnace, type Shift } from "@/lib/production";
-import { fetchStockLocations, type StockLocation } from "@/lib/inventory";
+import { fetchStockLocations, fetchLedger, computeStockBalances, type StockLocation, type InventoryLedgerEntry } from "@/lib/inventory";
 import { fetchMasterItems, type MasterItem } from "@/lib/master-data";
 import { mnBalance, mnInput as mnInputCalc, type MaterialSpecLookup } from "@/lib/ferro-alloys";
 import { siBalance, siInput as siInputCalc } from "@/lib/silicon-balance";
@@ -177,6 +177,7 @@ export default function PortalProductionFAD() {
   const [shifts, setShifts] = useState<Shift[]>([]);
   const [stockLocations, setStockLocations] = useState<StockLocation[]>([]);
   const [materials, setMaterials] = useState<MasterItem[]>([]);
+  const [ledger, setLedger] = useState<InventoryLedgerEntry[]>([]);
   const [thresholds, setThresholds] = useState<ProductionAlertThresholds>(DEFAULT_PRODUCTION_ALERTS);
   const [formulas, setFormulas] = useState<ProductionFormulaDefaults>(DEFAULT_PRODUCTION_FORMULAS);
   const [loadingMasters, setLoadingMasters] = useState(true);
@@ -192,8 +193,9 @@ export default function PortalProductionFAD() {
       fetchMasterItems(activeProfitCenterId),
       fetchProductionAlertThresholds(activeProfitCenterId),
       fetchProductionFormulaDefaults(activeProfitCenterId),
+      fetchLedger(activeProfitCenterId),
     ])
-      .then(([f, s, sl, m, t, fm]) => {
+      .then(([f, s, sl, m, t, fm, le]) => {
         if (cancelled) return;
         setFurnaces(f.filter((x) => x.isActive));
         setShifts(s.filter((x) => x.isActive));
@@ -201,6 +203,7 @@ export default function PortalProductionFAD() {
         setMaterials(m.filter((x) => x.isActive));
         setThresholds(t);
         setFormulas(fm);
+        setLedger(le);
       })
       .catch((e) => {
         toast({ title: "Failed to load workspace data", description: e?.message ?? String(e), variant: "destructive" });
@@ -225,6 +228,15 @@ export default function PortalProductionFAD() {
     materials.forEach((m) => map.set(m.id, m));
     return map;
   }, [materials]);
+
+  /** Aggregate current stock per material across all locations — for the FG picker preview. */
+  const stockByMaterial = useMemo(() => {
+    const map = new Map<string, number>();
+    for (const b of computeStockBalances(ledger)) {
+      map.set(b.materialId, (map.get(b.materialId) ?? 0) + b.quantity);
+    }
+    return map;
+  }, [ledger]);
 
   // ---- Entry form state ----
   const today = new Date().toISOString().split("T")[0];
@@ -622,6 +634,8 @@ export default function PortalProductionFAD() {
                           }
                         }}
                         placeholder="Select finished good…"
+                        displayMode="name-only"
+                        stockByMaterial={stockByMaterial}
                       />
                       {productName && !productItemId && (
                         <p className="mt-1 text-xs text-muted-foreground">Saved as: {productName}</p>
