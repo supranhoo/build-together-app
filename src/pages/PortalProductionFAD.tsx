@@ -526,22 +526,25 @@ export default function PortalProductionFAD() {
         description: `${heatNumber} · ${consumption.length} consumption rows recorded.`,
       });
 
-      // Reset only the heat-specific fields; keep masters chosen
-      setHeatNumber("");
-      setTappingNo("");
-      setBatchNo("");
-      setProductionMt("");
-      setSlagQtyMt("");
-      setDustQtyMt("");
-      setTappingPower("");
-      setFurnacePower("");
-      setAuxiliaryPower("");
-      setAvgPowerFactor("");
-      setOreRows([]);
-      setReductantRows([]);
-      setFluxRows([]);
-      setPasteRows([]);
-      setEntryStep("ore");
+      // On final submission, clear the form for the next heat.
+      // On draft save, keep all fields so the operator can keep editing and re-save.
+      if (status === "submitted") {
+        setHeatNumber("");
+        setTappingNo("");
+        setBatchNo("");
+        setProductionMt("");
+        setSlagQtyMt("");
+        setDustQtyMt("");
+        setTappingPower("");
+        setFurnacePower("");
+        setAuxiliaryPower("");
+        setAvgPowerFactor("");
+        setOreRows([]);
+        setReductantRows([]);
+        setFluxRows([]);
+        setPasteRows([]);
+        setEntryStep("ore");
+      }
     } catch (e) {
       const err = e as FadEntryError | Error;
       const step = (err as FadEntryError).step;
