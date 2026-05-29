@@ -212,7 +212,13 @@ export function WorkspaceProvider({ children }: { children: ReactNode }) {
     return () => {
       isMounted = false;
     };
-  }, [activeProfitCenterId, authLoading, session?.user]);
+    // Depend on `session?.user?.id` (stable string) — NOT `session?.user` (object).
+    // Supabase's TOKEN_REFRESHED event (fires on tab refocus / Alt-Tab return)
+    // mints a new Session object with the same user id; depending on the object
+    // would re-run this effect, flip `loading` to true, and cause RequireWorkspace
+    // to unmount the active portal page — wiping operator-entered form data
+    // (e.g. the FAD heat entry). Keying on the user id avoids that.
+  }, [activeProfitCenterId, authLoading, session?.user?.id]);
 
   useEffect(() => {
     if (authLoading || !session?.user || (!profile?.role || (profile.role !== "admin" && profile.role !== "super_admin"))) {
