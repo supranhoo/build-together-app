@@ -488,7 +488,7 @@ export default function PortalProductionFAD() {
 
     setSaving(status);
     try {
-      await submitFadEntry({
+      const result = await submitFadEntry({
         profitCenterId: activeProfitCenterId,
         createdBy: userId,
         furnaceId,
@@ -518,27 +518,33 @@ export default function PortalProductionFAD() {
         },
       });
 
+      const title = status === "submitted"
+        ? "Heat submitted to Plant Head"
+        : result.mode === "updated" ? "Draft updated" : "Heat saved as draft";
       toast({
-        title: status === "draft" ? "Heat saved as draft" : "Heat submitted to Plant Head",
+        title,
         description: `${heatNumber} · ${consumption.length} consumption rows recorded.`,
       });
 
-      // Reset only the heat-specific fields; keep masters chosen
-      setHeatNumber("");
-      setTappingNo("");
-      setBatchNo("");
-      setProductionMt("");
-      setSlagQtyMt("");
-      setDustQtyMt("");
-      setTappingPower("");
-      setFurnacePower("");
-      setAuxiliaryPower("");
-      setAvgPowerFactor("");
-      setOreRows([]);
-      setReductantRows([]);
-      setFluxRows([]);
-      setPasteRows([]);
-      setEntryStep("ore");
+      // On final submission, clear the form for the next heat.
+      // On draft save, keep all fields so the operator can keep editing and re-save.
+      if (status === "submitted") {
+        setHeatNumber("");
+        setTappingNo("");
+        setBatchNo("");
+        setProductionMt("");
+        setSlagQtyMt("");
+        setDustQtyMt("");
+        setTappingPower("");
+        setFurnacePower("");
+        setAuxiliaryPower("");
+        setAvgPowerFactor("");
+        setOreRows([]);
+        setReductantRows([]);
+        setFluxRows([]);
+        setPasteRows([]);
+        setEntryStep("ore");
+      }
     } catch (e) {
       const err = e as FadEntryError | Error;
       const step = (err as FadEntryError).step;

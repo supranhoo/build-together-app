@@ -4,17 +4,21 @@ import { FadEntryError, submitFadEntry } from "@/lib/production-entry-fad";
 
 vi.mock("@/lib/production", () => ({
   createHeatLog: vi.fn().mockResolvedValue("heat-1"),
+  updateHeatLog: vi.fn().mockResolvedValue(undefined),
+  findHeatLogByNumber: vi.fn().mockResolvedValue(null),
 }));
 vi.mock("@/lib/inventory", () => ({
   recordHeatConsumption: vi.fn().mockResolvedValue(undefined),
+  replaceHeatConsumption: vi.fn().mockResolvedValue(undefined),
 }));
 vi.mock("@/lib/heat-metallurgy", () => ({
   upsertMetallurgy: vi.fn().mockResolvedValue(undefined),
+  fetchMetallurgy: vi.fn().mockResolvedValue(null),
 }));
 
-import { createHeatLog } from "@/lib/production";
-import { recordHeatConsumption } from "@/lib/inventory";
-import { upsertMetallurgy } from "@/lib/heat-metallurgy";
+import { createHeatLog, updateHeatLog, findHeatLogByNumber } from "@/lib/production";
+import { recordHeatConsumption, replaceHeatConsumption } from "@/lib/inventory";
+import { upsertMetallurgy, fetchMetallurgy } from "@/lib/heat-metallurgy";
 
 const baseInput = () => ({
   profitCenterId: "pc-1",
@@ -37,6 +41,8 @@ const baseInput = () => ({
 
 beforeEach(() => {
   vi.clearAllMocks();
+  (findHeatLogByNumber as any).mockResolvedValue(null);
+  (fetchMetallurgy as any).mockResolvedValue(null);
 });
 
 describe("classifyMaterial", () => {
@@ -53,13 +59,17 @@ describe("classifyMaterial", () => {
   });
 });
 
-describe("submitFadEntry", () => {
-  it("orchestrates heat → consumption → metallurgy in order", async () => {
+describe("submitFadEntry — first save", () => {
+  it("INSERTs heat + consumption when no existing draft is found", async () => {
     const result = await submitFadEntry(baseInput());
     expect(result.heatLogId).toBe("heat-1");
     expect(result.consumptionRowsWritten).toBe(1);
+    expect(result.mode).toBe("created");
+    expect(findHeatLogByNumber).toHaveBeenCalledOnce();
     expect(createHeatLog).toHaveBeenCalledOnce();
+    expect(updateHeatLog).not.toHaveBeenCalled();
     expect(recordHeatConsumption).toHaveBeenCalledOnce();
+    expect(replaceHeatConsumption).not.toHaveBeenCalled();
     expect(upsertMetallurgy).toHaveBeenCalledOnce();
   });
 
@@ -82,5 +92,46 @@ describe("submitFadEntry", () => {
       expect(e).toBeInstanceOf(FadEntryError);
       expect((e as FadEntryError).step).toBe("consumption");
     }
+  });
+});
+
+describe("submitFadEntry — idempotent draft re-save", () => {
+  it("UPDATEs the existing heat and replaces consumption when a draft already exists", async () => {
+    (findHeatLogByNumber as any).mockResolvedValueOnce({ id: "heat-existing", isVoided: false });
+    (fetchMetallurgy as any).mockResolvedValueOnce({ id: "m", status: "draft" });
+
+    const result = await submitFadEntry(baseInput());
+
+    expect(result.heatLogId).toBe("heat-existing");
+    expect(result.mode).toBe("updated");
+    expect(createHeatLog).not.toHaveBeenCalled();
+    expect(updateHeatLog).toHaveBeenCalledOnce();
+    expect(replaceHeatConsumption).toHaveBeenCalledWith({
+      heatLogId: "heat-existing",
+      rows: baseInput().consumption,
+    });
+    expect(recordHeatConsumption).not.toHaveBeenCalled();
+    expect(upsertMetallurgy).toHaveBeenCalledOnce();
+  });
+
+  it("blocks re-save once metallurgy has been submitted to Plant Head", async () => {
+    (findHeatLogByNumber as any).mockResolvedValueOnce({ id: "heat-existing", isVoided: false });
+    (fetchMetallurgy as any).mockResolvedValueOnce({ id: "m", status: "submitted" });
+
+    await expect(submitFadEntry(baseInput())).rejects.toMatchObject({
+      name: "FadEntryError",
+      step: "heat_log",
+    });
+    expect(updateHeatLog).not.toHaveBeenCalled();
+    expect(replaceHeatConsumption).not.toHaveBeenCalled();
+  });
+
+  it("blocks re-save when the heat has been voided", async () => {
+    (findHeatLogByNumber as any).mockResolvedValueOnce({ id: "heat-existing", isVoided: true });
+    await expect(submitFadEntry(baseInput())).rejects.toMatchObject({
+      name: "FadEntryError",
+      step: "heat_log",
+    });
+    expect(fetchMetallurgy).not.toHaveBeenCalled();
   });
 });

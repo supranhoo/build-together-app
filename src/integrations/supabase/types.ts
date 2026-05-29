@@ -6555,6 +6555,10 @@ export type Database = {
         Args: { _decision_notes: string; _transfer_id: string }
         Returns: Json
       }
+      replace_heat_draft_consumption: {
+        Args: { _heat_log_id: string; _rows: Json }
+        Returns: Json
+      }
       request_pc_transfer: {
         Args: {
           _dest_pc: string
