@@ -634,6 +634,8 @@ export default function PortalProductionFAD() {
                           }
                         }}
                         placeholder="Select finished good…"
+                        displayMode="name-only"
+                        stockByMaterial={stockByMaterial}
                       />
                       {productName && !productItemId && (
                         <p className="mt-1 text-xs text-muted-foreground">Saved as: {productName}</p>
