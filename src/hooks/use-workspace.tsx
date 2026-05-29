@@ -255,7 +255,9 @@ export function WorkspaceProvider({ children }: { children: ReactNode }) {
     return () => {
       isMounted = false;
     };
-  }, [activeProfitCenterId, authLoading, profile?.role, session?.user]);
+    // See note above — key on the stable user id so Supabase token refreshes
+    // (Alt-Tab, window refocus) do not re-fire this effect and remount the page.
+  }, [activeProfitCenterId, authLoading, profile?.role, session?.user?.id]);
 
   const value = useMemo<WorkspaceContextValue>(() => {
     const isSuperAdmin = profile?.role === "super_admin";
