@@ -255,6 +255,31 @@ export async function recordHeatConsumption(input: {
   if (error) throw error;
 }
 
+/**
+ * Atomically reverse the existing consumption rows for a draft heat and
+ * replace them with a fresh set. Backed by the `replace_heat_draft_consumption`
+ * SECURITY DEFINER RPC, which:
+ *   1. Confirms the caller can access the heat's profit centre
+ *   2. Refuses if the heat is voided or metallurgy is already 'submitted'
+ *   3. Writes inventory_ledger reversal entries for prior consumption
+ *   4. Deletes the old material_consumption rows
+ *   5. Inserts the new rows (the BEFORE INSERT trigger writes fresh ledger entries)
+ */
+export async function replaceHeatConsumption(input: {
+  heatLogId: string;
+  rows: ConsumptionInput[];
+}): Promise<void> {
+  const payload = input.rows.map((r) => ({
+    material_id: r.materialId,
+    stock_location_id: r.stockLocationId,
+    quantity: r.quantity,
+  }));
+  const { error } = await (client as any).rpc("replace_heat_draft_consumption", {
+    _heat_log_id: input.heatLogId,
+    _rows: payload,
+  });
+  if (error) throw error;
+
 export async function fetchConsumptionForHeat(heatLogId: string): Promise<Array<{ id: string; materialId: string; stockLocationId: string; quantity: number }>> {
   const { data, error } = await client
     .from("material_consumption")
