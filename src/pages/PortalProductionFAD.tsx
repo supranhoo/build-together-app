@@ -193,8 +193,9 @@ export default function PortalProductionFAD() {
       fetchMasterItems(activeProfitCenterId),
       fetchProductionAlertThresholds(activeProfitCenterId),
       fetchProductionFormulaDefaults(activeProfitCenterId),
+      fetchLedger(activeProfitCenterId),
     ])
-      .then(([f, s, sl, m, t, fm]) => {
+      .then(([f, s, sl, m, t, fm, le]) => {
         if (cancelled) return;
         setFurnaces(f.filter((x) => x.isActive));
         setShifts(s.filter((x) => x.isActive));
@@ -202,6 +203,7 @@ export default function PortalProductionFAD() {
         setMaterials(m.filter((x) => x.isActive));
         setThresholds(t);
         setFormulas(fm);
+        setLedger(le);
       })
       .catch((e) => {
         toast({ title: "Failed to load workspace data", description: e?.message ?? String(e), variant: "destructive" });
