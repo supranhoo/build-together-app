@@ -382,7 +382,7 @@
 
 ## Item Master Code & Naming Conventions (2026-04-29)
 
-- **Item codes are auto-generated** on creation as `<TYPE>-<GROUP>-<NNNN>` (e.g. `RM-ORE-0001`), zero-padded to 4 digits. Operators cannot type the code on new items. Admins MAY override the code when editing an existing item (legacy correction path). CSV bulk upload retains its own code column.
+- **Item codes are auto-generated** on creation as `<TYPE>-<GROUP>-<NNNNN>` (e.g. `RM-ORE-00001`), zero-padded to 5 digits (widened from 4 on 2026-05-29 to accommodate larger catalogues; legacy 4-digit codes continue to sort/increment correctly). Operators cannot type the code on new items. Admins MAY override the code when editing an existing item (legacy correction path). CSV bulk upload retains its own code column.
 - **Group and Subgroup must exist in Master Data → Group & Hierarchy before they can be used on an item.** The New Item dialog no longer accepts free-text groups/subgroups; the dropdowns are populated strictly from active rows in `material_groups`. This enforces Rule #10 (Zero-Hardcoding / admin-controlled master data).
 - **Item Name is prefilled with the Subgroup value** as a convenience. Operators are expected to extend it (e.g. "Mn-Ore" → "Mn-Ore HG Lump 30-50mm"). The prefill never overwrites a name the operator has customized.
 
