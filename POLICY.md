@@ -598,3 +598,12 @@ screens. Long material descriptions may truncate or require horizontal scroll,
 but they must not collapse Qty fields or make numeric entry unreadable. This is
 a presentation rule only; it must not alter FAD formulas, validation, inventory
 posting, or metallurgical source-of-truth rules.
+
+## Session Refresh Must Not Wipe In-Flight Entry
+
+Auth token refresh events (Supabase `TOKEN_REFRESHED`, fired on tab refocus /
+Alt-Tab return) MUST NOT cause workspace context to re-enter its loading state
+or unmount the active portal page. Operators routinely have unsaved heat /
+consumption / metallurgy data in local component state; losing it on a window
+switch is unacceptable. Effects in `WorkspaceProvider` therefore key on
+`session?.user?.id` (stable), not the `session.user` object reference.
