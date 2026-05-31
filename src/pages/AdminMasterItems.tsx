@@ -78,7 +78,7 @@ const empty: FormState = {
   type: "",
   groupName: "",
   subgroup: "",
-  uom: "kg",
+  uom: "MT",
   stdCost: "",
   propertyValues: {},
   baseSpecs: {},
