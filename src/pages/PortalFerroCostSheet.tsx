@@ -25,7 +25,8 @@ import { useAuth } from "@/hooks/use-auth";
 import { useToast } from "@/hooks/use-toast";
 import { fetchFurnaces, fetchHeatLogs, type Furnace, type HeatLog } from "@/lib/production";
 import { fetchCostRates, type CostRate, type MasterItem } from "@/lib/master-data";
-import { latestRateOn, daysBetween } from "@/lib/costing";
+import { resolveLatestRate, daysBetween } from "@/lib/costing";
+import { fetchLedger, type InventoryLedgerEntry } from "@/lib/inventory";
 import {
   buildFerroCostSheet,
   byproductRateOn,
