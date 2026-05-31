@@ -25,7 +25,8 @@ import { useAuth } from "@/hooks/use-auth";
 import { useToast } from "@/hooks/use-toast";
 import { fetchFurnaces, fetchHeatLogs, type Furnace, type HeatLog } from "@/lib/production";
 import { fetchCostRates, type CostRate, type MasterItem } from "@/lib/master-data";
-import { latestRateOn, daysBetween } from "@/lib/costing";
+import { resolveLatestRate, daysBetween } from "@/lib/costing";
+import { fetchLedger, type InventoryLedgerEntry } from "@/lib/inventory";
 import {
   buildFerroCostSheet,
   byproductRateOn,
@@ -59,6 +60,7 @@ export default function PortalFerroCostSheet() {
   const [approvedHeats, setApprovedHeats] = useState<HeatLog[]>([]);
   const [approvalById, setApprovalById] = useState<Map<string, HeatLogApproval>>(new Map());
   const [rates, setRates] = useState<CostRate[]>([]);
+  const [ledger, setLedger] = useState<InventoryLedgerEntry[]>([]);
   const [credits, setCredits] = useState<ByproductCredit[]>([]);
   const [materials, setMaterials] = useState<MasterItem[]>([]);
   const [settings, setSettings] = useState<SettingValue>({});
@@ -79,7 +81,7 @@ export default function PortalFerroCostSheet() {
     if (!activeProfitCenter) return;
     (async () => {
       try {
-        const [f, r, c, m, s, sheets, approvals, allHeats] = await Promise.all([
+        const [f, r, c, m, s, sheets, approvals, allHeats, led] = await Promise.all([
           fetchFurnaces(activeProfitCenter.id),
           fetchCostRates(activeProfitCenter.id),
           fetchByproductCredits(activeProfitCenter.id),
@@ -99,12 +101,14 @@ export default function PortalFerroCostSheet() {
           fetchFerroCostSheets(activeProfitCenter.id),
           fetchHeatApprovals(activeProfitCenter.id, { status: "approved" }),
           fetchHeatLogs(activeProfitCenter.id, {}),
+          fetchLedger(activeProfitCenter.id),
         ]);
         setFurnaces(f);
         setRates(r);
         setCredits(c);
         setMaterials(m);
         setHistory(sheets);
+        setLedger(led);
 
         const merged: SettingValue = {};
         for (const row of (s.data ?? [])) {
@@ -178,11 +182,11 @@ export default function PortalFerroCostSheet() {
   const rateByMaterial = useMemo(() => {
     const m: Record<string, number | null> = {};
     for (const c of consumption) {
-      const r = latestRateOn(rates, c.materialId, sheetDate);
+      const r = resolveLatestRate(rates, ledger, c.materialId, sheetDate);
       m[c.materialId] = r?.rate ?? null;
     }
     return m;
-  }, [consumption, rates, sheetDate]);
+  }, [consumption, rates, ledger, sheetDate]);
 
   const byproductByType = useMemo<Record<string, number>>(() => {
     const out: Record<string, number> = {};
