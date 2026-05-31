@@ -18,7 +18,7 @@ interface FormState { id?: string; profitCenterId: string; code: string; name: s
 const empty: FormState = { profitCenterId: "", code: "", name: "", category: "raw", uom: "MT", isActive: true };
 
 const CATEGORIES = ["raw", "consumable", "finished"];
-const UOMS = ["kg", "MT", "litre", "piece"];
+const UOMS = ["MT", "kg", "litre", "piece"];
 
 export default function AdminMaterials() {
   const { activeProfitCenter, selectProfitCenter } = useWorkspace();
