@@ -81,7 +81,7 @@ export default function PortalFerroCostSheet() {
     if (!activeProfitCenter) return;
     (async () => {
       try {
-        const [f, r, c, m, s, sheets, approvals, allHeats] = await Promise.all([
+        const [f, r, c, m, s, sheets, approvals, allHeats, led] = await Promise.all([
           fetchFurnaces(activeProfitCenter.id),
           fetchCostRates(activeProfitCenter.id),
           fetchByproductCredits(activeProfitCenter.id),
@@ -101,12 +101,14 @@ export default function PortalFerroCostSheet() {
           fetchFerroCostSheets(activeProfitCenter.id),
           fetchHeatApprovals(activeProfitCenter.id, { status: "approved" }),
           fetchHeatLogs(activeProfitCenter.id, {}),
+          fetchLedger(activeProfitCenter.id),
         ]);
         setFurnaces(f);
         setRates(r);
         setCredits(c);
         setMaterials(m);
         setHistory(sheets);
+        setLedger(led);
 
         const merged: SettingValue = {};
         for (const row of (s.data ?? [])) {
