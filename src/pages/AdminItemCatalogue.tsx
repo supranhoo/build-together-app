@@ -88,7 +88,7 @@ const empty: EditorState = {
   isActive: true,
 };
 
-const UOMS = ["kg", "MT", "litre", "piece", "ton"];
+const UOMS = ["MT", "kg", "litre", "piece", "ton"];
 
 function itemToEditor(item: MasterItem): EditorState {
   const allSpecs = item.specs ?? {};

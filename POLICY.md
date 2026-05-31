@@ -622,3 +622,10 @@ The single locking event is submission to the Plant Head, which sets
 reject any further save attempt for that (profit_center, furnace, heat_number).
 Voided heats MUST also be rejected. Unlocking requires the existing admin void
 flow — operators cannot bypass this.
+
+## Unit of Measure Policy
+The canonical quantity UOM across the platform is **Metric Ton (MT)**. New
+materials default to MT in every creation surface (Admin → Materials, Master
+Items, Item Catalogue, and CSV import). Other units (kg, litre, piece, ton) may
+still be selected explicitly when a material genuinely uses them, but MT is the
+pre-selected default and the first option in every UOM dropdown.

@@ -43,7 +43,7 @@ import {
   type ResolvedGroupProperty,
 } from "@/lib/item-properties";
 
-const UOMS = ["kg", "MT", "litre", "piece", "ton"];
+const UOMS = ["MT", "kg", "litre", "piece", "ton"];
 
 interface FormState {
   id?: string;
@@ -78,7 +78,7 @@ const empty: FormState = {
   type: "",
   groupName: "",
   subgroup: "",
-  uom: "kg",
+  uom: "MT",
   stdCost: "",
   propertyValues: {},
   baseSpecs: {},

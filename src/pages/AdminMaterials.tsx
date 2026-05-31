@@ -15,10 +15,10 @@ import { createAuditLog } from "@/lib/workspace";
 import { ProfitCenterSelectField } from "@/components/ProfitCenterSelectField";
 
 interface FormState { id?: string; profitCenterId: string; code: string; name: string; category: string; uom: string; isActive: boolean; }
-const empty: FormState = { profitCenterId: "", code: "", name: "", category: "raw", uom: "kg", isActive: true };
+const empty: FormState = { profitCenterId: "", code: "", name: "", category: "raw", uom: "MT", isActive: true };
 
 const CATEGORIES = ["raw", "consumable", "finished"];
-const UOMS = ["kg", "MT", "litre", "piece"];
+const UOMS = ["MT", "kg", "litre", "piece"];
 
 export default function AdminMaterials() {
   const { activeProfitCenter, selectProfitCenter } = useWorkspace();

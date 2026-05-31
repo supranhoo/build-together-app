@@ -172,7 +172,7 @@ export function parseItemCsv(rawRows: string[][]): ParseItemCsvResult {
       type = match;
     }
 
-    const uom = get("uom") || "kg";
+    const uom = get("uom") || "MT";
     const stdCost = parseOptionalNumber(get("std_cost"));
     if (stdCost === "invalid") {
       result.errors.push({ rowNumber, message: "std_cost has a non-number value" });
