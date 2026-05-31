@@ -60,6 +60,7 @@ export default function PortalFerroCostSheet() {
   const [approvedHeats, setApprovedHeats] = useState<HeatLog[]>([]);
   const [approvalById, setApprovalById] = useState<Map<string, HeatLogApproval>>(new Map());
   const [rates, setRates] = useState<CostRate[]>([]);
+  const [ledger, setLedger] = useState<InventoryLedgerEntry[]>([]);
   const [credits, setCredits] = useState<ByproductCredit[]>([]);
   const [materials, setMaterials] = useState<MasterItem[]>([]);
   const [settings, setSettings] = useState<SettingValue>({});
