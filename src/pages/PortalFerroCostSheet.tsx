@@ -182,11 +182,11 @@ export default function PortalFerroCostSheet() {
   const rateByMaterial = useMemo(() => {
     const m: Record<string, number | null> = {};
     for (const c of consumption) {
-      const r = latestRateOn(rates, c.materialId, sheetDate);
+      const r = resolveLatestRate(rates, ledger, c.materialId, sheetDate);
       m[c.materialId] = r?.rate ?? null;
     }
     return m;
-  }, [consumption, rates, sheetDate]);
+  }, [consumption, rates, ledger, sheetDate]);
 
   const byproductByType = useMemo<Record<string, number>>(() => {
     const out: Record<string, number> = {};
