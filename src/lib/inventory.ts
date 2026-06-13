@@ -99,7 +99,7 @@ function toLedger(row: any): InventoryLedgerEntry {
 export async function fetchMaterials(profitCenterId: string): Promise<Material[]> {
   const { data, error } = await client
     .from("materials")
-    .select("id, profit_center_id, code, name, category, uom, is_active, type, group_name, subgroup")
+    .select("id, profit_center_id, code, name, category, uom, is_active, type, group_name, subgroup, fad_kind")
     .eq("profit_center_id", profitCenterId)
     .order("code");
   if (error) throw error;
