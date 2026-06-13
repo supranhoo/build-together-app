@@ -1887,6 +1887,63 @@ export type Database = {
           },
         ]
       }
+      heat_warning_acks: {
+        Row: {
+          created_at: string
+          created_by: string
+          decision: string
+          field: string | null
+          heat_log_id: string
+          id: string
+          message: string
+          profit_center_id: string
+          reason: string | null
+          severity: string
+          warning_code: string
+        }
+        Insert: {
+          created_at?: string
+          created_by: string
+          decision: string
+          field?: string | null
+          heat_log_id: string
+          id?: string
+          message: string
+          profit_center_id: string
+          reason?: string | null
+          severity: string
+          warning_code: string
+        }
+        Update: {
+          created_at?: string
+          created_by?: string
+          decision?: string
+          field?: string | null
+          heat_log_id?: string
+          id?: string
+          message?: string
+          profit_center_id?: string
+          reason?: string | null
+          severity?: string
+          warning_code?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "heat_warning_acks_heat_log_id_fkey"
+            columns: ["heat_log_id"]
+            isOneToOne: false
+            referencedRelation: "heat_logs"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "heat_warning_acks_profit_center_id_fkey"
+            columns: ["profit_center_id"]
+            isOneToOne: false
+            referencedRelation: "profit_centers"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       import_shipments: {
         Row: {
           bl_number: string | null
