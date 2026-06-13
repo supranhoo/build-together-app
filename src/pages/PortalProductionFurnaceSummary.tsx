@@ -24,13 +24,15 @@ export default function PortalProductionFurnaceSummary() {
 
   useEffect(() => {
     if (!activeProfitCenter) return;
+    // Phase 1: bound the query by the visible date range and lift the
+    // 200-row cap so all heats in the window are included in the rollup.
     Promise.all([
-      fetchHeatLogs(activeProfitCenter.id),
+      fetchHeatLogs(activeProfitCenter.id, { from, to, limit: 10000 }),
       fetchFurnaces(activeProfitCenter.id),
     ])
       .then(([h, f]) => { setLogs(h); setFurnaces(f); })
       .catch((e) => toast({ title: "Failed to load", description: e instanceof Error ? e.message : "", variant: "destructive" }));
-  }, [activeProfitCenter?.id, toast]);
+  }, [activeProfitCenter?.id, from, to, toast]);
 
   const rows = useMemo(() => {
     const fromIso = `${from}T00:00:00.000Z`;
