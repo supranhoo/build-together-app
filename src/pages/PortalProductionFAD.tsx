@@ -183,6 +183,7 @@ export default function PortalProductionFAD() {
   const [thresholds, setThresholds] = useState<ProductionAlertThresholds>(DEFAULT_PRODUCTION_ALERTS);
   const [formulas, setFormulas] = useState<ProductionFormulaDefaults>(DEFAULT_PRODUCTION_FORMULAS);
   const [loadingMasters, setLoadingMasters] = useState(true);
+  const [productionTargets, setProductionTargets] = useState<ProductionTarget[]>([]);
 
   useEffect(() => {
     if (!activeProfitCenterId) return;
