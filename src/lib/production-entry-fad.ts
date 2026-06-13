@@ -63,40 +63,64 @@ export class FadEntryError extends Error {
 }
 
 /**
- * Map a Postgres error message from the RPC into a structured FadEntryError.
- * The RPC raises bare codes like `heat_voided`, `heat_submitted`, etc.
+ * Phase 1.5: SQLSTATE-driven mapping.
+ *
+ * The RPC and trigger now raise dedicated custom SQLSTATE codes:
+ *   FAD01 = heat_voided
+ *   FAD02 = heat_submitted
+ *   FAD03 = heat_number_required
+ *   FAD04 = furnace_required
+ *   FAD05 = shift_required
+ *   FAD06 = forbidden
+ *   FAD07 = unauthorized
+ *   FAD08 = consumption UOM mismatch
+ *   FAD09 = material missing master UOM
+ *
+ * We prefer `error.code` (stable across translations / phrasing changes) and
+ * fall back to text matching for backward-compatibility with older DBs that
+ * may still RAISE without an ERRCODE.
  */
-function translateRpcError(raw: string): FadEntryError {
+type RpcError = { code?: string; message?: string } | string | null | undefined;
+
+const SQLSTATE_MAP: Record<string, { message: string; step: FadEntryError["step"] }> = {
+  FAD01: { message: "This heat was voided and cannot be re-saved", step: "heat_log" },
+  FAD02: { message: "Heat already submitted to Plant Head and cannot be edited", step: "heat_log" },
+  FAD03: { message: "Heat number is required", step: "heat_log" },
+  FAD04: { message: "Furnace is required", step: "heat_log" },
+  FAD05: { message: "Shift is required", step: "heat_log" },
+  FAD06: { message: "You are not permitted to save heats in this workspace", step: "heat_log" },
+  FAD07: { message: "You are not signed in", step: "heat_log" },
+  FAD08: { message: "Consumption UOM must match the material master UOM", step: "consumption" },
+  FAD09: { message: "Material has no master UOM configured", step: "consumption" },
+};
+
+function translateRpcError(err: RpcError): FadEntryError {
+  const code = typeof err === "object" && err ? String(err.code ?? "").toUpperCase() : "";
+  const raw = typeof err === "string" ? err : err?.message ?? "";
+
+  // 1. SQLSTATE first (stable, version-tolerant).
+  const mapped = SQLSTATE_MAP[code];
+  if (mapped) return new FadEntryError(mapped.message, mapped.step);
+
+  // 2. Legacy text fallback (only fires on older DBs without ERRCODE).
   const msg = (raw || "").toLowerCase();
-  if (msg.includes("heat_voided")) {
-    return new FadEntryError("This heat was voided and cannot be re-saved", "heat_log");
-  }
-  if (msg.includes("heat_submitted")) {
-    return new FadEntryError(
-      "Heat already submitted to Plant Head and cannot be edited",
-      "heat_log",
-    );
-  }
-  if (msg.includes("heat_number_required")) {
-    return new FadEntryError("Heat number is required", "heat_log");
-  }
-  if (msg.includes("furnace_required")) {
-    return new FadEntryError("Furnace is required", "heat_log");
-  }
-  if (msg.includes("shift_required")) {
-    return new FadEntryError("Shift is required", "heat_log");
-  }
+  if (msg.includes("heat_voided")) return new FadEntryError(SQLSTATE_MAP.FAD01.message, "heat_log");
+  if (msg.includes("heat_submitted")) return new FadEntryError(SQLSTATE_MAP.FAD02.message, "heat_log");
+  if (msg.includes("heat_number_required")) return new FadEntryError(SQLSTATE_MAP.FAD03.message, "heat_log");
+  if (msg.includes("furnace_required")) return new FadEntryError(SQLSTATE_MAP.FAD04.message, "heat_log");
+  if (msg.includes("shift_required")) return new FadEntryError(SQLSTATE_MAP.FAD05.message, "heat_log");
   if (msg.includes("forbidden") || msg.includes("unauthorized")) {
-    return new FadEntryError("You are not permitted to save heats in this workspace", "heat_log");
+    return new FadEntryError(SQLSTATE_MAP.FAD06.message, "heat_log");
   }
-  if (msg.includes("consumption uom") || msg.includes("uom")) {
-    return new FadEntryError(raw, "consumption");
+  if (msg.includes("consumption uom") || msg.includes("must match material master")) {
+    return new FadEntryError(raw || SQLSTATE_MAP.FAD08.message, "consumption");
   }
-  if (msg.includes("metallurgy")) {
-    return new FadEntryError(raw, "metallurgy");
-  }
+  if (msg.includes("metallurgy")) return new FadEntryError(raw, "metallurgy");
   return new FadEntryError(raw || "FAD submit failed", "heat_log");
 }
+
+// Exported for tests.
+export const __FAD_SQLSTATE_MAP = SQLSTATE_MAP;
 
 export async function submitFadEntry(input: FadEntrySubmitInput): Promise<FadEntrySubmitResult> {
   // Client-side guards — keep early failure messages friendly. The RPC also
@@ -134,7 +158,8 @@ export async function submitFadEntry(input: FadEntrySubmitInput): Promise<FadEnt
   };
 
   const { data, error } = await client.rpc("submit_fad_entry", { _payload: payload });
-  if (error) throw translateRpcError(error.message || String(error));
+  if (error) throw translateRpcError(error);
+
 
   return {
     heatLogId: String(data?.heatLogId ?? ""),

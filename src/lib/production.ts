@@ -202,6 +202,27 @@ export async function fetchHeatLogs(profitCenterId: string, filters?: {
   return (data ?? []).map(toHeatLog);
 }
 
+/**
+ * Phase 1.5: returns rows together with truncation metadata so callers can
+ * surface a banner when the query hit the row cap. `truncated` is true iff
+ * the row count is exactly `limit` — meaning more rows likely exist beyond
+ * the window. Callers should widen the date range or paginate when this is set.
+ */
+export interface HeatLogPage {
+  rows: HeatLog[];
+  truncated: boolean;
+  limit: number;
+}
+
+export async function fetchHeatLogsWithMeta(
+  profitCenterId: string,
+  filters?: Parameters<typeof fetchHeatLogs>[1],
+): Promise<HeatLogPage> {
+  const limit = filters?.limit ?? 200;
+  const rows = await fetchHeatLogs(profitCenterId, { ...(filters ?? {}), limit });
+  return { rows, truncated: rows.length >= limit, limit };
+}
+
 export async function createHeatLog(input: {
   profitCenterId: string;
   furnaceId: string;

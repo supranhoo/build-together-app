@@ -88,30 +88,38 @@ describe("submitFadEntry — transactional RPC", () => {
     expect(rpcMock).not.toHaveBeenCalled();
   });
 
-  it("translates `heat_submitted` into a metallurgy-locked error", async () => {
-    rpcMock.mockResolvedValueOnce({ data: null, error: { message: "heat_submitted" } });
+  it("maps SQLSTATE FAD02 (heat_submitted) to a heat_log error", async () => {
+    rpcMock.mockResolvedValueOnce({ data: null, error: { code: "FAD02", message: "heat_submitted" } });
+    await expect(submitFadEntry(baseInput())).rejects.toMatchObject({
+      name: "FadEntryError",
+      step: "heat_log",
+      message: "Heat already submitted to Plant Head and cannot be edited",
+    });
+  });
+
+  it("maps SQLSTATE FAD01 (heat_voided) to a heat_log error", async () => {
+    rpcMock.mockResolvedValueOnce({ data: null, error: { code: "FAD01", message: "heat_voided" } });
     await expect(submitFadEntry(baseInput())).rejects.toMatchObject({
       name: "FadEntryError",
       step: "heat_log",
     });
   });
 
-  it("translates `heat_voided` into a void error", async () => {
-    rpcMock.mockResolvedValueOnce({ data: null, error: { message: "heat_voided" } });
-    await expect(submitFadEntry(baseInput())).rejects.toMatchObject({
-      name: "FadEntryError",
-      step: "heat_log",
-    });
-  });
-
-  it("translates UOM mismatch into a consumption error", async () => {
+  it("maps SQLSTATE FAD08 (UOM mismatch) to a consumption error", async () => {
     rpcMock.mockResolvedValueOnce({
       data: null,
-      error: { message: "consumption UOM (kg) must match material master UOM (MT)" },
+      error: { code: "FAD08", message: "consumption UOM (kg) must match material master UOM (MT)" },
     });
     await expect(submitFadEntry(baseInput())).rejects.toMatchObject({
       name: "FadEntryError",
       step: "consumption",
+    });
+  });
+
+  it("legacy text fallback still maps heat_submitted when code is missing", async () => {
+    rpcMock.mockResolvedValueOnce({ data: null, error: { message: "heat_submitted" } });
+    await expect(submitFadEntry(baseInput())).rejects.toMatchObject({
+      step: "heat_log",
     });
   });
 
