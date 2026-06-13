@@ -34,6 +34,7 @@ import AdminReportDeliveries from "./pages/AdminReportDeliveries";
 import AdminProcurement from "./pages/AdminProcurement";
 import AdminQuality from "./pages/AdminQuality";
 import AdminFinance from "./pages/AdminFinance";
+import AdminProductionTargets from "./pages/AdminProductionTargets";
 import PortalFinance from "./pages/PortalFinance";
 import PortalSales from "./pages/PortalSales";
 import PortalMaintenance from "./pages/PortalMaintenance";
