@@ -436,7 +436,7 @@ export default function PortalProductionFAD() {
       siBal,
       totalSiBalance,
     };
-  }, [oreRows, reductantRows, fluxRows, pasteRows, productionMt, fgMnPct, slagQtyMt, slagMnoPct, dustQtyMt, dustMnPct, fgSiPct, slagSio2Pct, dustSiPct, thresholds.sio2ToSiFactor]);
+  }, [oreRows, reductantRows, fluxRows, pasteRows, productionMt, fgMnPct, slagQtyMt, slagMnoPct, dustQtyMt, dustMnPct, fgSiPct, slagSio2Pct, dustSiPct, thresholds.sio2ToSiFactor, thresholds.mnoToMnFactor]);
 
   // ---- Submit ----
   const totalPower = useMemo(() => {
