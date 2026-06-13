@@ -1997,6 +1997,7 @@ export type Database = {
           stock_location_id: string
           test_batch_id: string | null
           unit_cost: number | null
+          uom: string
         }
         Insert: {
           created_at?: string
@@ -2016,6 +2017,7 @@ export type Database = {
           stock_location_id: string
           test_batch_id?: string | null
           unit_cost?: number | null
+          uom?: string
         }
         Update: {
           created_at?: string
@@ -2035,6 +2037,7 @@ export type Database = {
           stock_location_id?: string
           test_batch_id?: string | null
           unit_cost?: number | null
+          uom?: string
         }
         Relationships: [
           {
@@ -3176,6 +3179,7 @@ export type Database = {
           quantity: number
           stock_location_id: string
           test_batch_id: string | null
+          uom: string
         }
         Insert: {
           created_at?: string
@@ -3192,6 +3196,7 @@ export type Database = {
           quantity: number
           stock_location_id: string
           test_batch_id?: string | null
+          uom?: string
         }
         Update: {
           created_at?: string
@@ -3208,6 +3213,7 @@ export type Database = {
           quantity?: number
           stock_location_id?: string
           test_batch_id?: string | null
+          uom?: string
         }
         Relationships: [
           {
@@ -3367,6 +3373,7 @@ export type Database = {
           category: string
           code: string
           created_at: string
+          fad_kind: string | null
           group_name: string | null
           id: string
           is_active: boolean
@@ -3388,6 +3395,7 @@ export type Database = {
           category?: string
           code: string
           created_at?: string
+          fad_kind?: string | null
           group_name?: string | null
           id?: string
           is_active?: boolean
@@ -3409,6 +3417,7 @@ export type Database = {
           category?: string
           code?: string
           created_at?: string
+          fad_kind?: string | null
           group_name?: string | null
           id?: string
           is_active?: boolean
@@ -6579,6 +6588,7 @@ export type Database = {
         Args: { _enabled: boolean; _pc: string; _reason: string }
         Returns: Json
       }
+      submit_fad_entry: { Args: { _payload: Json }; Returns: Json }
       test_data_counts: { Args: { _pc: string }; Returns: Json }
       user_can_act: {
         Args: { _action: string; _resource: string; _user_id: string }
