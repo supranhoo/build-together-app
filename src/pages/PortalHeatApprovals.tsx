@@ -441,7 +441,7 @@ export default function PortalHeatApprovals() {
               })}
               {visibleRows.length === 0 && (
                 <TableRow>
-                  <TableCell colSpan={8} className="text-muted-foreground">
+                  <TableCell colSpan={9} className="text-muted-foreground">
                     No heats match the current filter.
                   </TableCell>
                 </TableRow>
