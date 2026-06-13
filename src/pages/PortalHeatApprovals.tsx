@@ -121,6 +121,50 @@ export default function PortalHeatApprovals() {
 
   const furnaceCode = (id: string) => furnaces.find((f) => f.id === id)?.code ?? id.slice(0, 6);
 
+  /**
+   * Phase 2 — Approval context per heat. We evaluate a lightweight subset of
+   * the validation engine (we don't have raw consumption rows here, so the
+   * full Mn balance isn't reconstructed — we still flag range issues, energy
+   * deviation vs target, and electrode-per-MT excess when paste rows are
+   * available). Mn / Si recovery deviations surface at FAD entry time; here
+   * we surface "abnormal" heats so approvers know to scrutinise.
+   */
+  const contextByHeat = useMemo(() => {
+    const out = new Map<string, { kwhPerMt: number | null; kwhTarget: number | null; issues: HeatIssue[]; mnRecoveryTarget: number | null; }>();
+    for (const h of heats) {
+      const met = metallurgyByHeat.get(h.id) ?? null;
+      const target = resolveTarget(productionTargets, {
+        furnaceId: h.furnaceId,
+        product: met?.product ?? null,
+        grade: met?.grade ?? null,
+      });
+      const kwhPerMt = h.weightMt && h.weightMt > 0 && h.powerMwh != null ? (h.powerMwh * 1000) / h.weightMt : null;
+      const issues = validateHeat(
+        {
+          weightMt: h.weightMt,
+          fgMnPct: met?.fgMnPct ?? null,
+          slagQtyMt: met?.slagQtyMt ?? null,
+          slagMnoPct: met?.slagMnoPct ?? null,
+          dustQtyMt: met?.dustQtyMt ?? null,
+          dustMnPct: met?.dustMnPct ?? null,
+          totalPowerMwh: h.powerMwh,
+          mnBalance: null,
+          siRecoveryPct: null,
+        },
+        thresholds,
+        target,
+      );
+      out.set(h.id, {
+        kwhPerMt,
+        kwhTarget: target.kwhPerMtTarget ?? thresholds.kwhPerMtTarget,
+        issues,
+        mnRecoveryTarget: target.mnRecoveryTargetPct,
+      });
+    }
+    return out;
+  }, [heats, metallurgyByHeat, productionTargets, thresholds]);
+
+
   const visibleRows = useMemo(() => {
     return heats
       .map((h) => ({ heat: h, approval: approvalByHeat.get(h.id) ?? null }))
