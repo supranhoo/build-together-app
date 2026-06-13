@@ -35,7 +35,8 @@ export default function PortalProductionMonthly() {
 
   useEffect(() => {
     if (!activeProfitCenter) return;
-    fetchHeatLogs(activeProfitCenter.id)
+    // Phase 1: request a high cap so monthly rollups are not truncated.
+    fetchHeatLogs(activeProfitCenter.id, { limit: 10000 })
       .then(setLogs)
       .catch((e) => toast({ title: "Failed to load monthly data", description: e instanceof Error ? e.message : "", variant: "destructive" }));
   }, [activeProfitCenter?.id, toast]);
