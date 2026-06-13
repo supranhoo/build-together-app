@@ -68,23 +68,37 @@ export default function PortalHeatApprovals() {
   const [busyId, setBusyId] = useState<string | null>(null);
   const [cluRows, setCluRows] = useState<ProductionApproval[]>([]);
   const [truncated, setTruncated] = useState(false);
+  // Phase 2 — target/threshold context for the approval queue
+  const [metallurgyByHeat, setMetallurgyByHeat] = useState<Map<string, HeatMetallurgy>>(new Map());
+  const [productionTargets, setProductionTargets] = useState<ProductionTarget[]>([]);
+  const [thresholds, setThresholds] = useState<ProductionAlertThresholds>(DEFAULT_PRODUCTION_ALERTS);
   const APPROVAL_LIMIT = 5000;
 
   const reload = async () => {
     if (!activeProfitCenter) return;
     try {
       // Phase 1.5: bounded by from/to, capped at APPROVAL_LIMIT, with truncation flag.
-      const [f, page, a, clu] = await Promise.all([
+      // Phase 2: load metallurgy snapshot, production targets, and thresholds
+      // so the approval queue can show target vs actual and abnormal-heat badges.
+      const [f, page, a, clu, met, pt, th] = await Promise.all([
         fetchFurnaces(activeProfitCenter.id),
         fetchHeatLogsWithMeta(activeProfitCenter.id, { from, to, limit: APPROVAL_LIMIT }),
         fetchHeatApprovals(activeProfitCenter.id),
         fetchProductionApprovals(activeProfitCenter.id, { source: "clu_heat" }),
+        fetchMetallurgyByPC(activeProfitCenter.id),
+        fetchProductionTargets(activeProfitCenter.id),
+        fetchProductionAlertThresholds(activeProfitCenter.id),
       ]);
       setFurnaces(f);
       setHeats(page.rows.filter((x) => !x.isVoided));
       setTruncated(page.truncated);
       setApprovals(a);
       setCluRows(clu);
+      const m = new Map<string, HeatMetallurgy>();
+      for (const row of met) m.set(row.heatLogId, row);
+      setMetallurgyByHeat(m);
+      setProductionTargets(pt);
+      setThresholds(th);
     } catch (e) {
       toast({
         title: "Failed to load approvals",
