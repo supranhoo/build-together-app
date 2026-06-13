@@ -6,8 +6,9 @@ import { Input } from "@/components/ui/input";
 import { Download } from "lucide-react";
 import { useWorkspace } from "@/hooks/use-workspace";
 import { useToast } from "@/hooks/use-toast";
-import { fetchHeatLogs, fetchFurnaces, type HeatLog, type Furnace } from "@/lib/production";
+import { fetchHeatLogsWithMeta, fetchFurnaces, type HeatLog, type Furnace } from "@/lib/production";
 import { exportRows } from "@/lib/excel-export";
+import { TruncationBanner } from "@/components/TruncationBanner";
 
 /**
  * Per-furnace rollup of heat production: count, total weight, total power,
@@ -21,16 +22,17 @@ export default function PortalProductionFurnaceSummary() {
   const [to, setTo] = useState(today);
   const [logs, setLogs] = useState<HeatLog[]>([]);
   const [furnaces, setFurnaces] = useState<Furnace[]>([]);
+  const [truncated, setTruncated] = useState(false);
+  const FURNACE_LIMIT = 10000;
 
   useEffect(() => {
     if (!activeProfitCenter) return;
-    // Phase 1: bound the query by the visible date range and lift the
-    // 200-row cap so all heats in the window are included in the rollup.
+    // Phase 1.5: bound query by visible range + capture truncation flag.
     Promise.all([
-      fetchHeatLogs(activeProfitCenter.id, { from, to, limit: 10000 }),
+      fetchHeatLogsWithMeta(activeProfitCenter.id, { from, to, limit: FURNACE_LIMIT }),
       fetchFurnaces(activeProfitCenter.id),
     ])
-      .then(([h, f]) => { setLogs(h); setFurnaces(f); })
+      .then(([page, f]) => { setLogs(page.rows); setTruncated(page.truncated); setFurnaces(f); })
       .catch((e) => toast({ title: "Failed to load", description: e instanceof Error ? e.message : "", variant: "destructive" }));
   }, [activeProfitCenter?.id, from, to, toast]);
 
