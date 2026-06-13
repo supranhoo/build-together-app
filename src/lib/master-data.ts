@@ -28,6 +28,9 @@ export interface MasterItem {
   maxLevel: number | null;
   reorderLevel: number | null;
   isActive: boolean;
+  // Phase 1: master-data driven FAD classification. Optional for backward
+  // compatibility with legacy fixtures; tooling reads it via `?? null`.
+  fadKind?: "ore" | "reductant" | "flux" | "paste" | "finished_good" | null;
 }
 
 export interface MaterialGroup {
@@ -81,6 +84,7 @@ function toItem(row: any): MasterItem {
     maxLevel: row.max_level !== null && row.max_level !== undefined ? Number(row.max_level) : null,
     reorderLevel: row.reorder_level !== null && row.reorder_level !== undefined ? Number(row.reorder_level) : null,
     isActive: Boolean(row.is_active),
+    fadKind: (row.fad_kind ?? null) as MasterItem["fadKind"],
   };
 }
 
@@ -128,7 +132,7 @@ function toRate(row: any): CostRate {
 export async function fetchMasterItems(profitCenterId: string): Promise<MasterItem[]> {
   const { data, error } = await client
     .from("materials")
-    .select("id, profit_center_id, code, name, type, group_name, subgroup, uom, std_cost, specs, min_level, max_level, reorder_level, is_active")
+    .select("id, profit_center_id, code, name, type, group_name, subgroup, uom, std_cost, specs, min_level, max_level, reorder_level, is_active, fad_kind")
     .eq("profit_center_id", profitCenterId)
     .order("code");
   if (error) throw error;

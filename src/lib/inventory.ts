@@ -16,6 +16,9 @@ export interface Material {
   type: string | null;
   groupName: string | null;
   subgroup: string | null;
+  // Phase 1: master-data driven FAD classification. When set, supersedes
+  // string-based group_name matching in `classifyMaterial`.
+  fadKind: "ore" | "reductant" | "flux" | "paste" | "finished_good" | null;
 }
 
 export interface StockLocation {
@@ -61,6 +64,7 @@ function toMaterial(row: any): Material {
     type: row.type ?? null,
     groupName: row.group_name ?? null,
     subgroup: row.subgroup ?? null,
+    fadKind: (row.fad_kind ?? null) as Material["fadKind"],
   };
 }
 
@@ -95,7 +99,7 @@ function toLedger(row: any): InventoryLedgerEntry {
 export async function fetchMaterials(profitCenterId: string): Promise<Material[]> {
   const { data, error } = await client
     .from("materials")
-    .select("id, profit_center_id, code, name, category, uom, is_active, type, group_name, subgroup")
+    .select("id, profit_center_id, code, name, category, uom, is_active, type, group_name, subgroup, fad_kind")
     .eq("profit_center_id", profitCenterId)
     .order("code");
   if (error) throw error;
@@ -234,6 +238,13 @@ export interface ConsumptionInput {
   materialId: string;
   stockLocationId: string;
   quantity: number;
+  /**
+   * Phase 1: explicit UOM is now required end-to-end. The DB trigger
+   * `create_consumption_ledger_entry` enforces `consumption.uom = material.uom`
+   * (defaults to 'MT' across the platform). Callers must pre-convert any
+   * non-MT input on the page itself.
+   */
+  uom?: string;
 }
 
 export async function recordHeatConsumption(input: {
@@ -249,6 +260,7 @@ export async function recordHeatConsumption(input: {
     material_id: r.materialId,
     stock_location_id: r.stockLocationId,
     quantity: r.quantity,
+    uom: r.uom ?? "MT",
     created_by: input.createdBy,
   }));
   const { error } = await client.from("material_consumption").insert(payload);
@@ -273,6 +285,7 @@ export async function replaceHeatConsumption(input: {
     material_id: r.materialId,
     stock_location_id: r.stockLocationId,
     quantity: r.quantity,
+    uom: r.uom ?? "MT",
   }));
   const { error } = await (client as any).rpc("replace_heat_draft_consumption", {
     _heat_log_id: input.heatLogId,
