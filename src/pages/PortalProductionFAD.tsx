@@ -480,13 +480,30 @@ export default function PortalProductionFAD() {
       return;
     }
 
+    // Phase 1 (audit): consumption is recorded in MT — the canonical platform
+    // UOM. Per-row inputs on this page already use MT except where the
+    // operator explicitly chose Kg (reductant unit toggle, paste qtyKg). We
+    // convert those to MT here so the DB trigger `create_consumption_ledger_entry`
+    // can write a single-UOM ledger entry. No more silent ×1000 mismatches.
+    const KG_TO_MT = 1 / 1000;
     const consumption = [
-      ...oreRows.filter((r) => r.materialId && r.qtyWetMt > 0).map((r) => ({ materialId: r.materialId, stockLocationId, quantity: r.qtyWetMt * 1000 })),
+      ...oreRows
+        .filter((r) => r.materialId && r.qtyWetMt > 0)
+        .map((r) => ({ materialId: r.materialId, stockLocationId, quantity: r.qtyWetMt, uom: "MT" })),
       ...reductantRows
         .filter((r) => r.materialId && r.qty > 0)
-        .map((r) => ({ materialId: r.materialId, stockLocationId, quantity: r.unit === "Kg" ? r.qty : r.qty * 1000 })),
-      ...fluxRows.filter((r) => r.materialId && r.qtyMt > 0).map((r) => ({ materialId: r.materialId, stockLocationId, quantity: r.qtyMt * 1000 })),
-      ...pasteRows.filter((r) => r.materialId && r.qtyKg > 0).map((r) => ({ materialId: r.materialId, stockLocationId, quantity: r.qtyKg })),
+        .map((r) => ({
+          materialId: r.materialId,
+          stockLocationId,
+          quantity: r.unit === "Kg" ? r.qty * KG_TO_MT : r.qty,
+          uom: "MT",
+        })),
+      ...fluxRows
+        .filter((r) => r.materialId && r.qtyMt > 0)
+        .map((r) => ({ materialId: r.materialId, stockLocationId, quantity: r.qtyMt, uom: "MT" })),
+      ...pasteRows
+        .filter((r) => r.materialId && r.qtyKg > 0)
+        .map((r) => ({ materialId: r.materialId, stockLocationId, quantity: r.qtyKg * KG_TO_MT, uom: "MT" })),
     ];
 
     setSaving(status);
