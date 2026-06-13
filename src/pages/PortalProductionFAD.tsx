@@ -585,8 +585,36 @@ export default function PortalProductionFAD() {
           avgPowerFactor: Number(avgPowerFactor) || null,
           status,
           notes: null,
+          // Phase 3 — server-side validation assertions.
+          computedRecoveryPct: calc.balance?.recoveryPct ?? null,
+          minLossPct: (() => {
+            const losses = [calc.balance?.slagLossPct, calc.balance?.dustLossPct].filter(
+              (n): n is number => typeof n === "number" && Number.isFinite(n),
+            );
+            return losses.length ? Math.min(...losses) : null;
+          })(),
         },
       });
+
+      // Phase 3 — Warning acknowledgement audit trail. Persist every WARN
+      // surfaced at submit-time so the approval queue can see what the
+      // operator overrode. Best-effort: failure here does NOT roll back
+      // the heat submission, but it surfaces a toast so it isn't silent.
+      if (status === "submitted" && heatIssues.some((i) => i.severity === "warn")) {
+        try {
+          const rows = buildAckRows(
+            { heatLogId: result.heatLogId, profitCenterId: activeProfitCenterId, createdBy: userId },
+            heatIssues,
+          );
+          await recordWarningAcks(rows);
+        } catch (e) {
+          toast({
+            title: "Warning audit trail not written",
+            description: (e as Error).message,
+            variant: "destructive",
+          });
+        }
+      }
 
       const title = status === "submitted"
         ? "Heat submitted to Plant Head"
