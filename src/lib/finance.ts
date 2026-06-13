@@ -917,6 +917,22 @@ export async function decideHeatApproval(input: {
   decidedBy: string;
   notes: string | null;
 }): Promise<HeatLogApproval> {
+  // Phase 1: defense-in-depth self-approval block. RLS also enforces
+  // `submitted_by <> auth.uid()` on UPDATE, but failing early with a clear
+  // message is better than letting the request hit the row policy.
+  const { data: existing, error: lookupErr } = await client
+    .from("heat_log_approvals")
+    .select("submitted_by, status")
+    .eq("id", input.approvalId)
+    .single();
+  if (lookupErr) throw lookupErr;
+  if (existing && existing.submitted_by === input.decidedBy) {
+    throw new Error("You cannot approve or reject a heat you submitted yourself.");
+  }
+  if (existing && existing.status !== "pending") {
+    throw new Error("This approval has already been decided.");
+  }
+
   const { data, error } = await client
     .from("heat_log_approvals")
     .update({
