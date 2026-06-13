@@ -4454,6 +4454,72 @@ export type Database = {
           },
         ]
       }
+      production_targets: {
+        Row: {
+          created_at: string
+          created_by: string
+          electrode_kg_per_mt_target: number | null
+          furnace_id: string | null
+          grade: string | null
+          id: string
+          is_active: boolean
+          kwh_per_mt_target: number | null
+          mn_recovery_target_pct: number | null
+          notes: string | null
+          product: string | null
+          profit_center_id: string
+          si_recovery_target_pct: number | null
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          created_by: string
+          electrode_kg_per_mt_target?: number | null
+          furnace_id?: string | null
+          grade?: string | null
+          id?: string
+          is_active?: boolean
+          kwh_per_mt_target?: number | null
+          mn_recovery_target_pct?: number | null
+          notes?: string | null
+          product?: string | null
+          profit_center_id: string
+          si_recovery_target_pct?: number | null
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          created_by?: string
+          electrode_kg_per_mt_target?: number | null
+          furnace_id?: string | null
+          grade?: string | null
+          id?: string
+          is_active?: boolean
+          kwh_per_mt_target?: number | null
+          mn_recovery_target_pct?: number | null
+          notes?: string | null
+          product?: string | null
+          profit_center_id?: string
+          si_recovery_target_pct?: number | null
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "production_targets_furnace_id_fkey"
+            columns: ["furnace_id"]
+            isOneToOne: false
+            referencedRelation: "furnaces"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "production_targets_profit_center_id_fkey"
+            columns: ["profit_center_id"]
+            isOneToOne: false
+            referencedRelation: "profit_centers"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       profiles: {
         Row: {
           avatar_url: string | null
