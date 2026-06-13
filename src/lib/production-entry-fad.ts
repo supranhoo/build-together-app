@@ -1,22 +1,27 @@
 /**
  * FAD Production Entry orchestrator.
  *
- * Performs the multi-step save for one heat from the FAD entry screen.
+ * Phase 1 (audit): rewritten on top of the `submit_fad_entry` PL/pgSQL RPC.
+ * The RPC executes the entire save in ONE database transaction:
+ *   1. INSERT or UPDATE heat_logs (respecting voided + submitted locks)
+ *   2. Reverse + delete prior material_consumption (on re-save)
+ *   3. INSERT new material_consumption rows (the BEFORE INSERT trigger
+ *      writes the matching inventory_ledger entry, enforcing UOM = master)
+ *   4. UPSERT heat_metallurgy (refusing to overwrite a 'submitted' row)
  *
- * Idempotent draft re-save:
- *   - First save  → INSERT heat_logs, INSERT material_consumption, UPSERT heat_metallurgy.
- *   - Re-save     → UPDATE heat_logs, replace material_consumption (RPC reverses prior
- *                   ledger entries then re-inserts), UPDATE heat_metallurgy.
- *   - Submitted   → the metallurgy `status='submitted'` lock blocks any further save.
+ * If any step fails, Postgres rolls the whole transaction back. There is no
+ * longer a window where heat_logs is written but consumption / metallurgy
+ * are missing.
  *
- * No transactional rollback today (Supabase JS does not expose multi-table
- * transactions). On failure mid-flight we surface which step failed and
- * leave previously-written rows in place so an operator can correct and
- * retry. Void / inventory-reversal flows exist for full cleanup.
+ * The public TypeScript signature is unchanged — callers keep working.
  */
-import { createHeatLog, findHeatLogByNumber, updateHeatLog } from "@/lib/production";
-import { recordHeatConsumption, replaceHeatConsumption, type ConsumptionInput } from "@/lib/inventory";
-import { upsertMetallurgy, fetchMetallurgy, type HeatMetallurgyInput } from "@/lib/heat-metallurgy";
+import { supabase } from "@/integrations/supabase/client";
+import type { ConsumptionInput } from "@/lib/inventory";
+import type { HeatMetallurgyInput } from "@/lib/heat-metallurgy";
+
+const client = supabase as unknown as {
+  rpc: (name: string, args: Record<string, unknown>) => Promise<{ data: any; error: any }>;
+};
 
 export interface FadEntrySubmitInput {
   profitCenterId: string;
@@ -47,105 +52,93 @@ export interface FadEntrySubmitResult {
 }
 
 export class FadEntryError extends Error {
-  constructor(message: string, public readonly step: "heat_log" | "consumption" | "metallurgy", public readonly cause?: unknown) {
+  constructor(
+    message: string,
+    public readonly step: "heat_log" | "consumption" | "metallurgy",
+    public readonly cause?: unknown,
+  ) {
     super(message);
     this.name = "FadEntryError";
   }
 }
 
+/**
+ * Map a Postgres error message from the RPC into a structured FadEntryError.
+ * The RPC raises bare codes like `heat_voided`, `heat_submitted`, etc.
+ */
+function translateRpcError(raw: string): FadEntryError {
+  const msg = (raw || "").toLowerCase();
+  if (msg.includes("heat_voided")) {
+    return new FadEntryError("This heat was voided and cannot be re-saved", "heat_log");
+  }
+  if (msg.includes("heat_submitted")) {
+    return new FadEntryError(
+      "Heat already submitted to Plant Head and cannot be edited",
+      "heat_log",
+    );
+  }
+  if (msg.includes("heat_number_required")) {
+    return new FadEntryError("Heat number is required", "heat_log");
+  }
+  if (msg.includes("furnace_required")) {
+    return new FadEntryError("Furnace is required", "heat_log");
+  }
+  if (msg.includes("shift_required")) {
+    return new FadEntryError("Shift is required", "heat_log");
+  }
+  if (msg.includes("forbidden") || msg.includes("unauthorized")) {
+    return new FadEntryError("You are not permitted to save heats in this workspace", "heat_log");
+  }
+  if (msg.includes("consumption uom") || msg.includes("uom")) {
+    return new FadEntryError(raw, "consumption");
+  }
+  if (msg.includes("metallurgy")) {
+    return new FadEntryError(raw, "metallurgy");
+  }
+  return new FadEntryError(raw || "FAD submit failed", "heat_log");
+}
+
 export async function submitFadEntry(input: FadEntrySubmitInput): Promise<FadEntrySubmitResult> {
+  // Client-side guards — keep early failure messages friendly. The RPC also
+  // re-validates server-side so these are belt-and-braces only.
   if (!input.heatNumber.trim()) throw new FadEntryError("Heat number is required", "heat_log");
   if (!input.furnaceId) throw new FadEntryError("Furnace is required", "heat_log");
   if (!input.shiftId) throw new FadEntryError("Shift is required", "heat_log");
-  if (input.consumption.some((r) => !r.materialId || !r.stockLocationId || r.quantity <= 0)) {
-    throw new FadEntryError("Every consumption row needs a material, location, and positive quantity", "consumption");
+  if (
+    input.consumption.some(
+      (r) => !r.materialId || !r.stockLocationId || !(r.quantity > 0),
+    )
+  ) {
+    throw new FadEntryError(
+      "Every consumption row needs a material, location, and positive quantity",
+      "consumption",
+    );
   }
 
-  // 1. Find existing heat (idempotent draft re-save).
-  let existing: { id: string; isVoided: boolean } | null = null;
-  try {
-    existing = await findHeatLogByNumber(input.profitCenterId, input.furnaceId, input.heatNumber.trim());
-  } catch (e) {
-    throw new FadEntryError("Failed to look up heat log", "heat_log", e);
-  }
+  const payload = {
+    profitCenterId: input.profitCenterId,
+    furnaceId: input.furnaceId,
+    shiftId: input.shiftId,
+    heatNumber: input.heatNumber.trim(),
+    tapTime: input.tapTime,
+    weightMt: input.weightMt,
+    totalPowerMwh: input.totalPowerMwh,
+    notes: input.notes,
+    consumption: input.consumption.map((r) => ({
+      materialId: r.materialId,
+      stockLocationId: r.stockLocationId,
+      quantity: r.quantity,
+      uom: r.uom ?? "MT",
+    })),
+    metallurgy: input.metallurgy,
+  };
 
-  if (existing?.isVoided) {
-    throw new FadEntryError(`Heat ${input.heatNumber} was voided and cannot be re-saved`, "heat_log");
-  }
+  const { data, error } = await client.rpc("submit_fad_entry", { _payload: payload });
+  if (error) throw translateRpcError(error.message || String(error));
 
-  // If a draft already exists, enforce the submission lock before we touch anything.
-  if (existing) {
-    try {
-      const m = await fetchMetallurgy(existing.id);
-      if (m?.status === "submitted") {
-        throw new FadEntryError(
-          `Heat ${input.heatNumber} is already submitted to Plant Head and cannot be edited`,
-          "heat_log",
-        );
-      }
-    } catch (e) {
-      if (e instanceof FadEntryError) throw e;
-      throw new FadEntryError("Failed to verify heat status", "heat_log", e);
-    }
-  }
-
-  let heatLogId: string;
-  let mode: "created" | "updated";
-  try {
-    if (existing) {
-      await updateHeatLog(existing.id, {
-        heatNumber: input.heatNumber.trim(),
-        tapTime: input.tapTime,
-        weightMt: input.weightMt,
-        powerMwh: input.totalPowerMwh,
-        notes: input.notes,
-        shiftId: input.shiftId,
-      });
-      heatLogId = existing.id;
-      mode = "updated";
-    } else {
-      heatLogId = await createHeatLog({
-        profitCenterId: input.profitCenterId,
-        furnaceId: input.furnaceId,
-        shiftId: input.shiftId,
-        heatNumber: input.heatNumber.trim(),
-        tapTime: input.tapTime,
-        weightMt: input.weightMt,
-        powerMwh: input.totalPowerMwh,
-        notes: input.notes,
-        createdBy: input.createdBy,
-      });
-      mode = "created";
-    }
-  } catch (e) {
-    throw new FadEntryError(existing ? "Failed to update heat log" : "Failed to create heat log", "heat_log", e);
-  }
-
-  try {
-    if (mode === "updated") {
-      await replaceHeatConsumption({ heatLogId, rows: input.consumption });
-    } else if (input.consumption.length > 0) {
-      await recordHeatConsumption({
-        heatLogId,
-        profitCenterId: input.profitCenterId,
-        createdBy: input.createdBy,
-        rows: input.consumption,
-      });
-    }
-  } catch (e) {
-    throw new FadEntryError("Heat saved, but consumption rows failed to record", "consumption", e);
-  }
-
-  try {
-    await upsertMetallurgy({
-      heatLogId,
-      profitCenterId: input.profitCenterId,
-      createdBy: input.createdBy,
-      ...input.metallurgy,
-    });
-  } catch (e) {
-    throw new FadEntryError("Heat & consumption saved, but metallurgy failed", "metallurgy", e);
-  }
-
-  return { heatLogId, consumptionRowsWritten: input.consumption.length, mode };
+  return {
+    heatLogId: String(data?.heatLogId ?? ""),
+    consumptionRowsWritten: Number(data?.consumptionRowsWritten ?? 0),
+    mode: (data?.mode === "updated" ? "updated" : "created") as "created" | "updated",
+  };
 }
