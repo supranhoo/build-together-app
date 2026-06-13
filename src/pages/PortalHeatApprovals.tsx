@@ -241,6 +241,9 @@ export default function PortalHeatApprovals() {
           </CardDescription>
         </CardHeader>
         <CardContent className="space-y-4">
+          {truncated && (
+            <TruncationBanner limit={APPROVAL_LIMIT} hint="Narrow the date range — some heats are not shown in this queue." />
+          )}
           <div className="grid gap-3 sm:grid-cols-4">
             <div><Label>From</Label><Input type="date" value={from} onChange={(e) => setFrom(e.target.value)} /></div>
             <div><Label>To</Label><Input type="date" value={to} onChange={(e) => setTo(e.target.value)} /></div>
