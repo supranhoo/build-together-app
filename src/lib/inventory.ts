@@ -64,6 +64,7 @@ function toMaterial(row: any): Material {
     type: row.type ?? null,
     groupName: row.group_name ?? null,
     subgroup: row.subgroup ?? null,
+    fadKind: (row.fad_kind ?? null) as Material["fadKind"],
   };
 }
 
