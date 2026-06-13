@@ -1360,13 +1360,27 @@ export default function PortalProductionFAD() {
                         <span>{specErrors.length} row{specErrors.length > 1 ? "s" : ""} blocked by missing item specs. Fix in Master Data → Items.</span>
                       </p>
                     )}
+                    {/* Phase 2 — Validation & Alert Engine output */}
+                    {heatIssues.length > 0 && (
+                      <div className="space-y-1">
+                        {heatIssues.slice(0, 5).map((i, idx) => (
+                          <p key={idx} className={`text-xs flex items-start gap-1 ${i.severity === "block" ? "text-destructive" : "text-amber-600 dark:text-amber-400"}`}>
+                            <AlertTriangle className="h-3 w-3 mt-0.5 shrink-0" />
+                            <span><strong>{i.severity === "block" ? "Block" : "Warn"}:</strong> {i.message}</span>
+                          </p>
+                        ))}
+                        {heatIssues.length > 5 && (
+                          <p className="text-xs text-muted-foreground">+ {heatIssues.length - 5} more…</p>
+                        )}
+                      </div>
+                    )}
                     <Button onClick={() => handleSave("draft")} variant="outline" className="w-full" disabled={saving !== null || loadingMasters || blockingSpecErrors}>
                       {saving === "draft" ? <Loader2 className="h-4 w-4 mr-2 animate-spin" /> : <Save className="h-4 w-4 mr-2" />}
                       Save Draft
                     </Button>
-                    <Button onClick={() => handleSave("submitted")} className="w-full" disabled={saving !== null || loadingMasters || blockingSpecErrors}>
+                    <Button onClick={() => handleSave("submitted")} className="w-full" disabled={saving !== null || loadingMasters || blockingSpecErrors || heatHasBlock}>
                       {saving === "submitted" ? <Loader2 className="h-4 w-4 mr-2 animate-spin" /> : <CheckCircle2 className="h-4 w-4 mr-2" />}
-                      Submit to Plant Head
+                      Submit to Plant Head{heatIssueSummary.warn > 0 && !heatHasBlock ? ` (${heatIssueSummary.warn} warning${heatIssueSummary.warn>1?"s":""})` : ""}
                     </Button>
                   </div>
                 </CardContent>
