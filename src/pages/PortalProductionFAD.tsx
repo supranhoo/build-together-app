@@ -516,6 +516,19 @@ export default function PortalProductionFAD() {
       });
       return;
     }
+    // Phase 2 — Block submission (not draft) when the validation engine
+    // reports any "block"-severity issue (impossible chemistry / negative
+    // conserved-mass losses). Drafts are still allowed so operators can
+    // continue editing partially-entered heats.
+    if (status === "submitted" && heatHasBlock) {
+      toast({
+        title: "Cannot submit — metallurgy validation failed",
+        description: heatIssues.find((i) => i.severity === "block")?.message ?? "Fix the highlighted issues before submitting.",
+        variant: "destructive",
+      });
+      return;
+    }
+
 
     // Phase 1 (audit): consumption is recorded in MT — the canonical platform
     // UOM. Per-row inputs on this page already use MT except where the
