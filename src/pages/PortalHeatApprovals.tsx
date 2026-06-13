@@ -308,16 +308,24 @@ export default function PortalHeatApprovals() {
                           Submit
                         </Button>
                       ) : approval.status === "pending" ? (
-                        <div className="flex justify-end gap-2">
-                          <Button size="sm" variant="outline" disabled={isBusy}
-                            onClick={() => handleDecide(approval, "rejected", `Heat ${heat.heatNumber}`)}>
-                            <ThumbsDown className="mr-1 h-4 w-4" /> Reject
-                          </Button>
-                          <Button size="sm" disabled={isBusy}
-                            onClick={() => handleDecide(approval, "approved", `Heat ${heat.heatNumber}`)}>
-                            <ThumbsUp className="mr-1 h-4 w-4" /> Approve
-                          </Button>
-                        </div>
+                        approval.submittedBy === userId ? (
+                          // Phase 1: maker cannot be the checker (separation of duties).
+                          // RLS also enforces this; the UI just hides the action.
+                          <span className="text-xs text-muted-foreground">
+                            Awaiting another approver
+                          </span>
+                        ) : (
+                          <div className="flex justify-end gap-2">
+                            <Button size="sm" variant="outline" disabled={isBusy}
+                              onClick={() => handleDecide(approval, "rejected", `Heat ${heat.heatNumber}`)}>
+                              <ThumbsDown className="mr-1 h-4 w-4" /> Reject
+                            </Button>
+                            <Button size="sm" disabled={isBusy}
+                              onClick={() => handleDecide(approval, "approved", `Heat ${heat.heatNumber}`)}>
+                              <ThumbsUp className="mr-1 h-4 w-4" /> Approve
+                            </Button>
+                          </div>
+                        )
                       ) : (
                         <span className="text-xs text-muted-foreground">
                           {approval.decidedAt ? new Date(approval.decidedAt).toLocaleString() : "—"}
