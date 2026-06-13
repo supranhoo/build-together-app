@@ -21,6 +21,7 @@ import { siBalance, siInput as siInputCalc } from "@/lib/silicon-balance";
 import { fetchProductionAlertThresholds, DEFAULT_PRODUCTION_ALERTS, type ProductionAlertThresholds } from "@/lib/production-alerts";
 import { fetchProductionTargets, resolveTarget, type ProductionTarget } from "@/lib/production-targets";
 import { validateHeat, hasBlockingIssue, summariseIssues, type HeatIssue } from "@/lib/heat-validation";
+import { buildAckRows, recordWarningAcks } from "@/lib/warning-acks";
 import {
   classifyMaterial,
   DEFAULT_PRODUCTION_FORMULAS,
