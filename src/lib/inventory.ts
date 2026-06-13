@@ -16,6 +16,9 @@ export interface Material {
   type: string | null;
   groupName: string | null;
   subgroup: string | null;
+  // Phase 1: master-data driven FAD classification. When set, supersedes
+  // string-based group_name matching in `classifyMaterial`.
+  fadKind: "ore" | "reductant" | "flux" | "paste" | "finished_good" | null;
 }
 
 export interface StockLocation {
