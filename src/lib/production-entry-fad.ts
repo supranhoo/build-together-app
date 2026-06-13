@@ -92,6 +92,15 @@ const SQLSTATE_MAP: Record<string, { message: string; step: FadEntryError["step"
   FAD07: { message: "You are not signed in", step: "heat_log" },
   FAD08: { message: "Consumption UOM must match the material master UOM", step: "consumption" },
   FAD09: { message: "Material has no master UOM configured", step: "consumption" },
+  // Phase 3 — server-side validation parity
+  FAD10: { message: "FG Mn % is outside the allowed range 0–100", step: "metallurgy" },
+  FAD11: { message: "Slag MnO % is outside the allowed range 0–100", step: "metallurgy" },
+  FAD12: { message: "Dust Mn % is outside the allowed range 0–100", step: "metallurgy" },
+  FAD13: { message: "A weight / quantity field is negative or implausibly large", step: "metallurgy" },
+  FAD14: { message: "A power value is negative or implausibly large", step: "metallurgy" },
+  FAD15: { message: "Power factor is outside the allowed range 0–1.05", step: "metallurgy" },
+  FAD16: { message: "Mn recovery exceeds the workspace maximum — chemistry breach", step: "metallurgy" },
+  FAD17: { message: "A conserved-mass loss is negative beyond the rounding tolerance", step: "metallurgy" },
 };
 
 function translateRpcError(err: RpcError): FadEntryError {
