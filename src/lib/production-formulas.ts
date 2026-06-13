@@ -79,14 +79,24 @@ export async function fetchProductionFormulaDefaults(profitCenterId: string): Pr
 export type FadMaterialKind = "ore" | "reductant" | "flux" | "paste";
 
 /**
- * Classify a material into one of the four FAD entry buckets using its
- * `group_name` (preferred) or `category` (fallback). Returns null when
- * nothing matches so the page can hide it from the FAD pickers.
+ * Classify a material into one of the four FAD entry buckets.
+ *
+ * Resolution order (Phase 1 — master-data driven):
+ *   1. `fadKind` column on `materials` (Admin-controlled, canonical).
+ *   2. `group_name` matched against workspace-configurable lists.
+ *   3. `category` (legacy fallback).
+ *
+ * Returns null when nothing matches so the page can hide it from the FAD
+ * pickers. Tests pin the priority so accidental fallback regressions fail.
  */
 export function classifyMaterial(
-  material: { groupName?: string | null; category?: string | null },
+  material: { fadKind?: string | null; groupName?: string | null; category?: string | null },
   groups: ProductionFormulaDefaults["materialGroups"],
 ): FadMaterialKind | null {
+  const fk = (material.fadKind ?? "").toLowerCase();
+  if (fk === "ore" || fk === "reductant" || fk === "flux" || fk === "paste") {
+    return fk as FadMaterialKind;
+  }
   const value = (material.groupName ?? material.category ?? "").trim();
   if (!value) return null;
   const lc = value.toLowerCase();
