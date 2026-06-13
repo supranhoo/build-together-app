@@ -124,10 +124,12 @@ export function mnBalance(args: {
   slagMnoPct: number;
   dustQty: number;
   dustMnPct: number;
+  /** Phase 2: optional workspace-configured factor. Defaults to 1.29. */
+  mnoToMnFactor?: number;
 }): MnBalance {
   const metal = mnOutput(args.productionMt, args.fgMnPct);
-  const slag = slagMn(args.slagQty, args.slagMnoPct);
-  // Dust Mn = qty × Mn% / 100 (Mn already, not MnO — no 1.29 factor).
+  const slag = slagMn(args.slagQty, args.slagMnoPct, args.mnoToMnFactor);
+  // Dust Mn = qty × Mn% / 100 (Mn already, not MnO — no MnO→Mn factor).
   const dust =
     Number.isFinite(args.dustQty) && Number.isFinite(args.dustMnPct) && args.dustQty > 0 && args.dustMnPct > 0
       ? args.dustQty * (args.dustMnPct / 100)
