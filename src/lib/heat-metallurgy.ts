@@ -57,6 +57,16 @@ export interface HeatMetallurgyInput {
   avgPowerFactor: number | null;
   status: HeatMetallurgyStatus;
   notes: string | null;
+  /**
+   * Phase 3 — Server-side validation assertions.
+   * The client supplies its computed Mn recovery and the minimum loss %
+   * (slag/dust) it observed. The RPC re-checks them against the
+   * `production.alerts.maxRecoveryPct` / `negativeLossTolerancePct` settings
+   * and rejects the submission with SQLSTATE FAD16 / FAD17 if breached.
+   * Omit when unknown — the DB falls through.
+   */
+  computedRecoveryPct?: number | null;
+  minLossPct?: number | null;
 }
 
 const client = supabase as unknown as { from: (t: string) => any };
