@@ -238,6 +238,13 @@ export interface ConsumptionInput {
   materialId: string;
   stockLocationId: string;
   quantity: number;
+  /**
+   * Phase 1: explicit UOM is now required end-to-end. The DB trigger
+   * `create_consumption_ledger_entry` enforces `consumption.uom = material.uom`
+   * (defaults to 'MT' across the platform). Callers must pre-convert any
+   * non-MT input on the page itself.
+   */
+  uom?: string;
 }
 
 export async function recordHeatConsumption(input: {
@@ -253,6 +260,7 @@ export async function recordHeatConsumption(input: {
     material_id: r.materialId,
     stock_location_id: r.stockLocationId,
     quantity: r.quantity,
+    uom: r.uom ?? "MT",
     created_by: input.createdBy,
   }));
   const { error } = await client.from("material_consumption").insert(payload);
@@ -277,6 +285,7 @@ export async function replaceHeatConsumption(input: {
     material_id: r.materialId,
     stock_location_id: r.stockLocationId,
     quantity: r.quantity,
+    uom: r.uom ?? "MT",
   }));
   const { error } = await (client as any).rpc("replace_heat_draft_consumption", {
     _heat_log_id: input.heatLogId,
