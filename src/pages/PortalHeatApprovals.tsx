@@ -66,14 +66,17 @@ export default function PortalHeatApprovals() {
   const reload = async () => {
     if (!activeProfitCenter) return;
     try {
+      // Phase 1: push the date range down to the DB and request a high cap
+      // so heats beyond row 200 in the workspace are never silently dropped
+      // from the approval queue.
       const [f, h, a, clu] = await Promise.all([
         fetchFurnaces(activeProfitCenter.id),
-        fetchHeatLogs(activeProfitCenter.id, {}),
+        fetchHeatLogs(activeProfitCenter.id, { from, to, limit: 5000 }),
         fetchHeatApprovals(activeProfitCenter.id),
         fetchProductionApprovals(activeProfitCenter.id, { source: "clu_heat" }),
       ]);
       setFurnaces(f);
-      setHeats(h.filter((x) => !x.isVoided && x.tapTime.slice(0, 10) >= from && x.tapTime.slice(0, 10) <= to));
+      setHeats(h.filter((x) => !x.isVoided));
       setApprovals(a);
       setCluRows(clu);
     } catch (e) {
