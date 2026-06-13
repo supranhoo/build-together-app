@@ -469,6 +469,36 @@ export default function PortalProductionFAD() {
   }, [specErrors]);
   const blockingSpecErrors = specErrors.length > 0;
 
+  // Phase 2 — Validation & Alert Engine.
+  // Resolve the most-specific target for this furnace + grade and validate
+  // the heat snapshot. Blocking issues prevent "Submit"; warnings are shown
+  // but do not block. The same engine drives the approval queue.
+  const resolvedTarget = useMemo(
+    () => resolveTarget(productionTargets, { furnaceId, product: productName, grade: typicalGrade }),
+    [productionTargets, furnaceId, productName, typicalGrade],
+  );
+  const heatIssues: HeatIssue[] = useMemo(() => {
+    return validateHeat(
+      {
+        weightMt: Number(productionMt) || null,
+        fgMnPct: Number(fgMnPct) || null,
+        slagQtyMt: Number(slagQtyMt) || null,
+        slagMnoPct: Number(slagMnoPct) || null,
+        dustQtyMt: Number(dustQtyMt) || null,
+        dustMnPct: Number(dustMnPct) || null,
+        totalPowerMwh: totalPower || null,
+        electrodeKg: calc.totalPasteKg || null,
+        mnBalance: calc.balance,
+        siRecoveryPct: calc.siBal.recoveryPct,
+      },
+      thresholds,
+      resolvedTarget,
+    );
+  }, [productionMt, fgMnPct, slagQtyMt, slagMnoPct, dustQtyMt, dustMnPct, totalPower, calc, thresholds, resolvedTarget]);
+  const heatIssueSummary = useMemo(() => summariseIssues(heatIssues), [heatIssues]);
+  const heatHasBlock = useMemo(() => hasBlockingIssue(heatIssues), [heatIssues]);
+
+
   async function handleSave(status: "draft" | "submitted") {
     if (!activeProfitCenterId || !userId) {
       toast({ title: "Not signed in", variant: "destructive" });
