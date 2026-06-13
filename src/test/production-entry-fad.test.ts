@@ -2,23 +2,18 @@ import { describe, expect, it, vi, beforeEach } from "vitest";
 import { classifyMaterial, DEFAULT_PRODUCTION_FORMULAS } from "@/lib/production-formulas";
 import { FadEntryError, submitFadEntry } from "@/lib/production-entry-fad";
 
-vi.mock("@/lib/production", () => ({
-  createHeatLog: vi.fn().mockResolvedValue("heat-1"),
-  updateHeatLog: vi.fn().mockResolvedValue(undefined),
-  findHeatLogByNumber: vi.fn().mockResolvedValue(null),
-}));
-vi.mock("@/lib/inventory", () => ({
-  recordHeatConsumption: vi.fn().mockResolvedValue(undefined),
-  replaceHeatConsumption: vi.fn().mockResolvedValue(undefined),
-}));
-vi.mock("@/lib/heat-metallurgy", () => ({
-  upsertMetallurgy: vi.fn().mockResolvedValue(undefined),
-  fetchMetallurgy: vi.fn().mockResolvedValue(null),
-}));
+// We mock supabase.rpc on the shared client so the orchestrator runs as if
+// the transactional `submit_fad_entry` RPC succeeded / failed.
+vi.mock("@/integrations/supabase/client", () => {
+  return {
+    supabase: {
+      rpc: vi.fn(),
+    },
+  };
+});
 
-import { createHeatLog, updateHeatLog, findHeatLogByNumber } from "@/lib/production";
-import { recordHeatConsumption, replaceHeatConsumption } from "@/lib/inventory";
-import { upsertMetallurgy, fetchMetallurgy } from "@/lib/heat-metallurgy";
+import { supabase } from "@/integrations/supabase/client";
+const rpcMock = (supabase as unknown as { rpc: ReturnType<typeof vi.fn> }).rpc;
 
 const baseInput = () => ({
   profitCenterId: "pc-1",
@@ -30,7 +25,7 @@ const baseInput = () => ({
   weightMt: 10,
   notes: null,
   totalPowerMwh: 5,
-  consumption: [{ materialId: "m-1", stockLocationId: "loc-1", quantity: 1000 }],
+  consumption: [{ materialId: "m-1", stockLocationId: "loc-1", quantity: 1.5, uom: "MT" }],
   metallurgy: {
     product: "SiMn", grade: "60/14", tappingNo: null, batchNo: null,
     fgMnPct: 65, slagQtyMt: 5, slagMnoPct: 15, dustQtyMt: 1, dustMnPct: 10,
@@ -40,98 +35,93 @@ const baseInput = () => ({
 });
 
 beforeEach(() => {
-  vi.clearAllMocks();
-  (findHeatLogByNumber as any).mockResolvedValue(null);
-  (fetchMetallurgy as any).mockResolvedValue(null);
+  rpcMock.mockReset();
 });
 
-describe("classifyMaterial", () => {
-  it("matches ore by group_name (case-insensitive)", () => {
-    expect(classifyMaterial({ groupName: "Mn Ore" }, DEFAULT_PRODUCTION_FORMULAS.materialGroups)).toBe("ore");
-    expect(classifyMaterial({ groupName: "manganese ore" }, DEFAULT_PRODUCTION_FORMULAS.materialGroups)).toBe("ore");
+describe("classifyMaterial (Phase 1 — fadKind priority)", () => {
+  const groups = DEFAULT_PRODUCTION_FORMULAS.materialGroups;
+  it("uses fadKind when present (master-data driven)", () => {
+    expect(classifyMaterial({ fadKind: "ore", groupName: "Random" }, groups)).toBe("ore");
+    expect(classifyMaterial({ fadKind: "reductant" }, groups)).toBe("reductant");
   });
-  it("matches reductant", () => {
-    expect(classifyMaterial({ groupName: "Coke" }, DEFAULT_PRODUCTION_FORMULAS.materialGroups)).toBe("reductant");
+  it("falls back to groupName when fadKind is missing", () => {
+    expect(classifyMaterial({ groupName: "Mn Ore" }, groups)).toBe("ore");
+    expect(classifyMaterial({ groupName: "manganese ore" }, groups)).toBe("ore");
+    expect(classifyMaterial({ groupName: "Coke" }, groups)).toBe("reductant");
   });
   it("returns null when nothing matches", () => {
-    expect(classifyMaterial({ groupName: "Random" }, DEFAULT_PRODUCTION_FORMULAS.materialGroups)).toBeNull();
-    expect(classifyMaterial({ groupName: null, category: null }, DEFAULT_PRODUCTION_FORMULAS.materialGroups)).toBeNull();
+    expect(classifyMaterial({ groupName: "Random" }, groups)).toBeNull();
+    expect(classifyMaterial({ groupName: null, category: null }, groups)).toBeNull();
+  });
+  it("ignores invalid fadKind values silently", () => {
+    expect(classifyMaterial({ fadKind: "nonsense", groupName: "Coke" }, groups)).toBe("reductant");
   });
 });
 
-describe("submitFadEntry — first save", () => {
-  it("INSERTs heat + consumption when no existing draft is found", async () => {
+describe("submitFadEntry — transactional RPC", () => {
+  it("calls submit_fad_entry once with the normalised payload", async () => {
+    rpcMock.mockResolvedValueOnce({
+      data: { heatLogId: "heat-1", mode: "created", consumptionRowsWritten: 1 },
+      error: null,
+    });
     const result = await submitFadEntry(baseInput());
-    expect(result.heatLogId).toBe("heat-1");
-    expect(result.consumptionRowsWritten).toBe(1);
-    expect(result.mode).toBe("created");
-    expect(findHeatLogByNumber).toHaveBeenCalledOnce();
-    expect(createHeatLog).toHaveBeenCalledOnce();
-    expect(updateHeatLog).not.toHaveBeenCalled();
-    expect(recordHeatConsumption).toHaveBeenCalledOnce();
-    expect(replaceHeatConsumption).not.toHaveBeenCalled();
-    expect(upsertMetallurgy).toHaveBeenCalledOnce();
+    expect(result).toEqual({ heatLogId: "heat-1", mode: "created", consumptionRowsWritten: 1 });
+    expect(rpcMock).toHaveBeenCalledTimes(1);
+    const [name, args] = rpcMock.mock.calls[0];
+    expect(name).toBe("submit_fad_entry");
+    expect(args._payload.heatNumber).toBe("H-001");
+    expect(args._payload.consumption[0].uom).toBe("MT");
   });
 
-  it("rejects when heat number is blank", async () => {
+  it("rejects blank heat number client-side (no RPC call)", async () => {
     await expect(submitFadEntry({ ...baseInput(), heatNumber: "  " })).rejects.toBeInstanceOf(FadEntryError);
+    expect(rpcMock).not.toHaveBeenCalled();
   });
 
-  it("rejects when consumption row is invalid", async () => {
+  it("rejects invalid consumption rows client-side", async () => {
     await expect(
-      submitFadEntry({ ...baseInput(), consumption: [{ materialId: "", stockLocationId: "loc-1", quantity: 1 }] }),
-    ).rejects.toBeInstanceOf(FadEntryError);
+      submitFadEntry({
+        ...baseInput(),
+        consumption: [{ materialId: "", stockLocationId: "loc-1", quantity: 1, uom: "MT" }],
+      }),
+    ).rejects.toMatchObject({ step: "consumption" });
+    expect(rpcMock).not.toHaveBeenCalled();
   });
 
-  it("surfaces the failing step in the error", async () => {
-    (recordHeatConsumption as any).mockRejectedValueOnce(new Error("ledger blocked"));
-    try {
-      await submitFadEntry(baseInput());
-      throw new Error("should have thrown");
-    } catch (e) {
-      expect(e).toBeInstanceOf(FadEntryError);
-      expect((e as FadEntryError).step).toBe("consumption");
-    }
+  it("translates `heat_submitted` into a metallurgy-locked error", async () => {
+    rpcMock.mockResolvedValueOnce({ data: null, error: { message: "heat_submitted" } });
+    await expect(submitFadEntry(baseInput())).rejects.toMatchObject({
+      name: "FadEntryError",
+      step: "heat_log",
+    });
   });
-});
 
-describe("submitFadEntry — idempotent draft re-save", () => {
-  it("UPDATEs the existing heat and replaces consumption when a draft already exists", async () => {
-    (findHeatLogByNumber as any).mockResolvedValueOnce({ id: "heat-existing", isVoided: false });
-    (fetchMetallurgy as any).mockResolvedValueOnce({ id: "m", status: "draft" });
+  it("translates `heat_voided` into a void error", async () => {
+    rpcMock.mockResolvedValueOnce({ data: null, error: { message: "heat_voided" } });
+    await expect(submitFadEntry(baseInput())).rejects.toMatchObject({
+      name: "FadEntryError",
+      step: "heat_log",
+    });
+  });
 
+  it("translates UOM mismatch into a consumption error", async () => {
+    rpcMock.mockResolvedValueOnce({
+      data: null,
+      error: { message: "consumption UOM (kg) must match material master UOM (MT)" },
+    });
+    await expect(submitFadEntry(baseInput())).rejects.toMatchObject({
+      name: "FadEntryError",
+      step: "consumption",
+    });
+  });
+
+  it("returns mode='updated' when the RPC reports an existing heat re-save", async () => {
+    rpcMock.mockResolvedValueOnce({
+      data: { heatLogId: "heat-existing", mode: "updated", consumptionRowsWritten: 2 },
+      error: null,
+    });
     const result = await submitFadEntry(baseInput());
-
-    expect(result.heatLogId).toBe("heat-existing");
     expect(result.mode).toBe("updated");
-    expect(createHeatLog).not.toHaveBeenCalled();
-    expect(updateHeatLog).toHaveBeenCalledOnce();
-    expect(replaceHeatConsumption).toHaveBeenCalledWith({
-      heatLogId: "heat-existing",
-      rows: baseInput().consumption,
-    });
-    expect(recordHeatConsumption).not.toHaveBeenCalled();
-    expect(upsertMetallurgy).toHaveBeenCalledOnce();
-  });
-
-  it("blocks re-save once metallurgy has been submitted to Plant Head", async () => {
-    (findHeatLogByNumber as any).mockResolvedValueOnce({ id: "heat-existing", isVoided: false });
-    (fetchMetallurgy as any).mockResolvedValueOnce({ id: "m", status: "submitted" });
-
-    await expect(submitFadEntry(baseInput())).rejects.toMatchObject({
-      name: "FadEntryError",
-      step: "heat_log",
-    });
-    expect(updateHeatLog).not.toHaveBeenCalled();
-    expect(replaceHeatConsumption).not.toHaveBeenCalled();
-  });
-
-  it("blocks re-save when the heat has been voided", async () => {
-    (findHeatLogByNumber as any).mockResolvedValueOnce({ id: "heat-existing", isVoided: true });
-    await expect(submitFadEntry(baseInput())).rejects.toMatchObject({
-      name: "FadEntryError",
-      step: "heat_log",
-    });
-    expect(fetchMetallurgy).not.toHaveBeenCalled();
+    expect(result.heatLogId).toBe("heat-existing");
   });
 });
