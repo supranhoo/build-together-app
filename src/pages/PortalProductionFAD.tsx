@@ -19,6 +19,8 @@ import { fetchMasterItems, type MasterItem } from "@/lib/master-data";
 import { mnBalance, mnInput as mnInputCalc, type MaterialSpecLookup } from "@/lib/ferro-alloys";
 import { siBalance, siInput as siInputCalc } from "@/lib/silicon-balance";
 import { fetchProductionAlertThresholds, DEFAULT_PRODUCTION_ALERTS, type ProductionAlertThresholds } from "@/lib/production-alerts";
+import { fetchProductionTargets, resolveTarget, type ProductionTarget } from "@/lib/production-targets";
+import { validateHeat, hasBlockingIssue, summariseIssues, type HeatIssue } from "@/lib/heat-validation";
 import {
   classifyMaterial,
   DEFAULT_PRODUCTION_FORMULAS,
