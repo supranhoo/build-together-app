@@ -395,6 +395,8 @@ export default function PortalProductionFAD() {
       slagMnoPct: Number(slagMnoPct) || 0,
       dustQty: Number(dustQtyMt) || 0,
       dustMnPct: Number(dustMnPct) || 0,
+      // Phase 2: thread admin-configured MnO→Mn factor (was hardcoded 1.29).
+      mnoToMnFactor: thresholds.mnoToMnFactor,
     });
 
     const totalBalance = (balance.recoveryPct ?? 0) + (balance.slagLossPct ?? 0) + (balance.dustLossPct ?? 0) + (balance.diffLossPct ?? 0);
