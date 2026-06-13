@@ -4,6 +4,18 @@
  * the workspace has not configured its own — never used as policy.
  *
  * Admins can override per-workspace via Admin Settings.
+ *
+ * Phase 2 additions:
+ *   - `mnoToMnFactor`: chemistry constant (default 1.29 = M(MnO)/M(Mn))
+ *     previously hardcoded in `ferro-alloys.ts` / `clu-calc.ts`. Now fed to
+ *     pure libs so admins can correct for local lab convention.
+ *   - `maxRecoveryPct`: blocking validation threshold; if calculated Mn
+ *     recovery exceeds this it's a chemistry breach (output > input).
+ *   - `negativeLossTolerancePct`: tolerance for slightly negative loss
+ *     percentages due to rounding before they become block / warn issues.
+ *   - `electrodePasteKgPerMtTarget`: workspace default for electrode/paste
+ *     consumption target (kg per MT) used by the Alert Engine when no
+ *     scoped {@link ProductionTarget} matches.
  */
 import { supabase } from "@/integrations/supabase/client";
 
@@ -22,6 +34,14 @@ export interface ProductionAlertThresholds {
   siRecoveryMinPct: number;
   /** SiO₂→Si stoichiometric factor (admin-configurable; default 2.139). */
   sio2ToSiFactor: number;
+  /** MnO→Mn stoichiometric factor (admin-configurable; default 1.29). */
+  mnoToMnFactor: number;
+  /** Recovery > this → BLOCK (mass-conservation breach). */
+  maxRecoveryPct: number;
+  /** Loss % may be negative within ±this (rounding); beyond → BLOCK. */
+  negativeLossTolerancePct: number;
+  /** Workspace-default electrode/paste consumption target (Kg/MT). */
+  electrodePasteKgPerMtTarget: number;
 }
 
 export const DEFAULT_PRODUCTION_ALERTS: ProductionAlertThresholds = {
@@ -32,9 +52,20 @@ export const DEFAULT_PRODUCTION_ALERTS: ProductionAlertThresholds = {
   kwhPerMtTarget: 4000,
   siRecoveryMinPct: 75,
   sio2ToSiFactor: 2.139,
+  mnoToMnFactor: 1.29,
+  maxRecoveryPct: 98,
+  negativeLossTolerancePct: 2,
+  electrodePasteKgPerMtTarget: 35,
 };
 
 const client = supabase as unknown as { from: (t: string) => any };
+
+function num(v: unknown, fallback: number, opts?: { positive?: boolean }): number {
+  const n = Number(v);
+  if (!Number.isFinite(n)) return fallback;
+  if (opts?.positive && n <= 0) return fallback;
+  return n;
+}
 
 export async function fetchProductionAlertThresholds(profitCenterId: string): Promise<ProductionAlertThresholds> {
   const { data, error } = await client
@@ -47,13 +78,18 @@ export async function fetchProductionAlertThresholds(profitCenterId: string): Pr
   if (error) throw error;
 
   const v = (data?.setting_value ?? {}) as Partial<ProductionAlertThresholds>;
+  const d = DEFAULT_PRODUCTION_ALERTS;
   return {
-    recoveryMinPct: Number.isFinite(v.recoveryMinPct) ? Number(v.recoveryMinPct) : DEFAULT_PRODUCTION_ALERTS.recoveryMinPct,
-    slagMnoMaxPct: Number.isFinite(v.slagMnoMaxPct) ? Number(v.slagMnoMaxPct) : DEFAULT_PRODUCTION_ALERTS.slagMnoMaxPct,
-    fcPerMtMax: Number.isFinite(v.fcPerMtMax) ? Number(v.fcPerMtMax) : DEFAULT_PRODUCTION_ALERTS.fcPerMtMax,
-    moistureMaxPct: Number.isFinite(v.moistureMaxPct) ? Number(v.moistureMaxPct) : DEFAULT_PRODUCTION_ALERTS.moistureMaxPct,
-    kwhPerMtTarget: Number.isFinite(v.kwhPerMtTarget) ? Number(v.kwhPerMtTarget) : DEFAULT_PRODUCTION_ALERTS.kwhPerMtTarget,
-    siRecoveryMinPct: Number.isFinite(v.siRecoveryMinPct) ? Number(v.siRecoveryMinPct) : DEFAULT_PRODUCTION_ALERTS.siRecoveryMinPct,
-    sio2ToSiFactor: Number.isFinite(v.sio2ToSiFactor) && Number(v.sio2ToSiFactor) > 0 ? Number(v.sio2ToSiFactor) : DEFAULT_PRODUCTION_ALERTS.sio2ToSiFactor,
+    recoveryMinPct: num(v.recoveryMinPct, d.recoveryMinPct),
+    slagMnoMaxPct: num(v.slagMnoMaxPct, d.slagMnoMaxPct),
+    fcPerMtMax: num(v.fcPerMtMax, d.fcPerMtMax),
+    moistureMaxPct: num(v.moistureMaxPct, d.moistureMaxPct),
+    kwhPerMtTarget: num(v.kwhPerMtTarget, d.kwhPerMtTarget),
+    siRecoveryMinPct: num(v.siRecoveryMinPct, d.siRecoveryMinPct),
+    sio2ToSiFactor: num(v.sio2ToSiFactor, d.sio2ToSiFactor, { positive: true }),
+    mnoToMnFactor: num(v.mnoToMnFactor, d.mnoToMnFactor, { positive: true }),
+    maxRecoveryPct: num(v.maxRecoveryPct, d.maxRecoveryPct, { positive: true }),
+    negativeLossTolerancePct: num(v.negativeLossTolerancePct, d.negativeLossTolerancePct),
+    electrodePasteKgPerMtTarget: num(v.electrodePasteKgPerMtTarget, d.electrodePasteKgPerMtTarget, { positive: true }),
   };
 }
