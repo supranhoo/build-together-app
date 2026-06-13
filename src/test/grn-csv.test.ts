@@ -3,7 +3,7 @@ import { parseGrnCsv, buildGrnTemplateRows, GRN_CSV_HEADERS } from "@/lib/grn-cs
 import type { Material, StockLocation } from "@/lib/inventory";
 
 const materials: Material[] = [
-  { id: "m1", profitCenterId: "pc", code: "RM-MNORE-0001", name: "Mn Ore", category: "RM", uom: "MT", isActive: true, type: "RM", groupName: "Mn", subgroup: "Lump" },
+  { id: "m1", profitCenterId: "pc", code: "RM-MNORE-0001", name: "Mn Ore", category: "RM", uom: "MT", isActive: true, type: "RM", groupName: "Mn", subgroup: "Lump", fadKind: null },
 ];
 const locations: StockLocation[] = [
   { id: "l1", profitCenterId: "pc", code: "RM-YARD", name: "RM Yard", isActive: true },
