@@ -66,17 +66,24 @@ export function recoveryPct(input: number, output: number): number | null {
   return (output / input) * 100;
 }
 
+/** Default MnO→Mn stoichiometric factor (M(MnO)/M(Mn) = 70.94/54.94 ≈ 1.29).
+ *  Kept as a default so legacy callers continue to work; new callers should
+ *  pass the workspace-configured factor from `production.alerts.mnoToMnFactor`. */
+export const DEFAULT_MNO_TO_MN_FACTOR = 1.29;
+
 /**
  * Mn locked in slag.
- *   (slagQty × MnO%) / 1.29
+ *   (slagQty × MnO%) / mnoToMnFactor
  *
- * 1.29 is the stoichiometric MnO → Mn factor used in ferro-alloy
- * accounting (M(MnO) / M(Mn) = 70.94 / 54.94 ≈ 1.29).
+ * Phase 2: factor is admin-configurable per workspace. Callers pass
+ * `thresholds.mnoToMnFactor`; the default preserves prior behaviour for
+ * legacy call sites and tests that did not yet thread the factor.
  */
-export function slagMn(slagQty: number, mnoPct: number): number {
+export function slagMn(slagQty: number, mnoPct: number, mnoToMnFactor: number = DEFAULT_MNO_TO_MN_FACTOR): number {
   if (!Number.isFinite(slagQty) || !Number.isFinite(mnoPct)) return 0;
   if (slagQty <= 0 || mnoPct <= 0) return 0;
-  return (slagQty * (mnoPct / 100)) / 1.29;
+  const f = Number.isFinite(mnoToMnFactor) && mnoToMnFactor > 0 ? mnoToMnFactor : DEFAULT_MNO_TO_MN_FACTOR;
+  return (slagQty * (mnoPct / 100)) / f;
 }
 
 /**
