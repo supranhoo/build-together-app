@@ -84,6 +84,7 @@ function toItem(row: any): MasterItem {
     maxLevel: row.max_level !== null && row.max_level !== undefined ? Number(row.max_level) : null,
     reorderLevel: row.reorder_level !== null && row.reorder_level !== undefined ? Number(row.reorder_level) : null,
     isActive: Boolean(row.is_active),
+    fadKind: (row.fad_kind ?? null) as MasterItem["fadKind"],
   };
 }
 
