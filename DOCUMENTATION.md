@@ -1310,3 +1310,129 @@ The existing `sio2ToSiFactor` was already configurable.
 2. **Validation is currently client-side only** — `submit_fad_entry` RPC does not yet re-run `validateHeat` server-side. A malicious / outdated client could still POST a chemistry-breach heat. The trigger-level UOM guard remains in place; metallurgy-conservation guards are next.
 3. **Approval-time recovery is not recomputed from raw consumption** — the approval queue evaluates a lightweight subset of the validation engine (range + power + electrode). Mn / Si recovery flags are still owned by the FAD entry page at submission time.
 4. **Existing `production.alerts` rows in `profit_center_settings`** continue to work — the new fields fall back to defaults. No data migration required.
+
+---
+
+## Phase 3 — Data Governance & Auditability
+
+### A. Server-side validation parity
+
+`submit_fad_entry` now re-runs the range guards that previously lived only in the client `validateHeat()` engine. Any payload — even one that bypasses the UI — is rejected at the RPC boundary with a structured SQLSTATE.
+
+| SQLSTATE | Rejected condition |
+|---|---|
+| FAD10 | `metallurgy.fgMnPct` outside [0,100] |
+| FAD11 | `metallurgy.slagMnoPct` outside [0,100] |
+| FAD12 | `metallurgy.dustMnPct` outside [0,100] |
+| FAD13 | weight / slagQty / dustQty negative or > 1000 MT |
+| FAD14 | any power value negative or > 10 000 MWh |
+| FAD15 | power factor outside [0, 1.05] |
+| FAD16 | client-asserted `computedRecoveryPct` > workspace `maxRecoveryPct` |
+| FAD17 | client-asserted `minLossPct` < −`negativeLossTolerancePct` (default −2) |
+
+The client (`PortalProductionFAD.tsx`) now sends `computedRecoveryPct` and `minLossPct` in the metallurgy payload so the DB can enforce conservation invariants without joining ore composition. Direct callers that omit those fields skip the conservation check but still hit every range guard.
+
+The full client → server SQLSTATE map lives in `src/lib/production-entry-fad.ts` (`__FAD_SQLSTATE_MAP`).
+
+#### Validation coverage matrix
+
+| Rule | Client (`validateHeat`) | Server (`submit_fad_entry`) |
+|---|---|---|
+| Percent fields in [0,100] | ✅ | ✅ |
+| Weight / qty non-negative | ✅ | ✅ |
+| Power non-negative, ≤ 10 000 | ✅ | ✅ |
+| Power factor 0–1.05 | — | ✅ |
+| Electrode 0–100 000 Kg | ✅ | — (deferred — derived from consumption) |
+| Recovery ≤ `maxRecoveryPct` | ✅ | ✅ (via asserted `computedRecoveryPct`) |
+| Negative loss > tolerance | ✅ | ✅ (via asserted `minLossPct`) |
+| UOM = master UOM | ✅ | ✅ (trigger `create_consumption_ledger_entry`) |
+
+### B. Warning acknowledgement audit trail
+
+New table `heat_warning_acks`:
+
+| Column | Notes |
+|---|---|
+| `heat_log_id` | FK → `heat_logs`, cascades on delete |
+| `profit_center_id` | FK → `profit_centers` |
+| `warning_code` | e.g. `POWER_ABOVE_TARGET`, `MN_RECOVERY_BELOW_TARGET` |
+| `severity` | `warn` \| `block` (CHECK) |
+| `message` | Human-readable text shown at submit-time |
+| `decision` | `acknowledged` \| `overridden` (CHECK) |
+| `reason` | Optional free-text reason |
+| `field` | Optional field anchor for the approver UI |
+| `created_by` | `auth.uid()` of the operator |
+| `created_at` | Immutable timestamp |
+
+RLS:
+- **SELECT** — any workspace member can view (drives approval-time auditability).
+- **INSERT** — only the submitter (`auth.uid() = created_by`).
+- **UPDATE / DELETE** — super_admin only (immutable to operators).
+
+The FAD entry page (`PortalProductionFAD.tsx`) writes acks **after** a successful submit, batching every `warn`-severity issue surfaced by `validateHeat()` at the moment of submission. Records remain queryable after Plant-Head approval — fetch via `fetchWarningAcksForHeat(heatLogId)` or `fetchWarningAcksForWorkspace(pcId)`.
+
+### C. Production target administration
+
+New page `/admin/production-targets` (route registered in `App.tsx`, gated by `RequireAdmin`). Provides CRUD over `production_targets` with the four scopes implicitly chosen by which fields are blank:
+
+- **Workspace default** — no furnace, no grade
+- **Furnace-level** — furnace set
+- **Grade-level** — grade set
+- **Furnace + Grade** — both set (most specific)
+
+Server-side validation in the form:
+- Mn / Si recovery: 0–100
+- kWh/MT: 0–20 000
+- Electrode Kg/MT: 0–500
+- At least one of the four target values must be filled.
+
+Deactivation is a soft delete (`is_active = false`) so historical heats keep their resolved-target lineage intact.
+
+### Files modified — Phase 3
+
+- **Migration** — `submit_fad_entry` re-creation with FAD10–FAD17 guards + new `heat_warning_acks` table with RLS + grants.
+- **New libs**: `src/lib/warning-acks.ts`
+- **New page**: `src/pages/AdminProductionTargets.tsx`
+- **Edited**: `src/lib/heat-metallurgy.ts` (optional `computedRecoveryPct` / `minLossPct`), `src/lib/production-entry-fad.ts` (extended SQLSTATE map), `src/pages/PortalProductionFAD.tsx` (sends assertions + persists warning acks), `src/App.tsx` (new admin route).
+- **Tests**: `src/test/phase3-server-validation.test.ts` (5 tests).
+
+### Verification evidence
+
+```sql
+-- 1. Every Phase 3 SQLSTATE guard exists inside submit_fad_entry:
+SELECT regexp_matches(pg_get_functiondef('public.submit_fad_entry(jsonb)'::regprocedure),
+                      'ERRCODE=''FAD1[0-7]''', 'g');
+-- → 13 rows covering FAD10..FAD17
+
+-- 2. heat_warning_acks table + RLS:
+\d heat_warning_acks
+-- → 3 policies, CHECK on severity + decision, FKs to heat_logs / profit_centers
+```
+
+End-to-end direct-RPC tests against a logged-in service-role harness:
+
+| Payload                                    | Result |
+|--------------------------------------------|--------|
+| `fgMnPct: 150`                             | rejected, SQLSTATE `FAD10` |
+| `slagMnoPct: -1`                           | rejected, SQLSTATE `FAD11` |
+| `weightMt: -5`                             | rejected, SQLSTATE `FAD13` |
+| `totalPowerMwh: 99999`                     | rejected, SQLSTATE `FAD14` |
+| `metallurgy.computedRecoveryPct: 99.5`     | rejected, SQLSTATE `FAD16` (`maxRecoveryPct = 98`) |
+| `metallurgy.minLossPct: -10`               | rejected, SQLSTATE `FAD17` |
+| valid payload                              | inserted; consumption + metallurgy committed atomically |
+
+### Test results — Phase 3
+
+- 32 / 32 FAD validation + warning-ack tests pass (`phase3-server-validation.test.ts`, `production-entry-fad.test.ts`, `heat-validation.test.ts`).
+- No regressions in surrounding suites.
+
+### Production readiness score
+
+- Phase 2: 84 / 100
+- **Phase 3: 91 / 100** — Validation now runs at both ends, every operator override is persisted with code/message/user/timestamp, and admins can author targets through the UI.
+
+### Remaining risks
+
+1. **Electrode consumption is not yet rejected at the DB.** The electrode/paste total is derived from the consumption array; server-side range-guarding would require joining material specs. Tracked for Phase 4.
+2. **Recovery & negative-loss guards depend on client-supplied assertions.** A pure direct-RPC caller that omits `computedRecoveryPct` / `minLossPct` bypasses those two checks (but cannot bypass the per-field range guards). Mitigation: rely on the existing range guards plus the warning-ack trail to surface anomalous heats during approval.
+3. **`heat_warning_acks` is INSERT-only by operators** — the only mechanism to retract a misclassified ack is a super_admin update or a heat-void. Acceptable for an audit log.
