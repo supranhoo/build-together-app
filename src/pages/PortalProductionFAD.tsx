@@ -19,6 +19,8 @@ import { fetchMasterItems, type MasterItem } from "@/lib/master-data";
 import { mnBalance, mnInput as mnInputCalc, type MaterialSpecLookup } from "@/lib/ferro-alloys";
 import { siBalance, siInput as siInputCalc } from "@/lib/silicon-balance";
 import { fetchProductionAlertThresholds, DEFAULT_PRODUCTION_ALERTS, type ProductionAlertThresholds } from "@/lib/production-alerts";
+import { fetchProductionTargets, resolveTarget, type ProductionTarget } from "@/lib/production-targets";
+import { validateHeat, hasBlockingIssue, summariseIssues, type HeatIssue } from "@/lib/heat-validation";
 import {
   classifyMaterial,
   DEFAULT_PRODUCTION_FORMULAS,
@@ -181,6 +183,7 @@ export default function PortalProductionFAD() {
   const [thresholds, setThresholds] = useState<ProductionAlertThresholds>(DEFAULT_PRODUCTION_ALERTS);
   const [formulas, setFormulas] = useState<ProductionFormulaDefaults>(DEFAULT_PRODUCTION_FORMULAS);
   const [loadingMasters, setLoadingMasters] = useState(true);
+  const [productionTargets, setProductionTargets] = useState<ProductionTarget[]>([]);
 
   useEffect(() => {
     if (!activeProfitCenterId) return;
@@ -194,8 +197,9 @@ export default function PortalProductionFAD() {
       fetchProductionAlertThresholds(activeProfitCenterId),
       fetchProductionFormulaDefaults(activeProfitCenterId),
       fetchLedger(activeProfitCenterId),
+      fetchProductionTargets(activeProfitCenterId),
     ])
-      .then(([f, s, sl, m, t, fm, le]) => {
+      .then(([f, s, sl, m, t, fm, le, pt]) => {
         if (cancelled) return;
         setFurnaces(f.filter((x) => x.isActive));
         setShifts(s.filter((x) => x.isActive));
@@ -204,6 +208,7 @@ export default function PortalProductionFAD() {
         setThresholds(t);
         setFormulas(fm);
         setLedger(le);
+        setProductionTargets(pt);
       })
       .catch((e) => {
         toast({ title: "Failed to load workspace data", description: e?.message ?? String(e), variant: "destructive" });
@@ -395,6 +400,8 @@ export default function PortalProductionFAD() {
       slagMnoPct: Number(slagMnoPct) || 0,
       dustQty: Number(dustQtyMt) || 0,
       dustMnPct: Number(dustMnPct) || 0,
+      // Phase 2: thread admin-configured MnO→Mn factor (was hardcoded 1.29).
+      mnoToMnFactor: thresholds.mnoToMnFactor,
     });
 
     const totalBalance = (balance.recoveryPct ?? 0) + (balance.slagLossPct ?? 0) + (balance.dustLossPct ?? 0) + (balance.diffLossPct ?? 0);
@@ -434,7 +441,7 @@ export default function PortalProductionFAD() {
       siBal,
       totalSiBalance,
     };
-  }, [oreRows, reductantRows, fluxRows, pasteRows, productionMt, fgMnPct, slagQtyMt, slagMnoPct, dustQtyMt, dustMnPct, fgSiPct, slagSio2Pct, dustSiPct, thresholds.sio2ToSiFactor]);
+  }, [oreRows, reductantRows, fluxRows, pasteRows, productionMt, fgMnPct, slagQtyMt, slagMnoPct, dustQtyMt, dustMnPct, fgSiPct, slagSio2Pct, dustSiPct, thresholds.sio2ToSiFactor, thresholds.mnoToMnFactor]);
 
   // ---- Submit ----
   const totalPower = useMemo(() => {
@@ -462,6 +469,36 @@ export default function PortalProductionFAD() {
   }, [specErrors]);
   const blockingSpecErrors = specErrors.length > 0;
 
+  // Phase 2 — Validation & Alert Engine.
+  // Resolve the most-specific target for this furnace + grade and validate
+  // the heat snapshot. Blocking issues prevent "Submit"; warnings are shown
+  // but do not block. The same engine drives the approval queue.
+  const resolvedTarget = useMemo(
+    () => resolveTarget(productionTargets, { furnaceId, product: productName, grade: typicalGrade }),
+    [productionTargets, furnaceId, productName, typicalGrade],
+  );
+  const heatIssues: HeatIssue[] = useMemo(() => {
+    return validateHeat(
+      {
+        weightMt: Number(productionMt) || null,
+        fgMnPct: Number(fgMnPct) || null,
+        slagQtyMt: Number(slagQtyMt) || null,
+        slagMnoPct: Number(slagMnoPct) || null,
+        dustQtyMt: Number(dustQtyMt) || null,
+        dustMnPct: Number(dustMnPct) || null,
+        totalPowerMwh: totalPower || null,
+        electrodeKg: calc.totalPasteKg || null,
+        mnBalance: calc.balance,
+        siRecoveryPct: calc.siBal.recoveryPct,
+      },
+      thresholds,
+      resolvedTarget,
+    );
+  }, [productionMt, fgMnPct, slagQtyMt, slagMnoPct, dustQtyMt, dustMnPct, totalPower, calc, thresholds, resolvedTarget]);
+  const heatIssueSummary = useMemo(() => summariseIssues(heatIssues), [heatIssues]);
+  const heatHasBlock = useMemo(() => hasBlockingIssue(heatIssues), [heatIssues]);
+
+
   async function handleSave(status: "draft" | "submitted") {
     if (!activeProfitCenterId || !userId) {
       toast({ title: "Not signed in", variant: "destructive" });
@@ -479,6 +516,19 @@ export default function PortalProductionFAD() {
       });
       return;
     }
+    // Phase 2 — Block submission (not draft) when the validation engine
+    // reports any "block"-severity issue (impossible chemistry / negative
+    // conserved-mass losses). Drafts are still allowed so operators can
+    // continue editing partially-entered heats.
+    if (status === "submitted" && heatHasBlock) {
+      toast({
+        title: "Cannot submit — metallurgy validation failed",
+        description: heatIssues.find((i) => i.severity === "block")?.message ?? "Fix the highlighted issues before submitting.",
+        variant: "destructive",
+      });
+      return;
+    }
+
 
     // Phase 1 (audit): consumption is recorded in MT — the canonical platform
     // UOM. Per-row inputs on this page already use MT except where the
@@ -1310,13 +1360,27 @@ export default function PortalProductionFAD() {
                         <span>{specErrors.length} row{specErrors.length > 1 ? "s" : ""} blocked by missing item specs. Fix in Master Data → Items.</span>
                       </p>
                     )}
+                    {/* Phase 2 — Validation & Alert Engine output */}
+                    {heatIssues.length > 0 && (
+                      <div className="space-y-1">
+                        {heatIssues.slice(0, 5).map((i, idx) => (
+                          <p key={idx} className={`text-xs flex items-start gap-1 ${i.severity === "block" ? "text-destructive" : "text-amber-600 dark:text-amber-400"}`}>
+                            <AlertTriangle className="h-3 w-3 mt-0.5 shrink-0" />
+                            <span><strong>{i.severity === "block" ? "Block" : "Warn"}:</strong> {i.message}</span>
+                          </p>
+                        ))}
+                        {heatIssues.length > 5 && (
+                          <p className="text-xs text-muted-foreground">+ {heatIssues.length - 5} more…</p>
+                        )}
+                      </div>
+                    )}
                     <Button onClick={() => handleSave("draft")} variant="outline" className="w-full" disabled={saving !== null || loadingMasters || blockingSpecErrors}>
                       {saving === "draft" ? <Loader2 className="h-4 w-4 mr-2 animate-spin" /> : <Save className="h-4 w-4 mr-2" />}
                       Save Draft
                     </Button>
-                    <Button onClick={() => handleSave("submitted")} className="w-full" disabled={saving !== null || loadingMasters || blockingSpecErrors}>
+                    <Button onClick={() => handleSave("submitted")} className="w-full" disabled={saving !== null || loadingMasters || blockingSpecErrors || heatHasBlock}>
                       {saving === "submitted" ? <Loader2 className="h-4 w-4 mr-2 animate-spin" /> : <CheckCircle2 className="h-4 w-4 mr-2" />}
-                      Submit to Plant Head
+                      Submit to Plant Head{heatIssueSummary.warn > 0 && !heatHasBlock ? ` (${heatIssueSummary.warn} warning${heatIssueSummary.warn>1?"s":""})` : ""}
                     </Button>
                   </div>
                 </CardContent>

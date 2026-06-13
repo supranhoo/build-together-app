@@ -38,6 +38,10 @@ import {
   type ProductionApproval,
 } from "@/lib/production-approvals";
 import { transitionHeat, type CluHeatStatus } from "@/lib/clu-production";
+import { fetchMetallurgyByPC, type HeatMetallurgy } from "@/lib/heat-metallurgy";
+import { fetchProductionTargets, resolveTarget, type ProductionTarget } from "@/lib/production-targets";
+import { fetchProductionAlertThresholds, DEFAULT_PRODUCTION_ALERTS, type ProductionAlertThresholds } from "@/lib/production-alerts";
+import { validateHeat, summariseIssues, type HeatIssue } from "@/lib/heat-validation";
 
 const statusBadge: Record<HeatApprovalStatus, { label: string; variant: "default" | "secondary" | "destructive" | "outline" }> = {
   pending: { label: "Pending", variant: "secondary" },
@@ -64,23 +68,37 @@ export default function PortalHeatApprovals() {
   const [busyId, setBusyId] = useState<string | null>(null);
   const [cluRows, setCluRows] = useState<ProductionApproval[]>([]);
   const [truncated, setTruncated] = useState(false);
+  // Phase 2 — target/threshold context for the approval queue
+  const [metallurgyByHeat, setMetallurgyByHeat] = useState<Map<string, HeatMetallurgy>>(new Map());
+  const [productionTargets, setProductionTargets] = useState<ProductionTarget[]>([]);
+  const [thresholds, setThresholds] = useState<ProductionAlertThresholds>(DEFAULT_PRODUCTION_ALERTS);
   const APPROVAL_LIMIT = 5000;
 
   const reload = async () => {
     if (!activeProfitCenter) return;
     try {
       // Phase 1.5: bounded by from/to, capped at APPROVAL_LIMIT, with truncation flag.
-      const [f, page, a, clu] = await Promise.all([
+      // Phase 2: load metallurgy snapshot, production targets, and thresholds
+      // so the approval queue can show target vs actual and abnormal-heat badges.
+      const [f, page, a, clu, met, pt, th] = await Promise.all([
         fetchFurnaces(activeProfitCenter.id),
         fetchHeatLogsWithMeta(activeProfitCenter.id, { from, to, limit: APPROVAL_LIMIT }),
         fetchHeatApprovals(activeProfitCenter.id),
         fetchProductionApprovals(activeProfitCenter.id, { source: "clu_heat" }),
+        fetchMetallurgyByPC(activeProfitCenter.id),
+        fetchProductionTargets(activeProfitCenter.id),
+        fetchProductionAlertThresholds(activeProfitCenter.id),
       ]);
       setFurnaces(f);
       setHeats(page.rows.filter((x) => !x.isVoided));
       setTruncated(page.truncated);
       setApprovals(a);
       setCluRows(clu);
+      const m = new Map<string, HeatMetallurgy>();
+      for (const row of met) m.set(row.heatLogId, row);
+      setMetallurgyByHeat(m);
+      setProductionTargets(pt);
+      setThresholds(th);
     } catch (e) {
       toast({
         title: "Failed to load approvals",
@@ -102,6 +120,50 @@ export default function PortalHeatApprovals() {
   }, [approvals]);
 
   const furnaceCode = (id: string) => furnaces.find((f) => f.id === id)?.code ?? id.slice(0, 6);
+
+  /**
+   * Phase 2 — Approval context per heat. We evaluate a lightweight subset of
+   * the validation engine (we don't have raw consumption rows here, so the
+   * full Mn balance isn't reconstructed — we still flag range issues, energy
+   * deviation vs target, and electrode-per-MT excess when paste rows are
+   * available). Mn / Si recovery deviations surface at FAD entry time; here
+   * we surface "abnormal" heats so approvers know to scrutinise.
+   */
+  const contextByHeat = useMemo(() => {
+    const out = new Map<string, { kwhPerMt: number | null; kwhTarget: number | null; issues: HeatIssue[]; mnRecoveryTarget: number | null; }>();
+    for (const h of heats) {
+      const met = metallurgyByHeat.get(h.id) ?? null;
+      const target = resolveTarget(productionTargets, {
+        furnaceId: h.furnaceId,
+        product: met?.product ?? null,
+        grade: met?.grade ?? null,
+      });
+      const kwhPerMt = h.weightMt && h.weightMt > 0 && h.powerMwh != null ? (h.powerMwh * 1000) / h.weightMt : null;
+      const issues = validateHeat(
+        {
+          weightMt: h.weightMt,
+          fgMnPct: met?.fgMnPct ?? null,
+          slagQtyMt: met?.slagQtyMt ?? null,
+          slagMnoPct: met?.slagMnoPct ?? null,
+          dustQtyMt: met?.dustQtyMt ?? null,
+          dustMnPct: met?.dustMnPct ?? null,
+          totalPowerMwh: h.powerMwh,
+          mnBalance: null,
+          siRecoveryPct: null,
+        },
+        thresholds,
+        target,
+      );
+      out.set(h.id, {
+        kwhPerMt,
+        kwhTarget: target.kwhPerMtTarget ?? thresholds.kwhPerMtTarget,
+        issues,
+        mnRecoveryTarget: target.mnRecoveryTargetPct,
+      });
+    }
+    return out;
+  }, [heats, metallurgyByHeat, productionTargets, thresholds]);
+
 
   const visibleRows = useMemo(() => {
     return heats
@@ -269,6 +331,7 @@ export default function PortalHeatApprovals() {
                 <TableHead>Furnace</TableHead>
                 <TableHead className="text-right">Weight (MT)</TableHead>
                 <TableHead className="text-right">Power (MWh)</TableHead>
+                <TableHead>Target vs Actual</TableHead>
                 <TableHead>Status</TableHead>
                 <TableHead className="w-[280px]">Notes / decision</TableHead>
                 <TableHead className="text-right">Action</TableHead>
@@ -279,13 +342,49 @@ export default function PortalHeatApprovals() {
                 const noteVal = reasonByHeat[heat.id] ?? "";
                 const status = approval?.status ?? "pending";
                 const isBusy = busyId === heat.id || busyId === approval?.id;
+                const ctx = contextByHeat.get(heat.id);
+                const summary = ctx ? summariseIssues(ctx.issues) : { block: 0, warn: 0 };
+                const isAbnormal = summary.block > 0 || summary.warn > 0;
+                const kwhDelta = ctx?.kwhPerMt != null && ctx.kwhTarget != null ? ctx.kwhPerMt - ctx.kwhTarget : null;
                 return (
-                  <TableRow key={heat.id}>
+                  <TableRow key={heat.id} className={summary.block > 0 ? "bg-destructive/5" : summary.warn > 0 ? "bg-amber-500/5" : undefined}>
                     <TableCell className="font-medium">{heat.heatNumber}</TableCell>
                     <TableCell>{new Date(heat.tapTime).toLocaleString()}</TableCell>
                     <TableCell>{furnaceCode(heat.furnaceId)}</TableCell>
                     <TableCell className="text-right">{heat.weightMt ?? "—"}</TableCell>
                     <TableCell className="text-right">{heat.powerMwh ?? "—"}</TableCell>
+                    <TableCell className="text-xs">
+                      {ctx ? (
+                        <div className="space-y-0.5">
+                          <div title="kWh per MT (actual vs target)">
+                            <span className={kwhDelta != null && kwhDelta > 0 ? "text-amber-600 dark:text-amber-400 font-semibold" : ""}>
+                              {ctx.kwhPerMt != null ? `${ctx.kwhPerMt.toFixed(0)}` : "—"}
+                            </span>
+                            <span className="text-muted-foreground"> / {ctx.kwhTarget != null ? ctx.kwhTarget.toFixed(0) : "—"} kWh/MT</span>
+                          </div>
+                          {ctx.mnRecoveryTarget != null && (
+                            <div className="text-muted-foreground">Mn rec target: {ctx.mnRecoveryTarget}%</div>
+                          )}
+                          {isAbnormal && (
+                            <div className="flex gap-1 pt-0.5">
+                              {summary.block > 0 && (
+                                <Badge variant="destructive" title={ctx.issues.filter((i) => i.severity === "block").map((i) => i.message).join("\n")}>
+                                  {summary.block} block
+                                </Badge>
+                              )}
+                              {summary.warn > 0 && (
+                                <Badge variant="outline" className="border-amber-500 text-amber-700 dark:text-amber-400"
+                                  title={ctx.issues.filter((i) => i.severity === "warn").map((i) => i.message).join("\n")}>
+                                  {summary.warn} warn
+                                </Badge>
+                              )}
+                            </div>
+                          )}
+                        </div>
+                      ) : (
+                        <span className="text-muted-foreground">—</span>
+                      )}
+                    </TableCell>
                     <TableCell>
                       {approval ? (
                         <Badge variant={statusBadge[approval.status].variant}>
@@ -342,7 +441,7 @@ export default function PortalHeatApprovals() {
               })}
               {visibleRows.length === 0 && (
                 <TableRow>
-                  <TableCell colSpan={8} className="text-muted-foreground">
+                  <TableCell colSpan={9} className="text-muted-foreground">
                     No heats match the current filter.
                   </TableCell>
                 </TableRow>

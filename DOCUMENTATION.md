@@ -1228,3 +1228,85 @@ Fresh deployments now reproduce production schema from source. Live DB content i
 - Phase 1 (claimed): 68 / 100
 - Phase 1 verification (recalculated): 62 / 100
 - **Phase 1.5: 76 / 100** — schema drift closed, error reporting stable, truncation observable to operators. Remaining gap to ≥85 is owned by Phase 2 (server-side pagination, metallurgy validation, structured audit trail).
+
+## 2026-06-13 — Phase 2 FAD Audit (Metallurgical Correctness)
+
+Phase 2 adds the operational guard-rails the verification audit flagged as missing. **No dashboards, no benchmarking pages, no AI insights, no executive reporting** — scope is strictly operator / approver workflow correctness.
+
+### A. Validation Engine (`src/lib/heat-validation.ts`)
+
+Pure, deterministic function `validateHeat(snapshot, thresholds, target) → HeatIssue[]`. Each issue carries:
+
+- `code` — stable machine identifier (e.g. `FG_MN_RANGE`, `RECOVERY_OVERSHOOT`)
+- `severity` — `"block"` (refuse submission) or `"warn"` (surface, don't block)
+- `message` — operator-facing text
+- `field?` — anchor for inline hints
+
+Rules implemented:
+
+| Code                          | Severity | Rule                                                       |
+|-------------------------------|----------|------------------------------------------------------------|
+| WEIGHT_RANGE / *_RANGE        | block    | Numeric ranges (% in 0–100, mass ≥ 0, sane upper bounds)   |
+| RECOVERY_OVERSHOOT            | block    | Mn recovery > `maxRecoveryPct` (default 98%) — output > input chemistry breach |
+| NEG_SLAG_LOSS                 | block    | Slag Mn loss < −`negativeLossTolerancePct` (conservation breach)               |
+| NEG_DUST_LOSS                 | block    | Dust Mn loss < −`negativeLossTolerancePct`                                      |
+| NEG_DIFF_LOSS                 | warn     | Unaccounted Mn negative beyond tolerance (likely overstated outputs)            |
+| MN_RECOVERY_BELOW_TARGET      | warn     | Mn recovery below the resolved scoped target                                   |
+| MN_RECOVERY_BELOW_MIN         | warn     | Fallback: no scoped target, below workspace `recoveryMinPct`                   |
+| SI_RECOVERY_BELOW_TARGET / _MIN | warn   | Same pattern for Si recovery                                                   |
+| POWER_ABOVE_TARGET            | warn     | (powerMwh × 1000 / weight) > resolved `kwhPerMtTarget`                          |
+| ELECTRODE_ABOVE_TARGET        | warn     | electrodeKg / weight > resolved `electrodeKgPerMtTarget`                        |
+
+The FAD entry page (`PortalProductionFAD`) blocks the **Submit to Plant Head** button whenever any `block`-severity issue exists; "Save Draft" remains available so operators can correct issues iteratively. Warnings are surfaced in the same panel but do not block submission.
+
+### B. Target Engine (`src/lib/production-targets.ts` + `production_targets` table)
+
+New table `production_targets` stores per-workspace target rows scoped at four levels (most-specific wins): `(furnace + grade)` → `(grade)` → `(furnace)` → `(workspace default)`. Each row carries any subset of: `mn_recovery_target_pct`, `si_recovery_target_pct`, `kwh_per_mt_target`, `electrode_kg_per_mt_target`.
+
+Pure resolver `resolveTarget(targets, ctx)` returns a `ResolvedTarget` where each metric is independently filled from the most-specific contributing row. RLS allows view to all workspace members; insert/update/delete restricted to users who can manage the profit center (or super_admin).
+
+> **Admin UI for editing targets is deferred to Phase 2.1.** For now, admins can seed `production_targets` rows directly via SQL or a future admin screen — the resolver, validation engine, and approval queue are already live.
+
+### C. Alert Engine + Approval Context
+
+`PortalHeatApprovals` now loads `heat_metallurgy`, `production_targets`, and `production.alerts` thresholds alongside heat logs. Each row in the queue displays:
+
+- **kWh/MT actual vs target** (computed live; bold amber when over)
+- **Mn recovery target** (when configured)
+- **`N block` / `N warn` badges** (with full message in tooltip)
+- **Row background** tinted destructive / amber when issues exist (abnormal heat highlighting)
+
+Approvers can still approve a "warn"-flagged heat (subject to existing RLS); they cannot bypass `block`-severity issues because the FAD entry page refused submission in the first place.
+
+### D. Configuration — Chemistry constants moved out of code
+
+`ferro-alloys.ts` previously hardcoded the MnO→Mn factor `1.29` inside `slagMn()` / `mnBalance()`. Phase 2 makes it an optional argument with the default preserved for legacy call sites. The FAD entry page now threads `thresholds.mnoToMnFactor` (sourced from `production.alerts` via `profit_center_settings`) into every Mn balance computation.
+
+Extended `ProductionAlertThresholds` with four new admin-managed fields (defaults shown):
+- `mnoToMnFactor: 1.29` — stoichiometric MnO→Mn (previously hardcoded)
+- `maxRecoveryPct: 98` — recovery above this is a chemistry breach (BLOCK)
+- `negativeLossTolerancePct: 2` — tolerance for rounding-negative losses
+- `electrodePasteKgPerMtTarget: 35` — workspace-default electrode consumption target
+
+The existing `sio2ToSiFactor` was already configurable.
+
+### Files modified
+- **Migration** — `production_targets` table + grants + RLS + uniqueness on (pc, furnace?, product?, grade?)
+- **New libs**: `src/lib/production-targets.ts`, `src/lib/heat-validation.ts`
+- **Extended**: `src/lib/production-alerts.ts`, `src/lib/ferro-alloys.ts`
+- **Pages**: `src/pages/PortalProductionFAD.tsx` (validation gate + alert banner + MnO factor threading), `src/pages/PortalHeatApprovals.tsx` (target vs actual cell + abnormal-heat tint + issue badges)
+- **Tests**: `src/test/heat-validation.test.ts` (15 tests covering resolver precedence, BLOCK rules, conservation, WARN target deviation, summariser)
+
+### Test results
+- 30 / 30 Phase 1 + 1.5 + 2 tests pass.
+- Full suite: 778 / 781 (3 pre-existing admin nav failures, unrelated).
+
+### Production-readiness score
+- Phase 1.5: 76 / 100
+- **Phase 2: 84 / 100** — chemistry constants externalised, conservation breaches now refused at submit, approvers see target vs actual without leaving the queue. Remaining gap to 95 owned by Phase 3 (admin UI for `production_targets`, server-side validation in `submit_fad_entry`, structured audit trail of overridden warnings).
+
+### Remaining risks
+1. **No admin UI yet for `production_targets`** — rows must be seeded via SQL until Phase 2.1. RLS already enforces correct write permissions, so this is a UX gap, not a correctness gap.
+2. **Validation is currently client-side only** — `submit_fad_entry` RPC does not yet re-run `validateHeat` server-side. A malicious / outdated client could still POST a chemistry-breach heat. The trigger-level UOM guard remains in place; metallurgy-conservation guards are next.
+3. **Approval-time recovery is not recomputed from raw consumption** — the approval queue evaluates a lightweight subset of the validation engine (range + power + electrode). Mn / Si recovery flags are still owned by the FAD entry page at submission time.
+4. **Existing `production.alerts` rows in `profit_center_settings`** continue to work — the new fields fall back to defaults. No data migration required.

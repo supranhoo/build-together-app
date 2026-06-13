@@ -652,3 +652,12 @@ pre-selected default and the first option in every UOM dropdown.
 - Any list/summary screen that imposes a row cap MUST surface a `TruncationBanner` to the operator when the cap is hit. Silent truncation is forbidden.
 - The Monthly Summary screen defaults to the **last 12 calendar months**. Operators may widen the window via the date inputs; the truncation banner reappears if the cap is hit again.
 - Schema drift is forbidden. Every DB object referenced by the application MUST exist in a source-controlled migration; production-only objects discovered later MUST be back-filled with an idempotent reconciliation migration in the next change.
+
+## Phase 2 — FAD Metallurgical Correctness (2026-06-13)
+
+- **No chemistry constants in code.** Stoichiometric factors (MnO→Mn, SiO₂→Si) and conservation tolerances (`maxRecoveryPct`, `negativeLossTolerancePct`) MUST live in `profit_center_settings.production.alerts`. Code provides defaults only; pure libs accept the factor as an argument.
+- **BLOCK vs WARN.** Mass-conservation breaches (recovery > `maxRecoveryPct`, negative slag/dust loss beyond tolerance, %-out-of-range, negative mass) are `block`-severity and MUST prevent submission to Plant Head. Target deviations (recovery below target, kWh/MT above target, electrode kg/MT above target) are `warn`-severity and MUST surface to the approver but MUST NOT block submission.
+- **Targets are scoped per workspace** in `production_targets`: most-specific (furnace + grade) wins over (grade) over (furnace) over workspace default. Each metric resolves independently from the most-specific row that sets it.
+- **Approvers see target vs actual.** The Heat Approval queue MUST display the resolved kWh/MT target alongside the actual value, the resolved Mn recovery target, and the issue summary (block / warn counts). Rows with any issue MUST be visually distinct from clean heats.
+- **Save Draft is always allowed.** A partially-entered heat with blocking issues can still be saved as draft so the operator can iterate — only "Submit to Plant Head" is gated.
+- **Server-side enforcement is a Phase 3 commitment.** Until then, the client must remain the canonical validator and the `submit_fad_entry` RPC continues to provide UOM/heat-state guards.
