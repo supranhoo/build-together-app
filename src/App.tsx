@@ -117,6 +117,7 @@ const App = () => (
                     <Route path="procurement" element={<AdminProcurement />} />
                     <Route path="quality" element={<AdminQuality />} />
                     <Route path="finance" element={<AdminFinance />} />
+                    <Route path="production-targets" element={<AdminProductionTargets />} />
                     {/* Legacy admin routes — consolidated under Admin Settings tabs. */}
                     <Route path="workspaces" element={<Navigate to="/admin/settings?tab=workspaces" replace />} />
                     <Route path="modules" element={<Navigate to="/admin/settings?tab=modules" replace />} />
