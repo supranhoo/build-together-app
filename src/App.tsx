@@ -34,6 +34,7 @@ import AdminReportDeliveries from "./pages/AdminReportDeliveries";
 import AdminProcurement from "./pages/AdminProcurement";
 import AdminQuality from "./pages/AdminQuality";
 import AdminFinance from "./pages/AdminFinance";
+import AdminProductionTargets from "./pages/AdminProductionTargets";
 import PortalFinance from "./pages/PortalFinance";
 import PortalSales from "./pages/PortalSales";
 import PortalMaintenance from "./pages/PortalMaintenance";
@@ -116,6 +117,7 @@ const App = () => (
                     <Route path="procurement" element={<AdminProcurement />} />
                     <Route path="quality" element={<AdminQuality />} />
                     <Route path="finance" element={<AdminFinance />} />
+                    <Route path="production-targets" element={<AdminProductionTargets />} />
                     {/* Legacy admin routes — consolidated under Admin Settings tabs. */}
                     <Route path="workspaces" element={<Navigate to="/admin/settings?tab=workspaces" replace />} />
                     <Route path="modules" element={<Navigate to="/admin/settings?tab=modules" replace />} />

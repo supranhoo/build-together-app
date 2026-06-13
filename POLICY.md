@@ -661,3 +661,13 @@ pre-selected default and the first option in every UOM dropdown.
 - **Approvers see target vs actual.** The Heat Approval queue MUST display the resolved kWh/MT target alongside the actual value, the resolved Mn recovery target, and the issue summary (block / warn counts). Rows with any issue MUST be visually distinct from clean heats.
 - **Save Draft is always allowed.** A partially-entered heat with blocking issues can still be saved as draft so the operator can iterate — only "Submit to Plant Head" is gated.
 - **Server-side enforcement is a Phase 3 commitment.** Until then, the client must remain the canonical validator and the `submit_fad_entry` RPC continues to provide UOM/heat-state guards.
+
+---
+
+## Phase 3 — Data Governance Policy
+
+- **Server-side validation is authoritative.** Any FAD heat submitted through `submit_fad_entry` is rejected if any of FAD10–FAD17 fail, regardless of which client made the call. The UI may catch the same condition earlier but is not the source of truth.
+- **Every WARN-severity issue surfaced at submit-time MUST be persisted to `heat_warning_acks`.** Operators cannot suppress warnings silently; the act of submitting a warned heat creates an immutable audit record (`decision='acknowledged'`).
+- **`heat_warning_acks` is append-only for operators.** Only super_admins may correct rows after the fact, and the original `created_by` / `created_at` remain visible.
+- **Production targets are authored only by users who can manage the profit center** (RLS on `production_targets`). Workspace members can view; only managers + super_admins can write. Deactivation is a soft delete — historical resolution stays intact.
+- **Target hierarchy is fixed**: furnace+grade > grade > furnace > workspace default. UI labels and API contracts are not allowed to invert this precedence.
