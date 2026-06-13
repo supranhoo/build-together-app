@@ -86,6 +86,9 @@ export default function PortalProductionFurnaceSummary() {
         </div>
       </CardHeader>
       <CardContent>
+        {truncated && (
+          <TruncationBanner limit={FURNACE_LIMIT} hint="Narrow the date range — some heats in this window are not included in the totals." />
+        )}
         <Table>
           <TableHeader>
             <TableRow>
