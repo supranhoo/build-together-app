@@ -38,6 +38,10 @@ import {
   type ProductionApproval,
 } from "@/lib/production-approvals";
 import { transitionHeat, type CluHeatStatus } from "@/lib/clu-production";
+import { fetchMetallurgyByPC, type HeatMetallurgy } from "@/lib/heat-metallurgy";
+import { fetchProductionTargets, resolveTarget, type ProductionTarget } from "@/lib/production-targets";
+import { fetchProductionAlertThresholds, DEFAULT_PRODUCTION_ALERTS, type ProductionAlertThresholds } from "@/lib/production-alerts";
+import { validateHeat, summariseIssues, type HeatIssue } from "@/lib/heat-validation";
 
 const statusBadge: Record<HeatApprovalStatus, { label: string; variant: "default" | "secondary" | "destructive" | "outline" }> = {
   pending: { label: "Pending", variant: "secondary" },
