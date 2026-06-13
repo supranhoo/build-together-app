@@ -24,7 +24,8 @@ import { CheckCircle2, Clock, ThumbsDown, ThumbsUp } from "lucide-react";
 import { useWorkspace } from "@/hooks/use-workspace";
 import { useAuth } from "@/hooks/use-auth";
 import { useToast } from "@/hooks/use-toast";
-import { fetchFurnaces, fetchHeatLogs, type Furnace, type HeatLog } from "@/lib/production";
+import { fetchFurnaces, fetchHeatLogsWithMeta, type Furnace, type HeatLog } from "@/lib/production";
+import { TruncationBanner } from "@/components/TruncationBanner";
 import {
   decideHeatApproval,
   fetchHeatApprovals,
