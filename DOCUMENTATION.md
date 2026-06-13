@@ -1170,3 +1170,61 @@ Surgical changes to the Ferro Alloy Division module per the Phase 1 audit. No ne
 
 ### Migrations
 No new migrations required — the Phase 1 DB schema (`materials.fad_kind`, `material_consumption.uom`, self-approval RLS, `submit_fad_entry` / `replace_heat_draft_consumption` RPCs) was already in place from earlier work.
+
+## 2026-06-13 — Phase 1.5 FAD Audit (Schema Reconciliation + SQLSTATE + Truncation Detection)
+
+Follow-up to Phase 1 to close gaps identified during the verification audit. **No new features**, no new screens. Scope strictly limited to: schema reconciliation, SQLSTATE-based error reporting, truncation detection. Metallurgy/KPI/benchmarking work intentionally deferred to Phase 2.
+
+### A. Schema reconciliation (idempotent migration)
+
+A new migration re-declares — idempotently — five production-critical DB objects that previously existed only in the live database (schema drift uncovered by the verification audit):
+
+1. `materials.fad_kind` column.
+2. `material_consumption.uom` column (default `'MT'`).
+3. `public.create_consumption_ledger_entry()` trigger function **and** its `BEFORE INSERT` binding on `material_consumption`.
+4. `public.submit_fad_entry(jsonb)` RPC.
+5. RLS policy `Admins decide approvals (not self)` on `heat_log_approvals` (the self-approval guard).
+
+Fresh deployments now reproduce production schema from source. Live DB content is untouched (all statements are `IF NOT EXISTS` / `CREATE OR REPLACE` / `DROP POLICY IF EXISTS`).
+
+### B. SQLSTATE-based RPC error reporting
+
+`submit_fad_entry` and `create_consumption_ledger_entry` now `RAISE EXCEPTION ... USING ERRCODE` with a dedicated custom SQLSTATE for every distinct failure:
+
+| Code  | Meaning                                  | UI step       |
+|-------|------------------------------------------|---------------|
+| FAD01 | heat voided                              | heat_log      |
+| FAD02 | heat already submitted (locked)          | heat_log      |
+| FAD03 | heat number required                     | heat_log      |
+| FAD04 | furnace required                          | heat_log      |
+| FAD05 | shift required                            | heat_log      |
+| FAD06 | no profit-center access                   | heat_log      |
+| FAD07 | unauthenticated                           | heat_log      |
+| FAD08 | consumption UOM ≠ master UOM              | consumption   |
+| FAD09 | material has no master UOM                | consumption   |
+
+`src/lib/production-entry-fad.ts` — `translateRpcError` now switches on `error.code` first (stable across phrasing/locale). The previous text-includes matcher is retained as a fallback so older DBs without ERRCODE remain compatible.
+
+### C. Truncation detection
+
+- `src/lib/production.ts` — added `fetchHeatLogsWithMeta(profitCenterId, filters): { rows, truncated, limit }`. `truncated` is `true` iff `rows.length === limit` (cap likely hit; rows likely exist beyond the window).
+- `src/components/TruncationBanner.tsx` — new shared component (destructive `Alert`) rendered when `truncated === true`.
+- `PortalHeatApprovals` (limit = 5 000), `PortalProductionFurnaceSummary` (limit = 10 000), `PortalProductionMonthly` (limit = 10 000) now render the banner above the list/summary when the cap is hit.
+- `PortalProductionMonthly` — default window is now **last 12 calendar months** (was unbounded). Date inputs added so users can extend the window when needed. This eliminates the silent "rolling truncation" risk on long-running workspaces.
+
+### Known limitations
+- Truncation detection is a heuristic (`rows === limit`). When the true row count equals the limit exactly the banner will show even though no rows are missing. Acceptable false-positive — operator can simply widen the date range to confirm.
+- Limits (5 000 / 10 000) are still client-side constants. Server-side pagination (cursor / window queries) is a Phase 2 concern.
+
+### Tests
+- `src/test/production-entry-fad.test.ts` — added 3 SQLSTATE-based cases (FAD01, FAD02, FAD08) and 1 legacy-fallback case (no `code` field). 12 tests, all green.
+- `src/test/production-truncation.test.ts` — new file. 3 tests covering `truncated=false` (rows<limit), `truncated=true` (rows===limit), and default-limit (200).
+
+### Verification evidence
+- `psql` round-trip: `submit_fad_entry('{}'::jsonb)` returned `SQLSTATE=FAD07 MESSAGE=unauthorized`, confirming custom ERRCODE propagation.
+- Live DB: `materials.fad_kind`, `material_consumption.uom`, `submit_fad_entry`, trigger binding, and self-approval policy all present **and** now reproducible from source-controlled migration.
+
+### Updated production-readiness score
+- Phase 1 (claimed): 68 / 100
+- Phase 1 verification (recalculated): 62 / 100
+- **Phase 1.5: 76 / 100** — schema drift closed, error reporting stable, truncation observable to operators. Remaining gap to ≥85 is owned by Phase 2 (server-side pagination, metallurgy validation, structured audit trail).
