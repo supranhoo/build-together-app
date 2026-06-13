@@ -158,7 +158,8 @@ export async function submitFadEntry(input: FadEntrySubmitInput): Promise<FadEnt
   };
 
   const { data, error } = await client.rpc("submit_fad_entry", { _payload: payload });
-  if (error) throw translateRpcError(error.message || String(error));
+  if (error) throw translateRpcError(error);
+
 
   return {
     heatLogId: String(data?.heatLogId ?? ""),
