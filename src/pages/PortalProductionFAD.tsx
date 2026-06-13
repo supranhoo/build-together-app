@@ -217,7 +217,10 @@ export default function PortalProductionFAD() {
   const materialsByKind = useMemo(() => {
     const buckets = { ore: [] as MasterItem[], reductant: [] as MasterItem[], flux: [] as MasterItem[], paste: [] as MasterItem[] };
     for (const m of materials) {
-      const kind = classifyMaterial({ groupName: m.groupName, category: null }, formulas.materialGroups);
+      const kind = classifyMaterial(
+        { fadKind: m.fadKind, groupName: m.groupName, category: null },
+        formulas.materialGroups,
+      );
       if (kind) buckets[kind].push(m);
     }
     return buckets;
