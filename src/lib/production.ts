@@ -167,17 +167,27 @@ export async function upsertShift(input: {
 }
 
 // ---------- HEAT LOGS ----------
+/**
+ * Phase 1 (audit): callers can now pass a date range (`from` / `to`) and an
+ * explicit `limit` instead of being hard-capped to 200 rows. Approvals,
+ * monthly rollups, and furnace-summary screens were silently dropping heats
+ * once the workspace passed 200 rows — they now request a wide window with
+ * a high cap. Default remains 200 to preserve the entry-screen UX.
+ */
 export async function fetchHeatLogs(profitCenterId: string, filters?: {
   furnaceId?: string;
   shiftId?: string;
   date?: string;
+  from?: string;   // ISO date (YYYY-MM-DD) inclusive
+  to?: string;     // ISO date (YYYY-MM-DD) inclusive
+  limit?: number;  // explicit cap; defaults to 200 for backward compatibility
 }): Promise<HeatLog[]> {
   let query = client
     .from("heat_logs")
     .select("id, profit_center_id, furnace_id, shift_id, heat_number, tap_time, weight_mt, power_mwh, notes, created_by, created_at, updated_at, is_voided, void_reason")
     .eq("profit_center_id", profitCenterId)
     .order("tap_time", { ascending: false })
-    .limit(200);
+    .limit(filters?.limit ?? 200);
   if (filters?.furnaceId) query = query.eq("furnace_id", filters.furnaceId);
   if (filters?.shiftId) query = query.eq("shift_id", filters.shiftId);
   if (filters?.date) {
@@ -185,6 +195,8 @@ export async function fetchHeatLogs(profitCenterId: string, filters?: {
     const end = `${filters.date}T23:59:59.999Z`;
     query = query.gte("tap_time", start).lte("tap_time", end);
   }
+  if (filters?.from) query = query.gte("tap_time", `${filters.from}T00:00:00.000Z`);
+  if (filters?.to) query = query.lte("tap_time", `${filters.to}T23:59:59.999Z`);
   const { data, error } = await query;
   if (error) throw error;
   return (data ?? []).map(toHeatLog);
