@@ -629,3 +629,19 @@ materials default to MT in every creation surface (Admin → Materials, Master
 Items, Item Catalogue, and CSV import). Other units (kg, litre, piece, ton) may
 still be selected explicitly when a material genuinely uses them, but MT is the
 pre-selected default and the first option in every UOM dropdown.
+
+## FAD Material Classification (Phase 1)
+- Every material that participates in FAD entry (ore, reductant, flux, paste, finished good) must declare its `fad_kind` in the material master.
+- `fad_kind` is the single source of truth. Workspace `group_name` lists remain as a configurable fallback only — they must not be relied on for new materials.
+- `classifyMaterial` reads `fad_kind` first, then `group_name`, then `category`.
+
+## Inventory UOM Canonicalisation
+- All inventory ledger entries and consumption rows are recorded in the material's master UOM (canonically `MT`). The DB trigger refuses any mismatched UOM.
+- Pages that capture a non-MT input (e.g. Kg reductant, kg paste) must convert to MT *before* submission. No silent multipliers in business logic.
+
+## Heat Approval — Maker/Checker
+- The user who submitted a heat for approval may NEVER decide that approval.
+- Enforcement is layered: RLS (`submitted_by <> auth.uid()`), API (`decideHeatApproval` pre-check), and UI (Approve/Reject hidden for the submitter).
+
+## FAD Submission Atomicity
+- FAD heat saves (heat log + consumption + metallurgy) execute in a single Postgres transaction via the `submit_fad_entry` RPC. Partial writes are not permitted; any failure rolls the entire save back.

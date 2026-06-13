@@ -1140,3 +1140,33 @@ spinner controls to preserve usable text space on compact screens.
 - 2026-05-29: Fixed in-flight form data being wiped when the operator Alt-Tabbed away and back. RCA: `WorkspaceProvider` effects depended on `session?.user` (object identity). Supabase's `TOKEN_REFRESHED` event fires on tab refocus and mints a new Session object with the same user id, which re-fired the effects, flipped workspace `loading` to true, and caused `RequireWorkspace` to unmount the active portal page (FAD entry, etc.) — wiping local `useState`. Effects now key on `session?.user?.id` (stable string).
 - 2026-05-29: FAD `Save Draft` is now idempotent. The orchestrator (`submitFadEntry`) looks up an existing heat by (profit_center, furnace, heat_number); if found and the metallurgy `status` is still `draft`, it UPDATEs the heat_log, calls the new `replace_heat_draft_consumption` SECURITY DEFINER RPC (which reverses prior `inventory_ledger` entries and re-inserts fresh consumption rows), then upserts metallurgy. Submission to Plant Head (`status='submitted'`) remains the single lock — any subsequent re-save is rejected with `heat_submitted`. Voided heats are also rejected. New helpers: `findHeatLogByNumber`, `replaceHeatConsumption`. On a draft save the form now retains its fields so the operator can keep editing and re-save; the form clears only on final submit. Toast distinguishes "Heat saved as draft" / "Draft updated" / "Heat submitted to Plant Head". 4 new unit tests in `production-entry-fad.test.ts` (10 passing).
 - 2026-05-31: Default Unit of Measure aligned to Metric Ton (MT). All 267 existing materials are already stored in MT (verified via DB); no data migration required. Form defaults updated so newly created items default to `uom = "MT"`: `AdminMaterials.tsx`, `AdminMasterItems.tsx`, `AdminItemCatalogue.tsx`, and the CSV importer fallback in `lib/master-items-csv.ts`. UOM dropdowns now list MT first. Entry forms (FAD, Consumption, GRN, Transfers) display quantities in each material's `uom` field; since the canonical UOM is MT, those screens now show MT by default.
+
+## 2026-06-13 — Phase 1 FAD Audit Fixes
+
+Surgical changes to the Ferro Alloy Division module per the Phase 1 audit. No new features; existing screens preserved.
+
+### 1. UOM consistency end-to-end
+- `src/lib/inventory.ts` — `ConsumptionInput.uom` (default `"MT"`) is now passed on every insert; `recordHeatConsumption` and `replaceHeatConsumption` propagate it.
+- `src/pages/PortalProductionFAD.tsx` — removed the silent ×1000 multipliers on ore/reductant/flux/paste. Operator-entered Kg (reductant `unit="Kg"`, paste `qtyKg`) is converted to MT *on the page* before the row is submitted. The DB trigger `create_consumption_ledger_entry` already enforces `consumption.uom = materials.uom`, so any drift will now raise an explicit error rather than silently writing the wrong stock figure.
+
+### 2. 200-row truncation removed for approvals & rollups
+- `src/lib/production.ts` — `fetchHeatLogs` accepts `from`, `to`, and `limit` filters. Default cap is still 200 (entry screen UX) but rollup screens pass higher caps.
+- `src/pages/PortalHeatApprovals.tsx` — pushes the date range to the DB and requests up to 5 000 heats.
+- `src/pages/PortalProductionMonthly.tsx`, `src/pages/PortalProductionFurnaceSummary.tsx` — request up to 10 000 heats over the selected window.
+
+### 3. Self-approval blocked at every layer
+- **DB / RLS** (pre-existing migration) — `heat_log_approvals` UPDATE policy enforces `submitted_by <> auth.uid()`.
+- **API** — `decideHeatApproval` now pre-checks the existing row and refuses if `submitted_by = decidedBy` or status is no longer `pending`, returning a clear message before hitting RLS.
+- **UI** — `PortalHeatApprovals` hides the Approve / Reject buttons when the signed-in user is the submitter, showing "Awaiting another approver" instead.
+
+### 4. Transactional FAD submission
+- `src/lib/production-entry-fad.ts` rewritten to call the existing `submit_fad_entry` PL/pgSQL RPC. The entire save (heat log + consumption reversal + new consumption + metallurgy upsert) executes inside one Postgres transaction; partial-write windows are eliminated. RPC error codes (`heat_voided`, `heat_submitted`, UOM mismatch, etc.) are translated back into `FadEntryError` with the original `step` discriminator so the UI keeps its existing toast behaviour.
+
+### 5. Master-data driven material classification
+- `materials.fad_kind` column (pre-existing) is now read end-to-end. `Material` (lib/inventory) and `MasterItem` (lib/master-data) expose `fadKind`. `classifyMaterial` prefers `fadKind` first, then falls back to workspace `group_name` lists, then `category`. Existing string-matching behaviour is preserved as a fallback so historical records continue to classify correctly.
+
+### Tests
+- `src/test/production-entry-fad.test.ts` rewritten around the RPC contract (11 tests, all green): payload shape, RPC error translation (`heat_submitted`, `heat_voided`, UOM mismatch), client-side guards, `created` vs `updated` modes, and the new `fadKind` priority in `classifyMaterial`.
+
+### Migrations
+No new migrations required — the Phase 1 DB schema (`materials.fad_kind`, `material_consumption.uom`, self-approval RLS, `submit_fad_entry` / `replace_heat_draft_consumption` RPCs) was already in place from earlier work.
