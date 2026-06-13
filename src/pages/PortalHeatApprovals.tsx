@@ -331,6 +331,7 @@ export default function PortalHeatApprovals() {
                 <TableHead>Furnace</TableHead>
                 <TableHead className="text-right">Weight (MT)</TableHead>
                 <TableHead className="text-right">Power (MWh)</TableHead>
+                <TableHead>Target vs Actual</TableHead>
                 <TableHead>Status</TableHead>
                 <TableHead className="w-[280px]">Notes / decision</TableHead>
                 <TableHead className="text-right">Action</TableHead>
@@ -341,13 +342,49 @@ export default function PortalHeatApprovals() {
                 const noteVal = reasonByHeat[heat.id] ?? "";
                 const status = approval?.status ?? "pending";
                 const isBusy = busyId === heat.id || busyId === approval?.id;
+                const ctx = contextByHeat.get(heat.id);
+                const summary = ctx ? summariseIssues(ctx.issues) : { block: 0, warn: 0 };
+                const isAbnormal = summary.block > 0 || summary.warn > 0;
+                const kwhDelta = ctx?.kwhPerMt != null && ctx.kwhTarget != null ? ctx.kwhPerMt - ctx.kwhTarget : null;
                 return (
-                  <TableRow key={heat.id}>
+                  <TableRow key={heat.id} className={summary.block > 0 ? "bg-destructive/5" : summary.warn > 0 ? "bg-amber-500/5" : undefined}>
                     <TableCell className="font-medium">{heat.heatNumber}</TableCell>
                     <TableCell>{new Date(heat.tapTime).toLocaleString()}</TableCell>
                     <TableCell>{furnaceCode(heat.furnaceId)}</TableCell>
                     <TableCell className="text-right">{heat.weightMt ?? "—"}</TableCell>
                     <TableCell className="text-right">{heat.powerMwh ?? "—"}</TableCell>
+                    <TableCell className="text-xs">
+                      {ctx ? (
+                        <div className="space-y-0.5">
+                          <div title="kWh per MT (actual vs target)">
+                            <span className={kwhDelta != null && kwhDelta > 0 ? "text-amber-600 dark:text-amber-400 font-semibold" : ""}>
+                              {ctx.kwhPerMt != null ? `${ctx.kwhPerMt.toFixed(0)}` : "—"}
+                            </span>
+                            <span className="text-muted-foreground"> / {ctx.kwhTarget != null ? ctx.kwhTarget.toFixed(0) : "—"} kWh/MT</span>
+                          </div>
+                          {ctx.mnRecoveryTarget != null && (
+                            <div className="text-muted-foreground">Mn rec target: {ctx.mnRecoveryTarget}%</div>
+                          )}
+                          {isAbnormal && (
+                            <div className="flex gap-1 pt-0.5">
+                              {summary.block > 0 && (
+                                <Badge variant="destructive" title={ctx.issues.filter((i) => i.severity === "block").map((i) => i.message).join("\n")}>
+                                  {summary.block} block
+                                </Badge>
+                              )}
+                              {summary.warn > 0 && (
+                                <Badge variant="outline" className="border-amber-500 text-amber-700 dark:text-amber-400"
+                                  title={ctx.issues.filter((i) => i.severity === "warn").map((i) => i.message).join("\n")}>
+                                  {summary.warn} warn
+                                </Badge>
+                              )}
+                            </div>
+                          )}
+                        </div>
+                      ) : (
+                        <span className="text-muted-foreground">—</span>
+                      )}
+                    </TableCell>
                     <TableCell>
                       {approval ? (
                         <Badge variant={statusBadge[approval.status].variant}>
