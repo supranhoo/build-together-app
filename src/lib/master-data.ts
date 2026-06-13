@@ -28,8 +28,9 @@ export interface MasterItem {
   maxLevel: number | null;
   reorderLevel: number | null;
   isActive: boolean;
-  // Phase 1: master-data driven FAD classification.
-  fadKind: "ore" | "reductant" | "flux" | "paste" | "finished_good" | null;
+  // Phase 1: master-data driven FAD classification. Optional for backward
+  // compatibility with legacy fixtures; tooling reads it via `?? null`.
+  fadKind?: "ore" | "reductant" | "flux" | "paste" | "finished_good" | null;
 }
 
 export interface MaterialGroup {
