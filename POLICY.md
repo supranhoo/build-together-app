@@ -645,3 +645,10 @@ pre-selected default and the first option in every UOM dropdown.
 
 ## FAD Submission Atomicity
 - FAD heat saves (heat log + consumption + metallurgy) execute in a single Postgres transaction via the `submit_fad_entry` RPC. Partial writes are not permitted; any failure rolls the entire save back.
+
+## Phase 1.5 — FAD error reporting & truncation visibility (2026-06-13)
+
+- Every distinct failure in the FAD submission path raises a dedicated SQLSTATE (FAD01–FAD09). The client maps `error.code` to a user-facing message, not raw English text. New codes must be added to the SQLSTATE map in `src/lib/production-entry-fad.ts` and documented in DOCUMENTATION.md in the same change.
+- Any list/summary screen that imposes a row cap MUST surface a `TruncationBanner` to the operator when the cap is hit. Silent truncation is forbidden.
+- The Monthly Summary screen defaults to the **last 12 calendar months**. Operators may widen the window via the date inputs; the truncation banner reappears if the cap is hit again.
+- Schema drift is forbidden. Every DB object referenced by the application MUST exist in a source-controlled migration; production-only objects discovered later MUST be back-filled with an idempotent reconciliation migration in the next change.
