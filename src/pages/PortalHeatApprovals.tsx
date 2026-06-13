@@ -63,21 +63,22 @@ export default function PortalHeatApprovals() {
   const [reasonByHeat, setReasonByHeat] = useState<Record<string, string>>({});
   const [busyId, setBusyId] = useState<string | null>(null);
   const [cluRows, setCluRows] = useState<ProductionApproval[]>([]);
+  const [truncated, setTruncated] = useState(false);
+  const APPROVAL_LIMIT = 5000;
 
   const reload = async () => {
     if (!activeProfitCenter) return;
     try {
-      // Phase 1: push the date range down to the DB and request a high cap
-      // so heats beyond row 200 in the workspace are never silently dropped
-      // from the approval queue.
-      const [f, h, a, clu] = await Promise.all([
+      // Phase 1.5: bounded by from/to, capped at APPROVAL_LIMIT, with truncation flag.
+      const [f, page, a, clu] = await Promise.all([
         fetchFurnaces(activeProfitCenter.id),
-        fetchHeatLogs(activeProfitCenter.id, { from, to, limit: 5000 }),
+        fetchHeatLogsWithMeta(activeProfitCenter.id, { from, to, limit: APPROVAL_LIMIT }),
         fetchHeatApprovals(activeProfitCenter.id),
         fetchProductionApprovals(activeProfitCenter.id, { source: "clu_heat" }),
       ]);
       setFurnaces(f);
-      setHeats(h.filter((x) => !x.isVoided));
+      setHeats(page.rows.filter((x) => !x.isVoided));
+      setTruncated(page.truncated);
       setApprovals(a);
       setCluRows(clu);
     } catch (e) {
